@@ -80,54 +80,31 @@ export function CSVUploadStep({ onFileUploaded }: CSVUploadStepProps) {
   }, [processFile]);
 
   const handleDownloadTemplate = () => {
-    const templateHeaders = [
-      "sku",
-      "handle",
-      "title",
-      "description",
-      "price",
-      "compare_at_price",
-      "stock",
-      "status",
-      "image_url",
-      "image_gallery",
-      "tags",
-      "variant_options",
-      "is_variant",
-      "parent_product_id",
-      "weight",
-      "vendor",
-      "currency",
-      "metadata"
+    const data = [
+      {
+        sku: "PROD-001",
+        handle: "sample-product",
+        title: "Sample Product",
+        description: "This is a sample product description",
+        price: "29.99",
+        compare_at_price: "39.99",
+        stock: "100",
+        status: "active",
+        image_url: "https://example.com/image.jpg",
+        image_gallery: "https://example.com/img1.jpg,https://example.com/img2.jpg",
+        tags: "tag1,tag2,tag3",
+        variant_options: '{"color":"red","size":"medium"}',
+        is_variant: "false",
+        parent_product_id: "",
+        weight: "0.5",
+        vendor: "Sample Brand",
+        currency: "USD",
+        metadata: '{"custom_field":"value"}'
+      }
     ];
 
-    const exampleRow = [
-      "PROD-001",
-      "sample-product",
-      "Sample Product",
-      "This is a sample product description",
-      "29.99",
-      "39.99",
-      "100",
-      "active",
-      "https://example.com/image.jpg",
-      "https://example.com/img1.jpg,https://example.com/img2.jpg",
-      "tag1,tag2,tag3",
-      '{"color":"red","size":"medium"}',
-      "false",
-      "",
-      "0.5",
-      "Sample Brand",
-      "USD",
-      '{"custom_field":"value"}'
-    ];
-
-    const csvContent = [
-      templateHeaders.join(","),
-      exampleRow.join(",")
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const csv = Papa.unparse(data);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
