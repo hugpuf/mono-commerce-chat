@@ -98,16 +98,24 @@ export function CSVValidationPreview({
     const importErrors: ValidationError[] = [];
 
     try {
-      // Get workspace_id (using first workspace for now)
-      const { data: workspaces } = await supabase
-        .from("workspaces")
-        .select("id")
-        .limit(1)
+      // Get workspace from user profile
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("You must be logged in to import products");
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("user_profiles")
+        .select("workspace_id")
+        .eq("user_id", user.id)
         .single();
 
-      if (!workspaces) {
-        throw new Error("No workspace found");
+      if (profileError || !profile) {
+        throw new Error("No workspace found. Please complete authentication first.");
       }
+
+      const workspace_id = profile.workspace_id;
 
       // Process valid rows
       for (let i = 0; i < csvData.rows.length; i++) {
@@ -122,7 +130,7 @@ export function CSVValidationPreview({
 
         try {
           const productData: any = {
-            workspace_id: workspaces.id,
+            workspace_id,
           };
 
           // Map fields
@@ -171,7 +179,7 @@ export function CSVValidationPreview({
             .from("products")
             .select("id")
             .eq("sku", productData.sku)
-            .eq("workspace_id", workspaces.id)
+            .eq("workspace_id", workspace_id)
             .single();
 
           if (existing) {
