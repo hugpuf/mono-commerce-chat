@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Upload, FileSpreadsheet } from "lucide-react";
+import { Upload, FileSpreadsheet, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Papa from "papaparse";
 import { ParsedCSVData } from "./types";
@@ -79,6 +79,63 @@ export function CSVUploadStep({ onFileUploaded }: CSVUploadStepProps) {
     }
   }, [processFile]);
 
+  const handleDownloadTemplate = () => {
+    const templateHeaders = [
+      "sku",
+      "handle",
+      "title",
+      "description",
+      "price",
+      "compare_at_price",
+      "stock",
+      "status",
+      "image_url",
+      "image_gallery",
+      "tags",
+      "variant_options",
+      "is_variant",
+      "parent_product_id",
+      "weight",
+      "vendor",
+      "currency",
+      "metadata"
+    ];
+
+    const exampleRow = [
+      "PROD-001",
+      "sample-product",
+      "Sample Product",
+      "This is a sample product description",
+      "29.99",
+      "39.99",
+      "100",
+      "active",
+      "https://example.com/image.jpg",
+      "https://example.com/img1.jpg,https://example.com/img2.jpg",
+      "tag1,tag2,tag3",
+      '{"color":"red","size":"medium"}',
+      "false",
+      "",
+      "0.5",
+      "Sample Brand",
+      "USD",
+      '{"custom_field":"value"}'
+    ];
+
+    const csvContent = [
+      templateHeaders.join(","),
+      exampleRow.join(",")
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "product-catalog-template.csv";
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       <div
@@ -117,13 +174,27 @@ export function CSVUploadStep({ onFileUploaded }: CSVUploadStepProps) {
         </Button>
       </div>
 
-      <div className="space-y-3 text-sm text-muted-foreground">
-        <p className="font-medium text-foreground">Supported formats:</p>
-        <ul className="list-disc list-inside space-y-1 ml-2">
-          <li>CSV files from Shopify, WooCommerce, Wix, or any other platform</li>
-          <li>Custom CSV files with any column names (you'll map them in the next step)</li>
-          <li>UTF-8 encoding recommended</li>
-        </ul>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b">
+          <p className="font-medium text-foreground">Need a template?</p>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleDownloadTemplate}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download Template
+          </Button>
+        </div>
+
+        <div className="space-y-3 text-sm text-muted-foreground">
+          <p className="font-medium text-foreground">Supported formats:</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li>CSV files from Shopify, WooCommerce, Wix, or any other platform</li>
+            <li>Custom CSV files with any column names (you&apos;ll map them in the next step)</li>
+            <li>UTF-8 encoding recommended</li>
+          </ul>
+        </div>
       </div>
     </div>
   );
