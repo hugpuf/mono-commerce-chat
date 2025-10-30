@@ -1,1 +1,4 @@
 project_id = "wsckktenxumwmzixbdtv"
+
+[functions.get-meta-config]
+verify_jwt = false

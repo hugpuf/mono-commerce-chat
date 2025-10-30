@@ -1,8 +1,11 @@
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageCircle, Instagram, Facebook, Smartphone, Send, ArrowLeft } from "lucide-react";
+import { MessageCircle, Instagram, Facebook, Smartphone, Send, ArrowLeft, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 interface ChannelProvider {
   id: string;
@@ -51,19 +54,47 @@ const channelProviders: ChannelProvider[] = [
 
 export default function AddChannel() {
   const navigate = useNavigate();
+  const [metaConfig, setMetaConfig] = useState<{ appId: string; configId: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMetaConfig = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-meta-config');
+        
+        if (error) throw error;
+        
+        if (data?.appId && data?.configId) {
+          setMetaConfig(data);
+        } else {
+          toast.error('Meta App credentials not configured. Please contact support.');
+        }
+      } catch (error) {
+        console.error('Error fetching Meta config:', error);
+        toast.error('Failed to load WhatsApp configuration');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMetaConfig();
+  }, []);
 
   const handleConnect = (channelId: string) => {
     if (channelId === 'whatsapp') {
+      if (!metaConfig) {
+        toast.error('WhatsApp configuration not available');
+        return;
+      }
+
       // Meta Embedded Signup configuration
-      const appId = 'YOUR_META_APP_ID'; // TODO: Store this in app settings
-      const configId = 'YOUR_CONFIG_ID'; // TODO: Store this in app settings
       const redirectUri = `${window.location.origin}/setup/whatsapp/callback`;
       
       // Launch Meta's Embedded Signup
       const embedUrl = `https://www.facebook.com/v21.0/dialog/oauth?` +
-        `client_id=${appId}&` +
+        `client_id=${metaConfig.appId}&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `config_id=${configId}&` +
+        `config_id=${metaConfig.configId}&` +
         `response_type=code&` +
         `scope=whatsapp_business_management,whatsapp_business_messaging&` +
         `state=${crypto.randomUUID()}`;
@@ -148,9 +179,20 @@ export default function AddChannel() {
                     size="sm"
                     className="w-full"
                     onClick={() => handleConnect(channel.id)}
-                    disabled={channel.comingSoon}
+                    disabled={channel.comingSoon || (channel.id === 'whatsapp' && (isLoading || !metaConfig))}
                   >
-                    {channel.comingSoon ? "Coming Soon" : channel.id === 'whatsapp' ? "Connect via Meta" : "Provision"}
+                    {channel.id === 'whatsapp' && isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Loading...
+                      </>
+                    ) : channel.comingSoon ? (
+                      "Coming Soon"
+                    ) : channel.id === 'whatsapp' ? (
+                      "Connect via Meta"
+                    ) : (
+                      "Provision"
+                    )}
                   </Button>
                   {channel.id === 'whatsapp' && !channel.comingSoon && (
                     <p className="text-[10px] text-muted-foreground mt-2 text-center">
