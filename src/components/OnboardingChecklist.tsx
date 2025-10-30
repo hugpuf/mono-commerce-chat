@@ -91,7 +91,7 @@ export function OnboardingChecklist() {
     },
     {
       id: 'whatsapp',
-      title: 'Connect WhatsApp',
+      title: 'Channel',
       description: 'Link your WhatsApp Business Account',
       status: connectionStatus.whatsapp ? 'completed' : 'pending',
       buttonLabel: connectionStatus.whatsapp ? 'Manage' : 'Connect WhatsApp',
