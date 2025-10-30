@@ -54,8 +54,8 @@ export default function GlobalControls({ onPreview }: { onPreview: () => void })
           </div>
         </div>
 
-        {/* Confidence & Shadow Mode */}
-        <div className="grid grid-cols-2 gap-6">
+        {/* Confidence Threshold - Only shown in HITL and Auto modes */}
+        {settings.mode !== 'manual' && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-sm">Confidence Threshold</Label>
@@ -71,20 +71,13 @@ export default function GlobalControls({ onPreview }: { onPreview: () => void })
               step={5}
               className="py-2"
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              {settings.mode === 'hitl' 
+                ? 'Actions below this threshold require your approval'
+                : 'Only execute actions when AI confidence exceeds this threshold'}
+            </p>
           </div>
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <Label className="text-sm">Shadow Mode</Label>
-              <p className="text-xs text-muted-foreground mt-1">
-                Suggest only, take no action
-              </p>
-            </div>
-            <Switch
-              checked={settings.shadowMode}
-              onCheckedChange={shadowMode => updateSettings({ shadowMode })}
-            />
-          </div>
-        </div>
+        )}
 
         {/* Expanded Section */}
         {expanded && (
