@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 
 interface ChannelProvider {
   id: string;
@@ -54,6 +55,7 @@ const channelProviders: ChannelProvider[] = [
 
 export default function AddChannel() {
   const navigate = useNavigate();
+  const { toast: toastHook } = useToast();
   const [metaConfig, setMetaConfig] = useState<{ appId: string; configId: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -89,6 +91,7 @@ export default function AddChannel() {
 
       // Meta Embedded Signup configuration
       const redirectUri = `${window.location.origin}/setup/whatsapp/callback`;
+      const state = crypto.randomUUID();
       
       // Launch Meta's Embedded Signup
       const embedUrl = `https://www.facebook.com/v21.0/dialog/oauth?` +
@@ -97,21 +100,46 @@ export default function AddChannel() {
         `config_id=${metaConfig.configId}&` +
         `response_type=code&` +
         `scope=whatsapp_business_management,whatsapp_business_messaging&` +
-        `state=${crypto.randomUUID()}`;
+        `state=${state}`;
       
-      // Open in popup
+      console.log('Opening WhatsApp OAuth:', embedUrl);
+      
+      // Try to open in popup
       const width = 600;
       const height = 700;
       const left = window.screenX + (window.outerWidth - width) / 2;
       const top = window.screenY + (window.outerHeight - height) / 2;
       
-      window.open(
+      const popup = window.open(
         embedUrl,
         'WhatsApp Business Setup',
-        `width=${width},height=${height},left=${left},top=${top}`
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
       );
+
+      // Check if popup was blocked
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        // Popup was blocked, show toast and redirect in same window
+        toastHook({
+          title: "Popup Blocked",
+          description: "Opening WhatsApp setup in this window...",
+        });
+        
+        setTimeout(() => {
+          window.location.href = embedUrl;
+        }, 1500);
+      } else {
+        // Popup opened successfully, monitor it
+        const checkPopup = setInterval(() => {
+          if (popup?.closed) {
+            clearInterval(checkPopup);
+            console.log('Popup closed - refreshing connection status');
+            // Reload the page to refresh connection status
+            window.location.reload();
+          }
+        }, 500);
+      }
     } else {
-      console.log("Connecting to:", channelId);
+      toast.error('This channel is coming soon');
     }
   };
 

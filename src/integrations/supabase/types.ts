@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      catalog_sources: {
+        Row: {
+          created_at: string
+          id: string
+          last_sync_at: string | null
+          provider: string
+          provider_config: Json | null
+          status: string
+          sync_error: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          provider: string
+          provider_config?: Json | null
+          status?: string
+          sync_error?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          provider?: string
+          provider_config?: Json | null
+          status?: string
+          sync_error?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_sources_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string
@@ -180,47 +224,212 @@ export type Database = {
           },
         ]
       }
+      payment_providers: {
+        Row: {
+          account_id: string
+          charges_enabled: boolean
+          created_at: string
+          id: string
+          provider: string
+          provider_config: Json | null
+          status: string
+          test_mode: boolean
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          account_id: string
+          charges_enabled?: boolean
+          created_at?: string
+          id?: string
+          provider?: string
+          provider_config?: Json | null
+          status?: string
+          test_mode?: boolean
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          account_id?: string
+          charges_enabled?: boolean
+          created_at?: string
+          id?: string
+          provider?: string
+          provider_config?: Json | null
+          status?: string
+          test_mode?: boolean
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_providers_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          catalog_source_id: string | null
+          compare_at_price: number | null
+          created_at: string
+          description: string | null
+          external_id: string | null
+          id: string
+          image_gallery: Json | null
+          image_url: string | null
+          is_variant: boolean
+          metadata: Json | null
+          parent_product_id: string | null
+          price: number
+          sku: string
+          status: string
+          stock: number
+          tags: string[] | null
+          title: string
+          updated_at: string
+          variant_options: Json | null
+          workspace_id: string
+        }
+        Insert: {
+          catalog_source_id?: string | null
+          compare_at_price?: number | null
+          created_at?: string
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          image_gallery?: Json | null
+          image_url?: string | null
+          is_variant?: boolean
+          metadata?: Json | null
+          parent_product_id?: string | null
+          price: number
+          sku: string
+          status?: string
+          stock?: number
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          variant_options?: Json | null
+          workspace_id: string
+        }
+        Update: {
+          catalog_source_id?: string | null
+          compare_at_price?: number | null
+          created_at?: string
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          image_gallery?: Json | null
+          image_url?: string | null
+          is_variant?: boolean
+          metadata?: Json | null
+          parent_product_id?: string | null
+          price?: number
+          sku?: string
+          status?: string
+          stock?: number
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          variant_options?: Json | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_catalog_source_id_fkey"
+            columns: ["catalog_source_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_parent_product_id_fkey"
+            columns: ["parent_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_accounts: {
         Row: {
+          about_text: string | null
           access_token: string | null
+          address: string | null
           app_secret: string | null
+          business_hours: Json | null
+          business_name: string | null
+          category: string | null
           created_at: string
           display_name: string | null
+          email: string | null
           id: string
+          logo_url: string | null
           phone_number: string
           phone_number_id: string
           status: string
           updated_at: string
           waba_id: string
+          webhook_status: string | null
           webhook_verify_token: string
+          website: string | null
           workspace_id: string
         }
         Insert: {
+          about_text?: string | null
           access_token?: string | null
+          address?: string | null
           app_secret?: string | null
+          business_hours?: Json | null
+          business_name?: string | null
+          category?: string | null
           created_at?: string
           display_name?: string | null
+          email?: string | null
           id?: string
+          logo_url?: string | null
           phone_number: string
           phone_number_id: string
           status?: string
           updated_at?: string
           waba_id: string
+          webhook_status?: string | null
           webhook_verify_token: string
+          website?: string | null
           workspace_id: string
         }
         Update: {
+          about_text?: string | null
           access_token?: string | null
+          address?: string | null
           app_secret?: string | null
+          business_hours?: Json | null
+          business_name?: string | null
+          category?: string | null
           created_at?: string
           display_name?: string | null
+          email?: string | null
           id?: string
+          logo_url?: string | null
           phone_number?: string
           phone_number_id?: string
           status?: string
           updated_at?: string
           waba_id?: string
+          webhook_status?: string | null
           webhook_verify_token?: string
+          website?: string | null
           workspace_id?: string
         }
         Relationships: [
@@ -238,18 +447,24 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          onboarding_completed: boolean | null
+          onboarding_step: number | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          onboarding_completed?: boolean | null
+          onboarding_step?: number | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          onboarding_completed?: boolean | null
+          onboarding_step?: number | null
           updated_at?: string
         }
         Relationships: []
