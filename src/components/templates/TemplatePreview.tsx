@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { FileText } from "lucide-react";
 
 interface TemplatePreviewProps {
   templateId: string | null;
@@ -16,7 +16,10 @@ export function TemplatePreview({
   if (!templateId) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Select a template to preview</p>
+        <div className="text-center text-muted-foreground">
+          <FileText className="h-12 w-12 mx-auto mb-3 opacity-20" />
+          <p className="text-sm">Select a template to preview</p>
+        </div>
       </div>
     );
   }
@@ -25,130 +28,97 @@ export function TemplatePreview({
   const height = pageSize === "a4" ? 1123 : 1056; // A4: 297mm, Letter: 279mm
 
   return (
-    <div className="flex justify-center">
+    <div className="flex items-center justify-center min-h-full py-12">
       <div
-        className="bg-background border border-border shadow-sm transition-transform origin-top"
+        className="bg-white shadow-sm border border-border origin-top"
         style={{
           width: `${width}px`,
-          minHeight: `${height}px`,
+          height: `${height}px`,
           transform: `scale(${zoom / 100})`,
         }}
       >
-        {/* Mock Invoice Content */}
-        <div className="p-16 space-y-8">
+        {/* Simplified A4 Placeholder */}
+        <div className="p-16 h-full flex flex-col text-black">
           {/* Header */}
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="w-12 h-12 bg-foreground rounded mb-4" />
-              <h1 className="text-2xl font-semibold">INVOICE</h1>
-              <p className="text-sm text-muted-foreground font-mono">
-                INV-2025-0142
-              </p>
-            </div>
-            <div className="text-right text-sm">
-              <p className="font-semibold">Commerce Hub</p>
-              <p className="text-muted-foreground">123 Business Street</p>
-              <p className="text-muted-foreground">San Francisco, CA 94107</p>
-              <p className="text-muted-foreground">hello@commercehub.com</p>
+          <div className="flex justify-between items-start mb-16">
+            <div className="w-20 h-20 bg-gray-100 rounded" />
+            <div className="text-right">
+              <div className="text-2xl font-bold mb-6">INVOICE</div>
+              <div className="text-xs text-gray-400 space-y-1 font-mono">
+                <div>INV-2024-001</div>
+                <div>January 15, 2024</div>
+              </div>
             </div>
           </div>
 
-          <div className="divider-hairline" />
-
           {/* Bill To */}
-          <div className="grid grid-cols-2 gap-8">
-            <div>
-              <h3 className="text-xs font-semibold text-muted-foreground mb-2">
-                BILL TO
-              </h3>
-              <p className="font-medium">Sarah Chen</p>
-              <p className="text-sm text-muted-foreground">456 Customer Ave</p>
-              <p className="text-sm text-muted-foreground">New York, NY 10001</p>
-            </div>
-            <div>
-              <h3 className="text-xs font-semibold text-muted-foreground mb-2">
-                INVOICE DETAILS
-              </h3>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Date:</span>
-                  <span className="font-mono">Jan 30, 2025</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Due Date:</span>
-                  <span className="font-mono">Feb 13, 2025</span>
-                </div>
-              </div>
+          <div className="mb-16">
+            <div className="text-xs font-semibold text-gray-400 mb-3">BILL TO</div>
+            <div className="space-y-2">
+              <div className="h-3 w-40 bg-gray-100 rounded" />
+              <div className="h-2 w-48 bg-gray-50 rounded" />
+              <div className="h-2 w-44 bg-gray-50 rounded" />
             </div>
           </div>
 
           {/* Line Items */}
-          <div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 font-semibold">Item</th>
-                  <th className="text-right py-2 font-semibold">Qty</th>
-                  <th className="text-right py-2 font-semibold">Price</th>
-                  <th className="text-right py-2 font-semibold">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-border">
-                  <td className="py-3">Premium Widget</td>
-                  <td className="text-right font-mono">2</td>
-                  <td className="text-right font-mono">$125.00</td>
-                  <td className="text-right font-mono">$250.00</td>
-                </tr>
-                <tr className="border-b border-border">
-                  <td className="py-3">Standard Service</td>
-                  <td className="text-right font-mono">1</td>
-                  <td className="text-right font-mono">$89.00</td>
-                  <td className="text-right font-mono">$89.00</td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="flex-1 mb-12">
+            <div className="border-b border-gray-200 pb-3 mb-6">
+              <div className="flex text-xs font-semibold text-gray-400">
+                <div className="flex-1">DESCRIPTION</div>
+                <div className="w-16 text-right">QTY</div>
+                <div className="w-24 text-right">AMOUNT</div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <div className="flex-1">
+                  <div className="h-3 w-56 bg-gray-100 rounded mb-1" />
+                  <div className="h-2 w-40 bg-gray-50 rounded" />
+                </div>
+                <div className="w-16 text-right">
+                  <div className="h-3 w-8 bg-gray-50 rounded ml-auto" />
+                </div>
+                <div className="w-24 text-right">
+                  <div className="h-3 w-20 bg-gray-100 rounded ml-auto" />
+                </div>
+              </div>
+              <div className="flex items-center">
+                <div className="flex-1">
+                  <div className="h-3 w-48 bg-gray-100 rounded" />
+                </div>
+                <div className="w-16 text-right">
+                  <div className="h-3 w-8 bg-gray-50 rounded ml-auto" />
+                </div>
+                <div className="w-24 text-right">
+                  <div className="h-3 w-20 bg-gray-100 rounded ml-auto" />
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Totals */}
-          <div className="flex justify-end">
-            <div className="w-64 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal:</span>
-                <span className="font-mono">$339.00</span>
+          <div className="flex justify-end mb-12">
+            <div className="w-72 space-y-3 text-sm">
+              <div className="flex justify-between text-gray-400 text-xs">
+                <span>Subtotal</span>
+                <div className="h-3 w-24 bg-gray-50 rounded" />
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Tax (8.5%):</span>
-                <span className="font-mono">$28.82</span>
+              <div className="flex justify-between text-gray-400 text-xs">
+                <span>Tax</span>
+                <div className="h-3 w-20 bg-gray-50 rounded" />
               </div>
-              <div className="divider-hairline" />
-              <div className="flex justify-between text-base font-semibold">
-                <span>Total:</span>
-                <span className="font-mono">$367.82</span>
+              <div className="flex justify-between border-t border-gray-200 pt-3">
+                <span className="text-xs font-semibold">Total</span>
+                <div className="h-4 w-28 bg-gray-100 rounded" />
               </div>
             </div>
           </div>
 
           {/* Payment Link */}
-          <div className="bg-muted p-4 rounded border border-border">
-            <p className="text-sm font-medium mb-2">Pay Online</p>
-            <p className="text-xs text-muted-foreground mb-3">
-              Click the link below or scan the QR code to pay securely
-            </p>
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-foreground rounded" />
-              <Button size="sm" className="font-mono text-xs">
-                Pay $367.82
-              </Button>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="text-xs text-muted-foreground text-center pt-8">
-            <p>Thank you for your business</p>
-            <p className="mt-1">
-              Questions? Contact us at hello@commercehub.com
-            </p>
+          <div className="bg-gray-50 border border-gray-100 rounded p-4">
+            <div className="h-3 w-24 bg-gray-200 rounded mb-3" />
+            <div className="h-9 w-32 bg-gray-200 rounded" />
           </div>
         </div>
       </div>

@@ -1,12 +1,4 @@
-import { MoreVertical, Copy, Download, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { FileText } from "lucide-react";
 
 interface Template {
   id: string;
@@ -54,76 +46,27 @@ export function TemplateList({
   onSelectTemplate,
 }: TemplateListProps) {
   return (
-    <div className="divide-y divide-border">
+    <div className="p-3 space-y-1">
       {mockTemplates.map((template) => (
         <button
           key={template.id}
+          className={`w-full flex items-center gap-3 p-2 rounded hover:bg-muted/50 transition-colors ${
+            selectedTemplate === template.id ? "bg-muted" : ""
+          }`}
           onClick={() => onSelectTemplate(template.id)}
-          className={`
-            w-full p-4 text-left transition-colors hover:bg-muted
-            ${selectedTemplate === template.id ? "bg-accent" : ""}
-          `}
         >
-          <div className="flex items-start gap-3">
-            {/* Thumbnail */}
-            <div className="w-12 h-16 rounded border border-border bg-background flex items-center justify-center flex-shrink-0">
-              <div className="text-xs text-muted-foreground font-mono">A4</div>
+          {/* Minimal A4 thumbnail */}
+          <div className="w-7 h-10 rounded border border-border bg-background flex items-center justify-center flex-shrink-0">
+            <FileText className="h-3 w-3 text-muted-foreground" />
+          </div>
+
+          {/* Template info */}
+          <div className="flex-1 min-w-0 text-left">
+            <div className="text-sm font-medium truncate mb-0.5">
+              {template.name}
             </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between mb-1">
-                <h3 className="font-medium text-sm truncate pr-2">
-                  {template.name}
-                </h3>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 -mr-2"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreVertical className="h-3 w-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <Copy className="h-3 w-3 mr-2" />
-                      Duplicate
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Download className="h-3 w-3 mr-2" />
-                      Download PDF
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive">
-                      <Trash2 className="h-3 w-3 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              <div className="flex items-center gap-2 mb-2">
-                <span
-                  className={`
-                  status-pill
-                  ${template.status === "active" ? "status-new" : ""}
-                  ${template.status === "draft" ? "status-paying" : ""}
-                  ${template.status === "deprecated" ? "status-completed" : ""}
-                `}
-                >
-                  {template.status}
-                </span>
-              </div>
-
-              <p className="text-xs text-muted-foreground font-mono">
-                v{template.version} · used in {template.usedIn} orders
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {template.updatedAt}
-              </p>
+            <div className="text-xs text-muted-foreground">
+              {template.status === "active" ? "Active" : "Draft"} · v{template.version}
             </div>
           </div>
         </button>

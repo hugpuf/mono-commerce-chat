@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -33,8 +32,7 @@ export default function Templates() {
   const [pageSize, setPageSize] = useState<"a4" | "letter">("a4");
 
   return (
-    <AppShell>
-      <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full">
         {/* Header */}
         <header className="h-14 border-b border-border flex items-center justify-between px-6 bg-background">
           <h1 className="text-lg font-semibold">Invoice Templates</h1>
@@ -76,7 +74,7 @@ export default function Templates() {
         {/* Body */}
         <div className="flex flex-1 overflow-hidden">
           {/* Left Rail - Template List */}
-          <div className="w-80 border-r border-border flex flex-col bg-background">
+          <div className="w-64 border-r border-border flex flex-col bg-background">
             <div className="p-4 border-b border-border">
               <div className="relative mb-3">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -183,12 +181,7 @@ export default function Templates() {
             </ScrollArea>
           </div>
 
-          {/* Right Drawer - Config */}
-          <div className="w-96 border-l border-border bg-background">
-            <TemplateConfig templateId={selectedTemplate} />
-          </div>
         </div>
-      </div>
 
       {/* Dialogs */}
       <UploadTemplateDialog
@@ -204,6 +197,6 @@ export default function Templates() {
         onOpenChange={setTestSendDialogOpen}
         templateId={selectedTemplate}
       />
-    </AppShell>
+    </div>
   );
 }
