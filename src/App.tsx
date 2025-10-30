@@ -13,6 +13,7 @@ import Analytics from "./pages/Analytics";
 import AddCatalog from "./pages/setup/AddCatalog";
 import AddPayment from "./pages/setup/AddPayment";
 import AddChannel from "./pages/setup/AddChannel";
+import WhatsAppCallback from "./pages/setup/WhatsAppCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -68,6 +69,7 @@ const App = () => (
           <Route path="/setup/catalog" element={<AddCatalog />} />
           <Route path="/setup/payment" element={<AddPayment />} />
           <Route path="/setup/channel" element={<AddChannel />} />
+          <Route path="/setup/whatsapp/callback" element={<WhatsAppCallback />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

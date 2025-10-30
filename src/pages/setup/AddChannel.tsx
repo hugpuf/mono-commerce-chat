@@ -53,7 +53,35 @@ export default function AddChannel() {
   const navigate = useNavigate();
 
   const handleConnect = (channelId: string) => {
-    console.log("Connecting to:", channelId);
+    if (channelId === 'whatsapp') {
+      // Meta Embedded Signup configuration
+      const appId = 'YOUR_META_APP_ID'; // TODO: Store this in app settings
+      const configId = 'YOUR_CONFIG_ID'; // TODO: Store this in app settings
+      const redirectUri = `${window.location.origin}/setup/whatsapp/callback`;
+      
+      // Launch Meta's Embedded Signup
+      const embedUrl = `https://www.facebook.com/v21.0/dialog/oauth?` +
+        `client_id=${appId}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `config_id=${configId}&` +
+        `response_type=code&` +
+        `scope=whatsapp_business_management,whatsapp_business_messaging&` +
+        `state=${crypto.randomUUID()}`;
+      
+      // Open in popup
+      const width = 600;
+      const height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      
+      window.open(
+        embedUrl,
+        'WhatsApp Business Setup',
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+    } else {
+      console.log("Connecting to:", channelId);
+    }
   };
 
   return (
@@ -74,6 +102,13 @@ export default function AddChannel() {
           <p className="text-muted-foreground">
             Provision an official messaging channel for customer communications
           </p>
+          
+          <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
+            <p className="text-sm text-muted-foreground">
+              <strong className="text-foreground">Note:</strong> To connect WhatsApp, you'll need a Meta Business account and a configured Meta App. 
+              The connection uses Meta's Embedded Signup for a seamless one-click experience.
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -115,8 +150,13 @@ export default function AddChannel() {
                     onClick={() => handleConnect(channel.id)}
                     disabled={channel.comingSoon}
                   >
-                    {channel.comingSoon ? "Coming Soon" : "Provision"}
+                    {channel.comingSoon ? "Coming Soon" : channel.id === 'whatsapp' ? "Connect via Meta" : "Provision"}
                   </Button>
+                  {channel.id === 'whatsapp' && !channel.comingSoon && (
+                    <p className="text-[10px] text-muted-foreground mt-2 text-center">
+                      One-click setup with Meta
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             );

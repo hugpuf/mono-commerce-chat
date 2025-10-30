@@ -182,6 +182,8 @@ export type Database = {
       }
       whatsapp_accounts: {
         Row: {
+          access_token: string | null
+          app_secret: string | null
           created_at: string
           display_name: string | null
           id: string
@@ -194,6 +196,8 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          access_token?: string | null
+          app_secret?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
@@ -206,6 +210,8 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          access_token?: string | null
+          app_secret?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
