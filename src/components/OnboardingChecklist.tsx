@@ -74,7 +74,7 @@ export function OnboardingChecklist() {
     {
       id: 'catalog',
       title: 'Add Product Catalog',
-      description: 'Connect your Shopify store or upload products',
+      description: 'Connect your product catalog or upload items',
       status: connectionStatus.catalog ? 'completed' : 'pending',
       buttonLabel: connectionStatus.catalog ? 'Manage' : 'Add Catalog',
       icon: Package,
@@ -83,16 +83,16 @@ export function OnboardingChecklist() {
     {
       id: 'payment',
       title: 'Setup Payment Processing',
-      description: 'Connect Stripe to accept payments',
+      description: 'Connect a payment provider to accept payments',
       status: connectionStatus.payment ? 'completed' : 'pending',
-      buttonLabel: connectionStatus.payment ? 'Manage' : 'Connect Stripe',
+      buttonLabel: connectionStatus.payment ? 'Manage' : 'Connect Payment',
       icon: CreditCard,
       route: '/setup/payment',
     },
     {
       id: 'whatsapp',
       title: 'Connect Channel',
-      description: 'Link your WhatsApp Business Account',
+      description: 'Link your business messaging channel',
       status: connectionStatus.whatsapp ? 'completed' : 'pending',
       buttonLabel: connectionStatus.whatsapp ? 'Manage' : 'Connect Channel',
       icon: MessageSquare,
