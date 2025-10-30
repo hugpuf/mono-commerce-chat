@@ -1,12 +1,10 @@
 import { AppShell } from "@/components/AppShell";
 import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 
-const Index = () => {
+export default function Onboarding() {
   return (
     <AppShell>
       <OnboardingChecklist />
     </AppShell>
   );
-};
-
-export default Index;
+}
