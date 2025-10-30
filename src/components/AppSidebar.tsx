@@ -27,7 +27,6 @@ const connectedChannels = [
 
 const mainNavItems = [
   { path: "/conversations", label: "Conversations", icon: MessageCircle },
-  { path: "/catalog", label: "Catalog", icon: ShoppingBag },
   { path: "/templates", label: "Templates", icon: FileText },
   { path: "/automations", label: "Automations", icon: Zap },
   { path: "/orders", label: "Orders", icon: ShoppingCart },

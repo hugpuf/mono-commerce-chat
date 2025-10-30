@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import Index from "./pages/Index";
 import Conversations from "./pages/Conversations";
-import Catalog from "./pages/Catalog";
 import Templates from "./pages/Templates";
 import Automations from "./pages/Automations";
 import Orders from "./pages/Orders";
@@ -31,14 +30,6 @@ const App = () => (
             element={
               <AppShell>
                 <Conversations />
-              </AppShell>
-            }
-          />
-          <Route
-            path="/catalog"
-            element={
-              <AppShell>
-                <Catalog />
               </AppShell>
             }
           />

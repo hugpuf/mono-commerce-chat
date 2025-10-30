@@ -11,8 +11,10 @@ import {
   Grid,
   Globe,
   ArrowLeft,
+  Upload,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useRef } from "react";
 
 interface CatalogProvider {
   id: string;
@@ -22,6 +24,12 @@ interface CatalogProvider {
 }
 
 const catalogProviders: CatalogProvider[] = [
+  {
+    id: "manual",
+    name: "Manual Upload",
+    icon: Upload,
+    description: "Upload CSV file with products",
+  },
   {
     id: "shopify",
     name: "Shopify",
@@ -86,15 +94,36 @@ const catalogProviders: CatalogProvider[] = [
 
 export default function AddCatalog() {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleConnect = (providerId: string) => {
+    if (providerId === "manual") {
+      fileInputRef.current?.click();
+      return;
+    }
     console.log("Connecting to:", providerId);
     // In real app, would trigger OAuth or API connection flow
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === "text/csv") {
+      console.log("CSV file selected:", file.name);
+      // In real app, would process CSV file
+    }
   };
 
   return (
     <AppShell>
       <div className="p-8 max-w-6xl mx-auto">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv"
+          onChange={handleFileUpload}
+          className="hidden"
+        />
+        
         <Button
           variant="ghost"
           size="sm"
