@@ -11,6 +11,9 @@ import Templates from "./pages/Templates";
 import Automations from "./pages/Automations";
 import Orders from "./pages/Orders";
 import Analytics from "./pages/Analytics";
+import AddCatalog from "./pages/setup/AddCatalog";
+import AddPayment from "./pages/setup/AddPayment";
+import AddChannel from "./pages/setup/AddChannel";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -71,6 +74,9 @@ const App = () => (
               </AppShell>
             }
           />
+          <Route path="/setup/catalog" element={<AddCatalog />} />
+          <Route path="/setup/payment" element={<AddPayment />} />
+          <Route path="/setup/channel" element={<AddChannel />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

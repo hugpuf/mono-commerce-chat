@@ -1,43 +1,28 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   ShoppingBag,
   CreditCard,
   MessageCircle,
-  MessageSquare,
-  Instagram,
-  Facebook,
-  Smartphone,
-  Send,
   Package,
   FileText,
   Zap,
   ShoppingCart,
   BarChart3,
+  Plus,
 } from "lucide-react";
 import { IntegrationCircle } from "./IntegrationCircle";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
-const catalogIntegrations = [
-  { id: "shopify", name: "Shopify", icon: ShoppingBag, connected: true },
-  { id: "woocommerce", name: "WooCommerce", icon: ShoppingCart, connected: false },
-  { id: "bigcommerce", name: "BigCommerce", icon: Package, connected: false },
-  { id: "magento", name: "Magento", icon: Package, connected: false },
-  { id: "squarespace", name: "Squarespace", icon: Package, connected: false },
-  { id: "wix", name: "Wix", icon: Package, connected: false },
+// Mock connected integrations - in real app this would come from state/API
+const connectedCatalogs = [
+  { id: "shopify", name: "Shopify", icon: ShoppingBag, status: "connected" as const },
 ];
 
-const paymentIntegrations = [
-  { id: "stripe", name: "Stripe", icon: CreditCard, connected: true },
-  { id: "paypal", name: "PayPal", icon: CreditCard, connected: false },
-  { id: "square", name: "Square", icon: CreditCard, connected: false },
+const connectedPayments = [
+  { id: "stripe", name: "Stripe", icon: CreditCard, status: "connected" as const },
 ];
 
-const channelIntegrations = [
-  { id: "whatsapp", name: "WhatsApp", icon: MessageCircle, connected: true, active: true },
-  { id: "instagram", name: "Instagram DM", icon: Instagram, connected: false, disabled: true },
-  { id: "messenger", name: "Messenger", icon: Facebook, connected: false, disabled: true },
-  { id: "sms", name: "SMS", icon: Smartphone, connected: false, disabled: true },
-  { id: "telegram", name: "Telegram", icon: Send, connected: false, disabled: true },
+const connectedChannels = [
+  { id: "whatsapp", name: "WhatsApp", icon: MessageCircle, status: "connected" as const, active: true },
 ];
 
 const mainNavItems = [
@@ -50,6 +35,8 @@ const mainNavItems = [
 ];
 
 export function AppSidebar() {
+  const navigate = useNavigate();
+
   return (
     <aside className="w-60 border-r border-border flex flex-col bg-background">
       {/* Integration Groups */}
@@ -57,20 +44,42 @@ export function AppSidebar() {
         {/* Catalog */}
         <div>
           <h4 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Catalog</h4>
-          <div className="grid grid-cols-5 gap-2">
-            {catalogIntegrations.map((integration) => (
-              <IntegrationCircle key={integration.id} {...integration} />
+          <div className="flex flex-wrap gap-2">
+            {connectedCatalogs.map((catalog) => (
+              <IntegrationCircle
+                key={catalog.id}
+                name={catalog.name}
+                icon={catalog.icon}
+                connected
+                status={catalog.status}
+              />
             ))}
+            <IntegrationCircle
+              name="Add Catalog"
+              icon={Plus}
+              onClick={() => navigate("/setup/catalog")}
+            />
           </div>
         </div>
 
         {/* Payments */}
         <div>
           <h4 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Payments</h4>
-          <div className="grid grid-cols-5 gap-2">
-            {paymentIntegrations.map((integration) => (
-              <IntegrationCircle key={integration.id} {...integration} />
+          <div className="flex flex-wrap gap-2">
+            {connectedPayments.map((payment) => (
+              <IntegrationCircle
+                key={payment.id}
+                name={payment.name}
+                icon={payment.icon}
+                connected
+                status={payment.status}
+              />
             ))}
+            <IntegrationCircle
+              name="Add Payment"
+              icon={Plus}
+              onClick={() => navigate("/setup/payment")}
+            />
           </div>
         </div>
 
@@ -101,10 +110,22 @@ export function AppSidebar() {
       {/* Channels (pinned bottom) */}
       <div className="border-t border-border p-4">
         <h4 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Channels</h4>
-        <div className="flex gap-2">
-          {channelIntegrations.map((integration) => (
-            <IntegrationCircle key={integration.id} {...integration} />
+        <div className="flex flex-wrap gap-2">
+          {connectedChannels.map((channel) => (
+            <IntegrationCircle
+              key={channel.id}
+              name={channel.name}
+              icon={channel.icon}
+              connected
+              status={channel.status}
+              active={channel.active}
+            />
           ))}
+          <IntegrationCircle
+            name="Add Channel"
+            icon={Plus}
+            onClick={() => navigate("/setup/channel")}
+          />
         </div>
       </div>
     </aside>
