@@ -14,7 +14,8 @@ import {
   Upload,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useRef } from "react";
+import { useState } from "react";
+import { CSVUploadDialog } from "@/components/catalog/CSVUploadDialog";
 
 interface CatalogProvider {
   id: string;
@@ -94,34 +95,23 @@ const catalogProviders: CatalogProvider[] = [
 
 export default function AddCatalog() {
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   const handleConnect = (providerId: string) => {
     if (providerId === "manual") {
-      fileInputRef.current?.click();
+      setUploadDialogOpen(true);
       return;
     }
     console.log("Connecting to:", providerId);
     // In real app, would trigger OAuth or API connection flow
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.type === "text/csv") {
-      console.log("CSV file selected:", file.name);
-      // In real app, would process CSV file
-    }
-  };
-
   return (
     <AppShell>
       <div className="p-8 max-w-6xl mx-auto">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv"
-          onChange={handleFileUpload}
-          className="hidden"
+        <CSVUploadDialog 
+          open={uploadDialogOpen} 
+          onOpenChange={setUploadDialogOpen}
         />
         
         <Button
@@ -169,7 +159,7 @@ export default function AddCatalog() {
                     className="w-full"
                     onClick={() => handleConnect(provider.id)}
                   >
-                    Connect
+                    {provider.id === "manual" ? "Upload File" : "Connect"}
                   </Button>
                 </CardContent>
               </Card>
