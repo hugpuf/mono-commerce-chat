@@ -1,37 +1,11 @@
-import { User } from "lucide-react";
-import { Button } from "./ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { Link } from "react-router-dom";
 
 export function AppHeader() {
-  const { workspaceName } = useWorkspace();
-  
   return (
-    <header className="h-14 border-b border-border flex items-center justify-between px-6 bg-background">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-foreground rounded" />
-        <h1 className="font-semibold text-lg">{workspaceName || "Commerce Hub"}</h1>
-      </div>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <User className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem>Profile</DropdownMenuItem>
-          <DropdownMenuItem>Settings</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>Sign out</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+    <header className="absolute top-4 right-6 z-50">
+      <Link to="/" className="block">
+        <div className="w-10 h-10 bg-foreground rounded-full hover:opacity-80 transition-opacity cursor-pointer" />
+      </Link>
     </header>
   );
 }
