@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.77.0";
-import { createHmac } from "https://deno.land/std@0.190.0/node/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,9 +35,22 @@ serve(async (req: Request) => {
       throw new Error('META_APP_SECRET not configured');
     }
 
-    const expectedSig = createHmac('sha256', appSecret)
-      .update(payload)
-      .digest('base64')
+    // Use Web Crypto API for HMAC
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(appSecret);
+    const messageData = encoder.encode(payload);
+
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+
+    const signature = await crypto.subtle.sign('HMAC', key, messageData);
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+    const expectedSig = base64
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=/g, '');
