@@ -66,36 +66,51 @@ export type Database = {
       }
       catalog_sources: {
         Row: {
+          access_token: string | null
+          api_version: string | null
           created_at: string
           id: string
           last_sync_at: string | null
           provider: string
           provider_config: Json | null
+          scopes: string[] | null
+          shop_domain: string | null
           status: string
           sync_error: string | null
           updated_at: string
+          webhook_subscriptions: Json | null
           workspace_id: string
         }
         Insert: {
+          access_token?: string | null
+          api_version?: string | null
           created_at?: string
           id?: string
           last_sync_at?: string | null
           provider: string
           provider_config?: Json | null
+          scopes?: string[] | null
+          shop_domain?: string | null
           status?: string
           sync_error?: string | null
           updated_at?: string
+          webhook_subscriptions?: Json | null
           workspace_id: string
         }
         Update: {
+          access_token?: string | null
+          api_version?: string | null
           created_at?: string
           id?: string
           last_sync_at?: string | null
           provider?: string
           provider_config?: Json | null
+          scopes?: string[] | null
+          shop_domain?: string | null
           status?: string
           sync_error?: string | null
           updated_at?: string
+          webhook_subscriptions?: Json | null
           workspace_id?: string
         }
         Relationships: [
@@ -244,6 +259,73 @@ export type Database = {
           },
         ]
       }
+      inventory_reservations: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          expires_at: string
+          id: string
+          metadata: Json | null
+          product_id: string
+          quantity: number
+          reserved_at: string | null
+          reserved_by: string | null
+          status: string
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          metadata?: Json | null
+          product_id: string
+          quantity: number
+          reserved_at?: string | null
+          reserved_by?: string | null
+          status?: string
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          metadata?: Json | null
+          product_id?: string
+          quantity?: number
+          reserved_at?: string | null
+          reserved_by?: string | null
+          status?: string
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_reservations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_reservations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_reservations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           body_text: string
@@ -374,6 +456,70 @@ export type Database = {
           },
         ]
       }
+      order_discounts: {
+        Row: {
+          approved_by: string | null
+          conversation_id: string | null
+          created_at: string | null
+          discount_amount: number | null
+          discount_percentage: number | null
+          discounted_price: number
+          id: string
+          original_price: number
+          product_id: string | null
+          reason: string | null
+          workspace_id: string
+        }
+        Insert: {
+          approved_by?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          discounted_price: number
+          id?: string
+          original_price: number
+          product_id?: string | null
+          reason?: string | null
+          workspace_id: string
+        }
+        Update: {
+          approved_by?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          discounted_price?: number
+          id?: string
+          original_price?: number
+          product_id?: string | null
+          reason?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_discounts_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_discounts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_discounts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_providers: {
         Row: {
           account_id: string
@@ -424,17 +570,24 @@ export type Database = {
       products: {
         Row: {
           catalog_source_id: string | null
+          collection_ids: string[] | null
           compare_at_price: number | null
           created_at: string
           description: string | null
           external_id: string | null
+          handle: string | null
           id: string
           image_gallery: Json | null
           image_url: string | null
+          inventory_by_location: Json | null
           is_variant: boolean
           metadata: Json | null
           parent_product_id: string | null
           price: number
+          product_type: string | null
+          shopify_inventory_item_id: string | null
+          shopify_product_id: string | null
+          shopify_variant_id: string | null
           sku: string
           status: string
           stock: number
@@ -442,21 +595,29 @@ export type Database = {
           title: string
           updated_at: string
           variant_options: Json | null
+          vendor: string | null
           workspace_id: string
         }
         Insert: {
           catalog_source_id?: string | null
+          collection_ids?: string[] | null
           compare_at_price?: number | null
           created_at?: string
           description?: string | null
           external_id?: string | null
+          handle?: string | null
           id?: string
           image_gallery?: Json | null
           image_url?: string | null
+          inventory_by_location?: Json | null
           is_variant?: boolean
           metadata?: Json | null
           parent_product_id?: string | null
           price: number
+          product_type?: string | null
+          shopify_inventory_item_id?: string | null
+          shopify_product_id?: string | null
+          shopify_variant_id?: string | null
           sku: string
           status?: string
           stock?: number
@@ -464,21 +625,29 @@ export type Database = {
           title: string
           updated_at?: string
           variant_options?: Json | null
+          vendor?: string | null
           workspace_id: string
         }
         Update: {
           catalog_source_id?: string | null
+          collection_ids?: string[] | null
           compare_at_price?: number | null
           created_at?: string
           description?: string | null
           external_id?: string | null
+          handle?: string | null
           id?: string
           image_gallery?: Json | null
           image_url?: string | null
+          inventory_by_location?: Json | null
           is_variant?: boolean
           metadata?: Json | null
           parent_product_id?: string | null
           price?: number
+          product_type?: string | null
+          shopify_inventory_item_id?: string | null
+          shopify_product_id?: string | null
+          shopify_variant_id?: string | null
           sku?: string
           status?: string
           stock?: number
@@ -486,6 +655,7 @@ export type Database = {
           title?: string
           updated_at?: string
           variant_options?: Json | null
+          vendor?: string | null
           workspace_id?: string
         }
         Relationships: [
@@ -505,6 +675,57 @@ export type Database = {
           },
           {
             foreignKeyName: "products_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopify_locations: {
+        Row: {
+          address: Json | null
+          catalog_source_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          shopify_location_id: string
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          address?: Json | null
+          catalog_source_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          shopify_location_id: string
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          address?: Json | null
+          catalog_source_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          shopify_location_id?: string
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopify_locations_catalog_source_id_fkey"
+            columns: ["catalog_source_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopify_locations_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -821,6 +1042,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      expire_reservations: { Args: never; Returns: undefined }
       log_audit_event: {
         Args: {
           p_action: string
