@@ -66,10 +66,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         .from("user_profiles")
         .select("workspace_id, workspaces(*)")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError) {
         console.error("Error fetching workspace:", profileError);
+        return;
+      }
+
+      if (!profile) {
+        console.log("No profile found for user");
         return;
       }
 
