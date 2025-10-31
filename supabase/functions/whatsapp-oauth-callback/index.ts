@@ -69,6 +69,39 @@ serve(async (req) => {
 
     console.log('WhatsApp account stored successfully', data);
 
+    // Subscribe webhook to receive messages
+    try {
+      const webhookResponse = await fetch(
+        `https://graph.facebook.com/v21.0/${phone_number_id}/subscribed_apps`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            subscribed_fields: ['messages', 'message_status'],
+          }),
+        }
+      );
+
+      if (webhookResponse.ok) {
+        console.log('Webhook subscribed successfully');
+        
+        // Update webhook status
+        await supabase
+          .from('whatsapp_accounts')
+          .update({ webhook_status: 'active' })
+          .eq('id', data.id);
+      } else {
+        const errorData = await webhookResponse.json();
+        console.error('Failed to subscribe webhook:', errorData);
+      }
+    } catch (webhookError) {
+      console.error('Error subscribing webhook:', webhookError);
+      // Don't fail the whole request if webhook subscription fails
+    }
+
     return new Response(
       JSON.stringify({ success: true, account: data }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -2,3 +2,9 @@ project_id = "wsckktenxumwmzixbdtv"
 
 [functions.get-meta-config]
 verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.send-whatsapp-message]
+verify_jwt = true
