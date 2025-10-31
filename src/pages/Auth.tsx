@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import logo from "@/assets/logo.png";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -124,7 +125,12 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 gap-8">
+      <img 
+        src={logo} 
+        alt="MessageMerchant Logo" 
+        className="w-32 h-32 rounded-full object-cover"
+      />
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Welcome to MessageMerchant</CardTitle>
