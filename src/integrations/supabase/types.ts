@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          after_state: Json | null
+          before_state: Json | null
+          created_at: string
+          id: string
+          ip_address: string | null
+          target_id: string | null
+          target_type: string
+          user_agent: string | null
+          workspace_id: string
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          target_id?: string | null
+          target_type: string
+          user_agent?: string | null
+          workspace_id: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          target_id?: string | null
+          target_type?: string
+          user_agent?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catalog_sources: {
         Row: {
           created_at: string
@@ -53,6 +103,91 @@ export type Database = {
             foreignKeyName: "catalog_sources_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channel_policies: {
+        Row: {
+          allowed_consent_sources: string[] | null
+          auto_convert_to_template: boolean | null
+          auto_reply_first_touch: boolean | null
+          auto_reply_out_of_hours: boolean | null
+          auto_reply_sla_breach: boolean | null
+          auto_reply_template_id: string | null
+          block_marketing_without_consent: boolean | null
+          consent_expiry_days: number | null
+          created_at: string
+          duplicate_purchase_lookback_hours: number | null
+          enable_duplicate_guard: boolean | null
+          enforce_24h_window: boolean | null
+          fallback_template_id: string | null
+          id: string
+          rate_limit_burst_behavior: string | null
+          rate_limit_per_minute: number | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          allowed_consent_sources?: string[] | null
+          auto_convert_to_template?: boolean | null
+          auto_reply_first_touch?: boolean | null
+          auto_reply_out_of_hours?: boolean | null
+          auto_reply_sla_breach?: boolean | null
+          auto_reply_template_id?: string | null
+          block_marketing_without_consent?: boolean | null
+          consent_expiry_days?: number | null
+          created_at?: string
+          duplicate_purchase_lookback_hours?: number | null
+          enable_duplicate_guard?: boolean | null
+          enforce_24h_window?: boolean | null
+          fallback_template_id?: string | null
+          id?: string
+          rate_limit_burst_behavior?: string | null
+          rate_limit_per_minute?: number | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          allowed_consent_sources?: string[] | null
+          auto_convert_to_template?: boolean | null
+          auto_reply_first_touch?: boolean | null
+          auto_reply_out_of_hours?: boolean | null
+          auto_reply_sla_breach?: boolean | null
+          auto_reply_template_id?: string | null
+          block_marketing_without_consent?: boolean | null
+          consent_expiry_days?: number | null
+          created_at?: string
+          duplicate_purchase_lookback_hours?: number | null
+          enable_duplicate_guard?: boolean | null
+          enforce_24h_window?: boolean | null
+          fallback_template_id?: string | null
+          id?: string
+          rate_limit_burst_behavior?: string | null
+          rate_limit_per_minute?: number | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_policies_auto_reply_template_id_fkey"
+            columns: ["auto_reply_template_id"]
+            isOneToOne: false
+            referencedRelation: "message_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_policies_fallback_template_id_fkey"
+            columns: ["fallback_template_id"]
+            isOneToOne: false
+            referencedRelation: "message_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_policies_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
@@ -120,9 +255,14 @@ export type Database = {
           header_type: string | null
           id: string
           language: string
+          last_synced_at: string | null
+          meta_template_id: string | null
           name: string
+          quality_score: string | null
+          rejection_reason: string | null
           status: string
           updated_at: string
+          variables_schema: Json | null
           whatsapp_template_id: string | null
           workspace_id: string
         }
@@ -136,9 +276,14 @@ export type Database = {
           header_type?: string | null
           id?: string
           language?: string
+          last_synced_at?: string | null
+          meta_template_id?: string | null
           name: string
+          quality_score?: string | null
+          rejection_reason?: string | null
           status?: string
           updated_at?: string
+          variables_schema?: Json | null
           whatsapp_template_id?: string | null
           workspace_id: string
         }
@@ -152,9 +297,14 @@ export type Database = {
           header_type?: string | null
           id?: string
           language?: string
+          last_synced_at?: string | null
+          meta_template_id?: string | null
           name?: string
+          quality_score?: string | null
+          rejection_reason?: string | null
           status?: string
           updated_at?: string
+          variables_schema?: Json | null
           whatsapp_template_id?: string | null
           workspace_id?: string
         }
@@ -474,29 +624,194 @@ export type Database = {
           },
         ]
       }
+      whatsapp_numbers: {
+        Row: {
+          assignment_rules: Json | null
+          created_at: string
+          daily_conversation_usage: number | null
+          display_number: string
+          fallback_locale: string | null
+          id: string
+          is_default: boolean | null
+          is_flagged: boolean | null
+          messaging_limit_tier: string | null
+          phone_number_id: string
+          profile_about: string | null
+          profile_business_hours: Json | null
+          profile_email: string | null
+          profile_logo_url: string | null
+          profile_website: string | null
+          quality_rating: string | null
+          quiet_hours_config: Json | null
+          status: string
+          updated_at: string
+          whatsapp_account_id: string
+          workspace_id: string
+        }
+        Insert: {
+          assignment_rules?: Json | null
+          created_at?: string
+          daily_conversation_usage?: number | null
+          display_number: string
+          fallback_locale?: string | null
+          id?: string
+          is_default?: boolean | null
+          is_flagged?: boolean | null
+          messaging_limit_tier?: string | null
+          phone_number_id: string
+          profile_about?: string | null
+          profile_business_hours?: Json | null
+          profile_email?: string | null
+          profile_logo_url?: string | null
+          profile_website?: string | null
+          quality_rating?: string | null
+          quiet_hours_config?: Json | null
+          status?: string
+          updated_at?: string
+          whatsapp_account_id: string
+          workspace_id: string
+        }
+        Update: {
+          assignment_rules?: Json | null
+          created_at?: string
+          daily_conversation_usage?: number | null
+          display_number?: string
+          fallback_locale?: string | null
+          id?: string
+          is_default?: boolean | null
+          is_flagged?: boolean | null
+          messaging_limit_tier?: string | null
+          phone_number_id?: string
+          profile_about?: string | null
+          profile_business_hours?: Json | null
+          profile_email?: string | null
+          profile_logo_url?: string | null
+          profile_website?: string | null
+          quality_rating?: string | null
+          quiet_hours_config?: Json | null
+          status?: string
+          updated_at?: string
+          whatsapp_account_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_numbers_whatsapp_account_id_fkey"
+            columns: ["whatsapp_account_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_numbers_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_webhook_events: {
+        Row: {
+          delivery_status: string
+          error_message: string | null
+          event_id: string
+          event_type: string
+          id: string
+          last_retry_at: string | null
+          payload: Json
+          received_at: string
+          response_code: number | null
+          retry_count: number | null
+          whatsapp_account_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          delivery_status?: string
+          error_message?: string | null
+          event_id: string
+          event_type: string
+          id?: string
+          last_retry_at?: string | null
+          payload: Json
+          received_at?: string
+          response_code?: number | null
+          retry_count?: number | null
+          whatsapp_account_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          delivery_status?: string
+          error_message?: string | null
+          event_id?: string
+          event_type?: string
+          id?: string
+          last_retry_at?: string | null
+          payload?: Json
+          received_at?: string
+          response_code?: number | null
+          retry_count?: number | null
+          whatsapp_account_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_webhook_events_whatsapp_account_id_fkey"
+            columns: ["whatsapp_account_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_webhook_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspaces: {
         Row: {
+          company_name: string | null
           created_at: string
+          data_retention_days: number | null
           id: string
+          locale: string | null
+          logo_url: string | null
+          media_ttl_days: number | null
           name: string
           onboarding_completed: boolean | null
           onboarding_step: number | null
+          timezone: string | null
           updated_at: string
         }
         Insert: {
+          company_name?: string | null
           created_at?: string
+          data_retention_days?: number | null
           id?: string
+          locale?: string | null
+          logo_url?: string | null
+          media_ttl_days?: number | null
           name: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
+          timezone?: string | null
           updated_at?: string
         }
         Update: {
+          company_name?: string | null
           created_at?: string
+          data_retention_days?: number | null
           id?: string
+          locale?: string | null
+          logo_url?: string | null
+          media_ttl_days?: number | null
           name?: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
+          timezone?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -506,7 +821,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      log_audit_event: {
+        Args: {
+          p_action: string
+          p_after_state?: Json
+          p_before_state?: Json
+          p_target_id?: string
+          p_target_type: string
+          p_workspace_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

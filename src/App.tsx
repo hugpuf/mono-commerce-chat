@@ -11,6 +11,7 @@ import Templates from "./pages/Templates";
 import Automations from "./pages/Automations";
 import Orders from "./pages/Orders";
 import Analytics from "./pages/Analytics";
+import Settings from "./pages/Settings";
 import AddCatalog from "./pages/setup/AddCatalog";
 import AddPayment from "./pages/setup/AddPayment";
 import AddChannel from "./pages/setup/AddChannel";
@@ -67,6 +68,14 @@ const App = () => (
               element={
                 <AppShell>
                   <Analytics />
+                </AppShell>
+              }
+            />
+            <Route
+              path="/settings/*"
+              element={
+                <AppShell>
+                  <Settings />
                 </AppShell>
               }
             />

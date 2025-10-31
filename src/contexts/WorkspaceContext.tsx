@@ -2,9 +2,21 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+interface Workspace {
+  id: string;
+  name: string;
+  company_name: string | null;
+  logo_url: string | null;
+  timezone: string;
+  locale: string;
+  data_retention_days: number;
+  media_ttl_days: number;
+}
+
 interface WorkspaceContextType {
   workspaceId: string | null;
   workspaceName: string | null;
+  workspace: Workspace | null;
   isLoading: boolean;
   refetch: () => Promise<void>;
 }
@@ -12,6 +24,7 @@ interface WorkspaceContextType {
 const WorkspaceContext = createContext<WorkspaceContextType>({
   workspaceId: null,
   workspaceName: null,
+  workspace: null,
   isLoading: true,
   refetch: async () => {},
 });
@@ -27,6 +40,7 @@ export const useWorkspace = () => {
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -44,7 +58,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       // Get user profile with workspace info
       const { data: profile, error: profileError } = await supabase
         .from("user_profiles")
-        .select("workspace_id, workspaces(name)")
+        .select("workspace_id, workspaces(*)")
         .eq("user_id", user.id)
         .single();
 
@@ -55,7 +69,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
       if (profile) {
         setWorkspaceId(profile.workspace_id);
-        setWorkspaceName((profile.workspaces as any)?.name || null);
+        const workspaceData = (profile.workspaces as any);
+        setWorkspaceName(workspaceData?.name || null);
+        setWorkspace(workspaceData || null);
       }
     } catch (error) {
       console.error("Error in fetchWorkspace:", error);
@@ -85,7 +101,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <WorkspaceContext.Provider value={{ workspaceId, workspaceName, isLoading, refetch: fetchWorkspace }}>
+    <WorkspaceContext.Provider value={{ workspaceId, workspaceName, workspace, isLoading, refetch: fetchWorkspace }}>
       {children}
     </WorkspaceContext.Provider>
   );
