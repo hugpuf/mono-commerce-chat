@@ -994,6 +994,12 @@ export type Database = {
       }
       workspaces: {
         Row: {
+          business_address: string | null
+          business_category: string | null
+          business_description: string | null
+          business_email: string | null
+          business_hours: Json | null
+          business_website: string | null
           company_name: string | null
           created_at: string
           data_retention_days: number | null
@@ -1008,6 +1014,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          business_address?: string | null
+          business_category?: string | null
+          business_description?: string | null
+          business_email?: string | null
+          business_hours?: Json | null
+          business_website?: string | null
           company_name?: string | null
           created_at?: string
           data_retention_days?: number | null
@@ -1022,6 +1034,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          business_address?: string | null
+          business_category?: string | null
+          business_description?: string | null
+          business_email?: string | null
+          business_hours?: Json | null
+          business_website?: string | null
           company_name?: string | null
           created_at?: string
           data_retention_days?: number | null

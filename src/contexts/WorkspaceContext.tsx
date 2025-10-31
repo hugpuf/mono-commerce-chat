@@ -11,6 +11,12 @@ interface Workspace {
   locale: string;
   data_retention_days: number;
   media_ttl_days: number;
+  business_description?: string | null;
+  business_category?: string | null;
+  business_email?: string | null;
+  business_website?: string | null;
+  business_address?: string | null;
+  business_hours?: any;
 }
 
 interface WorkspaceContextType {

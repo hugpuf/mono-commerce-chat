@@ -1,19 +1,18 @@
-import { NavLink, useNavigate, Link } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   ShoppingBag,
   CreditCard,
   MessageCircle,
-  Package,
   FileText,
   Zap,
   ShoppingCart,
   BarChart3,
   Plus,
-  Building2,
-  Settings,
+  Camera,
 } from "lucide-react";
 import { IntegrationCircle } from "./IntegrationCircle";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import logo from '@/assets/logo.png';
 
 // Mock connected integrations - in real app this would come from state/API
 const connectedCatalogs = [
@@ -133,19 +132,26 @@ export function AppSidebar() {
 
       {/* Company Settings (pinned bottom) */}
       <div className="border-t border-border p-4">
-        <h4 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Company</h4>
         <button 
           onClick={() => navigate("/settings")}
-          className="flex items-center gap-3 w-full hover:bg-muted rounded-md p-2 transition-colors text-left"
+          className="flex items-center gap-3 w-full hover:bg-muted rounded-lg p-3 transition-colors text-left"
         >
-          <div className="integration-circle integration-circle-connected flex-shrink-0">
-            <Building2 className="h-4 w-4" />
+          <div className="w-10 h-10 rounded-full border-2 border-border overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
+            {workspace?.logo_url ? (
+              <img 
+                src={workspace.logo_url} 
+                alt="Company logo" 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <Camera className="w-4 h-4 text-muted-foreground" />
+            )}
           </div>
           <div className="flex flex-col min-w-0 flex-1">
-            <h4 className="text-xs font-medium text-foreground leading-tight truncate">
+            <p className="text-sm font-medium text-foreground truncate">
               {workspace?.company_name || workspace?.name || 'Your Company'}
-            </h4>
-            <p className="text-[10px] text-muted-foreground">Settings</p>
+            </p>
+            <p className="text-xs text-muted-foreground">Settings</p>
           </div>
         </button>
       </div>
