@@ -44,6 +44,27 @@ export function AppSidebar() {
     <aside className="w-60 border-r border-border flex flex-col bg-background">
       {/* Integration Groups */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        {/* Channels */}
+        <div>
+          <h4 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Channels</h4>
+          <div className="flex flex-wrap gap-2">
+            {connectedChannels.map((channel) => (
+              <IntegrationCircle
+                key={channel.id}
+                name={channel.name}
+                icon={channel.icon}
+                connected
+                status={channel.status}
+              />
+            ))}
+            <IntegrationCircle
+              name="Add Channel"
+              icon={Plus}
+              onClick={() => navigate("/setup/channel")}
+            />
+          </div>
+        </div>
+
         {/* Catalog */}
         <div>
           <h4 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Catalog</h4>
@@ -82,28 +103,6 @@ export function AppSidebar() {
               name="Add Payment"
               icon={Plus}
               onClick={() => navigate("/setup/payment")}
-            />
-          </div>
-        </div>
-
-        {/* Channels */}
-        <div>
-          <h4 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Channels</h4>
-          <div className="flex flex-wrap gap-2">
-            {connectedChannels.map((channel) => (
-              <IntegrationCircle
-                key={channel.id}
-                name={channel.name}
-                icon={channel.icon}
-                connected
-                status={channel.status}
-                active={channel.active}
-              />
-            ))}
-            <IntegrationCircle
-              name="Add Channel"
-              icon={Plus}
-              onClick={() => navigate("/setup/channel")}
             />
           </div>
         </div>
