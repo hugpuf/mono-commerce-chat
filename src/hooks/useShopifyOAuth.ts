@@ -24,6 +24,22 @@ export function useShopifyOAuth() {
       return;
     }
 
+    // Ensure the domain is in the correct format (storename.myshopify.com)
+    let cleanDomain = shopDomain.trim().toLowerCase();
+    
+    // Remove protocol if present
+    cleanDomain = cleanDomain.replace(/^https?:\/\//, "");
+    
+    // Remove trailing slash
+    cleanDomain = cleanDomain.replace(/\/$/, "");
+    
+    // If it's not a .myshopify.com domain, add it
+    if (!cleanDomain.endsWith('.myshopify.com')) {
+      cleanDomain = `${cleanDomain}.myshopify.com`;
+    }
+
+    console.log("🔍 Shopify OAuth - Shop Domain:", cleanDomain);
+
     // Construct redirect URI based on current origin
     const redirectUri = `${window.location.origin}/setup/shopify/callback`;
 
@@ -40,11 +56,13 @@ export function useShopifyOAuth() {
 
     // Build OAuth authorization URL
     const authUrl = buildAuthorizationUrl({
-      shopDomain,
+      shopDomain: cleanDomain,
       clientId,
       redirectUri,
       scopes,
     }, state);
+
+    console.log("🔗 OAuth URL:", authUrl);
 
     // Redirect to Shopify OAuth page
     window.location.href = authUrl;
