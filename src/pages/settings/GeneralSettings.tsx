@@ -12,6 +12,7 @@ import { Loader2, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { LogoUpload } from '@/components/settings/LogoUpload';
 import { CategorySelect } from '@/components/settings/CategorySelect';
 import { BusinessHoursPicker } from '@/components/settings/BusinessHoursPicker';
+import { DataDeletionCard } from '@/components/settings/DataDeletionCard';
 
 export default function GeneralSettings() {
   const { workspace, refetch } = useWorkspace();
@@ -301,6 +302,12 @@ export default function GeneralSettings() {
           'Save Changes'
         )}
       </Button>
+
+      {/* Data & Privacy Section */}
+      <DataDeletionCard 
+        workspaceId={workspace?.id || ''}
+        workspaceName={workspace?.name || workspace?.company_name || 'Your Workspace'}
+      />
     </div>
   );
 }

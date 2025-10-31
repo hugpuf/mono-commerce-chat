@@ -259,6 +259,62 @@ export type Database = {
           },
         ]
       }
+      data_deletion_requests: {
+        Row: {
+          completed_at: string | null
+          confirmation_code: string
+          created_at: string | null
+          deletion_scope: Json
+          deletion_type: string
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          requested_at: string
+          requested_by: string | null
+          status: string
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          confirmation_code?: string
+          created_at?: string | null
+          deletion_scope?: Json
+          deletion_type: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          requested_at?: string
+          requested_by?: string | null
+          status?: string
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          confirmation_code?: string
+          created_at?: string | null
+          deletion_scope?: Json
+          deletion_type?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          requested_at?: string
+          requested_by?: string | null
+          status?: string
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_deletion_requests_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_reservations: {
         Row: {
           conversation_id: string | null
@@ -1003,6 +1059,8 @@ export type Database = {
           company_name: string | null
           created_at: string
           data_retention_days: number | null
+          deleted_at: string | null
+          deletion_requested_at: string | null
           id: string
           locale: string | null
           logo_url: string | null
@@ -1023,6 +1081,8 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           data_retention_days?: number | null
+          deleted_at?: string | null
+          deletion_requested_at?: string | null
           id?: string
           locale?: string | null
           logo_url?: string | null
@@ -1043,6 +1103,8 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           data_retention_days?: number | null
+          deleted_at?: string | null
+          deletion_requested_at?: string | null
           id?: string
           locale?: string | null
           logo_url?: string | null
