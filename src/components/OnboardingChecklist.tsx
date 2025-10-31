@@ -110,7 +110,7 @@ export function OnboardingChecklist() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <div className="max-w-4xl mx-auto p-6 pt-20 space-y-6">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold">Get Started</h1>
           <p className="text-muted-foreground">Loading your setup status...</p>
@@ -120,7 +120,7 @@ export function OnboardingChecklist() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-4xl mx-auto p-6 pt-20 space-y-6">
       <div className="space-y-2">
         <h1 className="text-3xl font-bold">Get Started</h1>
         <p className="text-muted-foreground">
