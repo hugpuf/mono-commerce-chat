@@ -16,6 +16,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { CSVUploadDialog } from "@/components/catalog/CSVUploadDialog";
+import { ShopifyConnectDialog } from "@/components/catalog/ShopifyConnectDialog";
+import { useShopifyOAuth } from "@/hooks/useShopifyOAuth";
 
 interface CatalogProvider {
   id: string;
@@ -96,14 +98,27 @@ const catalogProviders: CatalogProvider[] = [
 export default function AddCatalog() {
   const navigate = useNavigate();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [shopifyDialogOpen, setShopifyDialogOpen] = useState(false);
+  const { initiateOAuth } = useShopifyOAuth();
 
   const handleConnect = (providerId: string) => {
     if (providerId === "manual") {
       setUploadDialogOpen(true);
       return;
     }
+    
+    if (providerId === "shopify") {
+      setShopifyDialogOpen(true);
+      return;
+    }
+    
     console.log("Connecting to:", providerId);
     // In real app, would trigger OAuth or API connection flow
+  };
+
+  const handleShopifyConnect = (shopDomain: string) => {
+    setShopifyDialogOpen(false);
+    initiateOAuth(shopDomain);
   };
 
   return (
@@ -112,6 +127,11 @@ export default function AddCatalog() {
         <CSVUploadDialog 
           open={uploadDialogOpen} 
           onOpenChange={setUploadDialogOpen}
+        />
+        <ShopifyConnectDialog
+          open={shopifyDialogOpen}
+          onOpenChange={setShopifyDialogOpen}
+          onConnect={handleShopifyConnect}
         />
         
         <Button
