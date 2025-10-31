@@ -31,16 +31,42 @@ export function ShopifyConnectDialog({ open, onOpenChange, onConnect }: ShopifyC
     // Remove trailing slash
     domain = domain.replace(/\/$/, "");
 
-    // Check if it's a valid myshopify.com domain or custom domain
-    if (!domain.includes(".")) {
-      // If just store name provided, add .myshopify.com
+    // Check if it's an admin URL and extract store name
+    if (domain.includes('admin.shopify.com/store/')) {
+      const match = domain.match(/\/store\/([^\/\?]+)/);
+      if (match && match[1]) {
+        domain = `${match[1]}.myshopify.com`;
+      } else {
+        setError("Could not parse admin URL. Example: admin.shopify.com/store/yourstore");
+        return;
+      }
+    }
+    // Check if it's already a .myshopify.com domain
+    else if (domain.includes('.myshopify.com')) {
+      // Keep as is, just extract the store name part
+      const storeName = domain.split('.myshopify.com')[0].split('/').pop();
+      if (storeName) {
+        domain = `${storeName}.myshopify.com`;
+      }
+    }
+    // If just store name provided, add .myshopify.com
+    else if (!domain.includes('.')) {
       domain = `${domain}.myshopify.com`;
     }
 
-    // Basic validation
-    if (domain.length < 5) {
-      setError("Please enter a valid store domain");
+    // Validate final domain format
+    if (!domain.endsWith('.myshopify.com') && !domain.match(/^[a-zA-Z0-9][a-zA-Z0-9-]*\.[a-z]+$/)) {
+      setError("Please enter a valid Shopify store domain (e.g., mystore.myshopify.com)");
       return;
+    }
+
+    // Validate store name (part before .myshopify.com)
+    if (domain.endsWith('.myshopify.com')) {
+      const storeName = domain.split('.myshopify.com')[0];
+      if (!storeName.match(/^[a-zA-Z0-9][a-zA-Z0-9-]*$/)) {
+        setError("Invalid store name format. Use only letters, numbers, and hyphens.");
+        return;
+      }
     }
 
     setError("");
@@ -67,7 +93,7 @@ export function ShopifyConnectDialog({ open, onOpenChange, onConnect }: ShopifyC
             <Label htmlFor="shop-domain">Store Domain</Label>
             <Input
               id="shop-domain"
-              placeholder="mystore.myshopify.com"
+              placeholder="mystore.myshopify.com or paste your admin URL"
               value={shopDomain}
               onChange={(e) => handleInputChange(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleConnect()}
