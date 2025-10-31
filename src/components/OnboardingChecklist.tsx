@@ -72,6 +72,15 @@ export function OnboardingChecklist() {
 
   const checklistItems: ChecklistItem[] = [
     {
+      id: 'whatsapp',
+      title: 'Connect Channel',
+      description: 'Link your business messaging channel',
+      status: connectionStatus.whatsapp ? 'completed' : 'pending',
+      buttonLabel: connectionStatus.whatsapp ? 'Manage' : 'Connect Channel',
+      icon: MessageSquare,
+      route: '/setup/channel',
+    },
+    {
       id: 'catalog',
       title: 'Add Product Catalog',
       description: 'Connect your product catalog or upload items',
@@ -88,15 +97,6 @@ export function OnboardingChecklist() {
       buttonLabel: connectionStatus.payment ? 'Manage' : 'Connect Payment',
       icon: CreditCard,
       route: '/setup/payment',
-    },
-    {
-      id: 'whatsapp',
-      title: 'Connect Channel',
-      description: 'Link your business messaging channel',
-      status: connectionStatus.whatsapp ? 'completed' : 'pending',
-      buttonLabel: connectionStatus.whatsapp ? 'Manage' : 'Connect Channel',
-      icon: MessageSquare,
-      route: '/setup/channel',
     },
   ];
 
