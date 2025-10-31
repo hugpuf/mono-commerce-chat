@@ -132,18 +132,20 @@ export function AppSidebar() {
       </div>
 
       {/* Company Settings (pinned bottom) */}
-      <div className="border-t border-border p-4">
-        <h4 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Company</h4>
-        <div className="flex flex-wrap gap-2">
-          <IntegrationCircle
-            name={workspace?.company_name || workspace?.name || 'Company Settings'}
-            icon={Settings}
-            connected
-            status="connected"
-            onClick={() => navigate("/settings")}
-          />
+      <Link to="/settings" className="border-t border-border p-4 hover:bg-muted transition-colors cursor-pointer block">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-foreground rounded flex items-center justify-center flex-shrink-0">
+            <Building2 className="h-4 w-4 text-background" />
+          </div>
+          <div className="flex flex-col min-w-0 flex-1">
+            <h4 className="text-sm font-semibold text-foreground leading-none truncate">
+              {workspace?.company_name || workspace?.name || 'Your Company'}
+            </h4>
+            <p className="text-xs text-muted-foreground mt-1">Settings</p>
+          </div>
+          <Settings className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         </div>
-      </div>
+      </Link>
     </aside>
   );
 }
