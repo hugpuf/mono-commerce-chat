@@ -94,7 +94,7 @@ export function OnboardingChecklist() {
       title: 'Setup Payment Processing',
       description: 'Connect a payment provider to accept payments',
       status: connectionStatus.payment ? 'completed' : 'pending',
-      buttonLabel: connectionStatus.payment ? 'Manage' : 'Connect Payment',
+      buttonLabel: connectionStatus.payment ? 'Manage' : 'Link Payment',
       icon: CreditCard,
       route: '/setup/payment',
     },
