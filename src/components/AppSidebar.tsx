@@ -101,6 +101,7 @@ export function AppSidebar() {
                   key={channel.id}
                   name={channel.name}
                   icon={channel.icon}
+                  connected={true}
                   status={channel.status}
                   active={channel.active}
                 />
@@ -127,6 +128,7 @@ export function AppSidebar() {
                   key={catalog.id}
                   name={catalog.name}
                   icon={catalog.icon}
+                  connected={true}
                   status={catalog.status}
                 />
               ))
@@ -152,6 +154,7 @@ export function AppSidebar() {
                   key={payment.id}
                   name={payment.name}
                   icon={payment.icon}
+                  connected={true}
                   status={payment.status}
                 />
               ))
