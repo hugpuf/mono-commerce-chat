@@ -12,69 +12,6 @@ export default function WhatsAppCallback() {
   const [message, setMessage] = useState('Processing WhatsApp connection...');
 
   useEffect(() => {
-    const readWabaData = () => {
-      const value = localStorage.getItem('whatsapp_waba_data') || sessionStorage.getItem('whatsapp_waba_data');
-      return value ? JSON.parse(value) : null;
-    };
-
-    const waitForWabaData = (timeoutMs = 8000): Promise<any> => {
-      return new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-          window.removeEventListener('storage', onStorage);
-          window.removeEventListener('message', onMessage);
-          resolve(null);
-        }, timeoutMs);
-
-        // Listen for storage events (cross-window)
-        const onStorage = (e: StorageEvent) => {
-          if (e.key === 'whatsapp_waba_data' && e.newValue) {
-            clearTimeout(timeout);
-            window.removeEventListener('storage', onStorage);
-            window.removeEventListener('message', onMessage);
-            console.log('✅ WABA data from storage event');
-            resolve(JSON.parse(e.newValue));
-          }
-        };
-
-        // Listen for postMessage (direct from Meta to callback page)
-        const onMessage = (event: MessageEvent) => {
-          const allowedOrigins = new Set([
-            'https://www.facebook.com',
-            'https://web.facebook.com',
-            'https://m.facebook.com',
-            'https://business.facebook.com',
-            'https://facebook.com',
-            'https://l.facebook.com',
-            window.location.origin,
-          ]);
-          
-          if (!allowedOrigins.has(event.origin)) return;
-          
-          const message = event.data;
-          if (message?.type === 'WA_EMBEDDED_SIGNUP' && message?.event === 'FINISH') {
-            const { phone_number_id, waba_id } = message.data || {};
-            
-            if (phone_number_id && waba_id) {
-              clearTimeout(timeout);
-              window.removeEventListener('storage', onStorage);
-              window.removeEventListener('message', onMessage);
-              
-              const wabaData = { phone_number_id, waba_id };
-              console.log('✅ WABA data from postMessage FINISH:', wabaData);
-              
-              // Store to localStorage for consistency
-              localStorage.setItem('whatsapp_waba_data', JSON.stringify(wabaData));
-              
-              resolve(wabaData);
-            }
-          }
-        };
-
-        window.addEventListener('storage', onStorage);
-        window.addEventListener('message', onMessage);
-      });
-    };
-
     const processCallback = async () => {
       try {
         // Get OAuth code from URL params
@@ -139,41 +76,20 @@ export default function WhatsAppCallback() {
         }
         
         console.log('📊 Workspace resolution:', { source: workspaceSource, id: effectiveWorkspaceId?.substring(0, 8) + '...' });
-        setMessage('Processing WhatsApp connection...');
-        
-        // Get WABA data from localStorage first, fallback to sessionStorage
-        let wabaData = readWabaData();
-        
-        if (!wabaData) {
-          console.log('⏳ WABA data not immediately available, waiting for storage event...');
-          wabaData = await waitForWabaData();
-        }
-        
-        if (wabaData) {
-          console.log('✅ Retrieved WABA data:', wabaData);
-          // Clear from both storages
-          localStorage.removeItem('whatsapp_waba_data');
-          sessionStorage.removeItem('whatsapp_waba_data');
-        } else {
-          console.warn('⚠️ No WABA data found after waiting');
-        }
+        setMessage('Connecting WhatsApp account...');
         
         console.log('🚀 Invoking whatsapp-oauth-callback with:', {
           has_code: !!code,
-          has_workspace_id: !!effectiveWorkspaceId,
-          has_waba_id: !!wabaData?.waba_id,
-          has_phone_number_id: !!wabaData?.phone_number_id
+          has_workspace_id: !!effectiveWorkspaceId
         });
         
-        // Send code and WABA data to edge function
+        // Send code to edge function (it will fetch WABA data from Graph API)
         const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
           body: {
             code,
             state,
             workspace_id: effectiveWorkspaceId,
-            redirect_uri: `${window.location.origin}/setup/whatsapp/callback`,
-            waba_id: wabaData?.waba_id,
-            phone_number_id: wabaData?.phone_number_id
+            redirect_uri: `${window.location.origin}/setup/whatsapp/callback`
           }
         });
 

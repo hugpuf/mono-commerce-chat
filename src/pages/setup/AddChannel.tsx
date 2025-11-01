@@ -110,46 +110,6 @@ export default function AddChannel() {
       
       console.log('Opening WhatsApp OAuth:', embedUrl);
       
-      // Listen for the Embedded Signup postMessage response
-      const messageListener = (event: MessageEvent) => {
-        // Verify the message is from Meta (multiple possible origins)
-        const allowedOrigins = new Set([
-          'https://www.facebook.com',
-          'https://web.facebook.com',
-          'https://m.facebook.com',
-          'https://business.facebook.com',
-          'https://facebook.com',
-          'https://l.facebook.com',
-          window.location.origin,
-        ]);
-        
-        if (!allowedOrigins.has(event.origin)) return;
-        
-        const message = event.data;
-        console.log('📨 Received postMessage:', { origin: event.origin, type: message?.type, event: message?.event });
-        
-        // Check if it's the WhatsApp Embedded Signup completion message
-        if (message?.type === 'WA_EMBEDDED_SIGNUP' && message?.event === 'FINISH') {
-          const { phone_number_id, waba_id } = message.data || {};
-          
-          if (phone_number_id && waba_id) {
-            console.log('✅ Captured WABA data:', { phone_number_id, waba_id });
-            
-            // Store in localStorage to pass to callback page (cross-window accessible)
-            localStorage.setItem('whatsapp_waba_data', JSON.stringify({
-              phone_number_id,
-              waba_id
-            }));
-            console.log('💾 Stored WABA data to localStorage');
-          }
-          
-          // Clean up listener
-          window.removeEventListener('message', messageListener);
-        }
-      };
-      
-      window.addEventListener('message', messageListener);
-      
       // Try to open in popup
       const width = 600;
       const height = 700;
@@ -170,9 +130,6 @@ export default function AddChannel() {
           description: "Opening WhatsApp setup in this window...",
         });
         
-        // Clean up listener if popup was blocked
-        window.removeEventListener('message', messageListener);
-        
         setTimeout(() => {
           window.location.href = embedUrl;
         }, 1500);
@@ -182,7 +139,6 @@ export default function AddChannel() {
           if (popup?.closed) {
             clearInterval(checkPopup);
             console.log('Popup closed - refreshing connection status');
-            window.removeEventListener('message', messageListener);
             // Reload the page to refresh connection status
             window.location.reload();
           }

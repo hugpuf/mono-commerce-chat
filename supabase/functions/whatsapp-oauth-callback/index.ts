@@ -20,16 +20,12 @@ serve(async (req) => {
       code, 
       workspace_id,
       state,
-      redirect_uri,
-      waba_id,
-      phone_number_id
+      redirect_uri
     } = await req.json();
 
     console.log('Received WhatsApp OAuth callback', { 
       workspace_id, 
-      has_code: !!code,
-      has_waba_id: !!waba_id,
-      has_phone_number_id: !!phone_number_id
+      has_code: !!code
     });
 
     // Step 1: Exchange code for access token (server-side only)
@@ -61,38 +57,52 @@ serve(async (req) => {
 
     console.log('Successfully exchanged code for access token');
 
-    // Step 2: Validate we have the WABA data (provided by Embedded Signup postMessage)
-    if (!waba_id || !phone_number_id) {
-      throw new Error('Missing WABA ID or phone number ID from Embedded Signup');
-    }
-
-    console.log('Using WABA data from Embedded Signup:', { waba_id, phone_number_id });
-
-    // Step 3: Optionally fetch phone number details for display
-    let displayPhoneNumber = null;
-    let verifiedName = null;
+    // Step 2: Fetch WABA (WhatsApp Business Account) data from Graph API
+    console.log('Fetching WABA data from Graph API...');
     
-    try {
-      const phoneDetailsResponse = await fetch(
-        `https://graph.facebook.com/v24.0/${phone_number_id}?fields=display_phone_number,verified_name`,
-        {
-          headers: { 'Authorization': `Bearer ${accessToken}` }
-        }
-      );
-
-      if (phoneDetailsResponse.ok) {
-        const phoneDetails = await phoneDetailsResponse.json();
-        displayPhoneNumber = phoneDetails.display_phone_number;
-        verifiedName = phoneDetails.verified_name;
-        console.log('Fetched phone details:', { displayPhoneNumber, verifiedName });
-      } else {
-        console.warn('Could not fetch phone details, will use defaults');
+    const wabaResponse = await fetch(
+      'https://graph.facebook.com/v24.0/me/businesses?fields=owned_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name}}',
+      {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
       }
-    } catch (e) {
-      console.warn('Error fetching phone details:', e);
+    );
+
+    if (!wabaResponse.ok) {
+      const errorData = await wabaResponse.json();
+      console.error('Failed to fetch WABA data:', errorData);
+      throw new Error(`Failed to fetch WhatsApp Business Account data: ${JSON.stringify(errorData)}`);
     }
 
-    // Step 4: Store the WhatsApp account in the database
+    const wabaData = await wabaResponse.json();
+    console.log('WABA response:', JSON.stringify(wabaData, null, 2));
+
+    // Extract the first WABA and phone number
+    const businesses = wabaData.data || [];
+    if (businesses.length === 0) {
+      throw new Error('No businesses found in your Meta account');
+    }
+
+    const wabas = businesses[0].owned_whatsapp_business_accounts?.data || [];
+    if (wabas.length === 0) {
+      throw new Error('No WhatsApp Business Accounts found');
+    }
+
+    const waba = wabas[0];
+    const waba_id = waba.id;
+    const phoneNumbers = waba.phone_numbers?.data || [];
+    
+    if (phoneNumbers.length === 0) {
+      throw new Error('No phone numbers found for this WhatsApp Business Account');
+    }
+
+    const phoneNumber = phoneNumbers[0];
+    const phone_number_id = phoneNumber.id;
+    const displayPhoneNumber = phoneNumber.display_phone_number;
+    const verifiedName = phoneNumber.verified_name;
+
+    console.log('Extracted WABA data:', { waba_id, phone_number_id, displayPhoneNumber, verifiedName });
+
+    // Step 3: Store the WhatsApp account in the database
     const { data, error } = await supabase
       .from('whatsapp_accounts')
       .upsert({
@@ -117,7 +127,7 @@ serve(async (req) => {
 
     console.log('WhatsApp account stored successfully', data);
 
-    // Step 5: Subscribe webhooks at WABA level (no body needed)
+    // Step 4: Subscribe webhooks at WABA level (no body needed)
     try {
       const webhookResponse = await fetch(
         `https://graph.facebook.com/v24.0/${waba_id}/subscribed_apps`,
