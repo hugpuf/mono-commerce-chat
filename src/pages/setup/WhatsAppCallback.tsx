@@ -12,6 +12,30 @@ export default function WhatsAppCallback() {
   const [message, setMessage] = useState('Processing WhatsApp connection...');
 
   useEffect(() => {
+    const readWabaData = () => {
+      const value = localStorage.getItem('whatsapp_waba_data') || sessionStorage.getItem('whatsapp_waba_data');
+      return value ? JSON.parse(value) : null;
+    };
+
+    const waitForWabaData = (timeoutMs = 8000): Promise<any> => {
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          window.removeEventListener('storage', onStorage);
+          resolve(null);
+        }, timeoutMs);
+
+        const onStorage = (e: StorageEvent) => {
+          if (e.key === 'whatsapp_waba_data' && e.newValue) {
+            clearTimeout(timeout);
+            window.removeEventListener('storage', onStorage);
+            resolve(JSON.parse(e.newValue));
+          }
+        };
+
+        window.addEventListener('storage', onStorage);
+      });
+    };
+
     const processCallback = async () => {
       try {
         // Get OAuth code from URL params
@@ -26,20 +50,28 @@ export default function WhatsAppCallback() {
           throw new Error('No workspace found');
         }
         
-        // Get WABA data from sessionStorage (set by AddChannel page via postMessage)
-        const wabaDataStr = sessionStorage.getItem('whatsapp_waba_data');
-        let wabaData = null;
+        // Get WABA data from localStorage first, fallback to sessionStorage
+        let wabaData = readWabaData();
         
-        if (wabaDataStr) {
-          try {
-            wabaData = JSON.parse(wabaDataStr);
-            console.log('Retrieved WABA data from sessionStorage:', wabaData);
-            // Clear the data after retrieval
-            sessionStorage.removeItem('whatsapp_waba_data');
-          } catch (e) {
-            console.warn('Failed to parse WABA data from sessionStorage:', e);
-          }
+        if (!wabaData) {
+          console.log('⏳ WABA data not immediately available, waiting for storage event...');
+          wabaData = await waitForWabaData();
         }
+        
+        if (wabaData) {
+          console.log('✅ Retrieved WABA data:', wabaData);
+          // Clear from both storages
+          localStorage.removeItem('whatsapp_waba_data');
+          sessionStorage.removeItem('whatsapp_waba_data');
+        } else {
+          console.warn('⚠️ No WABA data found after waiting');
+        }
+        
+        console.log('🚀 Invoking whatsapp-oauth-callback with:', {
+          has_code: !!code,
+          has_waba_id: !!wabaData?.waba_id,
+          has_phone_number_id: !!wabaData?.phone_number_id
+        });
         
         // Send code and WABA data to edge function
         const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
@@ -55,6 +87,7 @@ export default function WhatsAppCallback() {
 
         if (error) throw error;
 
+        console.log('✅ WhatsApp connected successfully');
         setStatus('success');
         setMessage('WhatsApp connected successfully!');
         
@@ -64,13 +97,13 @@ export default function WhatsAppCallback() {
         }, 2000);
 
       } catch (error) {
-        console.error('Error processing WhatsApp callback:', error);
+        console.error('❌ Error processing WhatsApp callback:', error);
         setStatus('error');
         setMessage(error instanceof Error ? error.message : 'Failed to connect WhatsApp');
         
         // Redirect back after 3 seconds
         setTimeout(() => {
-          navigate('/setup/add-channel');
+          navigate('/setup/channel');
         }, 3000);
       }
     };

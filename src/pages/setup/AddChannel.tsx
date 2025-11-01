@@ -106,24 +106,32 @@ export default function AddChannel() {
       
       // Listen for the Embedded Signup postMessage response
       const messageListener = (event: MessageEvent) => {
-        // Verify the message is from Meta
-        if (event.origin !== 'https://www.facebook.com') return;
+        // Verify the message is from Meta (multiple possible origins)
+        const allowedOrigins = new Set([
+          'https://www.facebook.com',
+          'https://web.facebook.com',
+          'https://m.facebook.com',
+          'https://business.facebook.com',
+        ]);
+        
+        if (!allowedOrigins.has(event.origin)) return;
         
         const message = event.data;
-        console.log('Received postMessage from Meta:', message);
+        console.log('📨 Received postMessage:', { origin: event.origin, type: message?.type, event: message?.event });
         
         // Check if it's the WhatsApp Embedded Signup completion message
         if (message?.type === 'WA_EMBEDDED_SIGNUP' && message?.event === 'FINISH') {
           const { phone_number_id, waba_id } = message.data || {};
           
           if (phone_number_id && waba_id) {
-            console.log('Captured WABA data:', { phone_number_id, waba_id });
+            console.log('✅ Captured WABA data:', { phone_number_id, waba_id });
             
-            // Store in sessionStorage to pass to callback page
-            sessionStorage.setItem('whatsapp_waba_data', JSON.stringify({
+            // Store in localStorage to pass to callback page (cross-window accessible)
+            localStorage.setItem('whatsapp_waba_data', JSON.stringify({
               phone_number_id,
               waba_id
             }));
+            console.log('💾 Stored WABA data to localStorage');
           }
           
           // Clean up listener
