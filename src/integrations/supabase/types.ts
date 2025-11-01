@@ -216,39 +216,70 @@ export type Database = {
       }
       conversations: {
         Row: {
+          assigned_to: string | null
+          cart_items: Json | null
+          cart_total: number | null
           created_at: string
+          customer_email: string | null
+          customer_metadata: Json | null
           customer_name: string | null
           customer_phone: string
           id: string
+          last_interaction_type: string | null
           last_message_at: string | null
+          opt_in_date: string | null
+          opt_in_status: string | null
           status: string
           updated_at: string
           whatsapp_account_id: string
           workspace_id: string
         }
         Insert: {
+          assigned_to?: string | null
+          cart_items?: Json | null
+          cart_total?: number | null
           created_at?: string
+          customer_email?: string | null
+          customer_metadata?: Json | null
           customer_name?: string | null
           customer_phone: string
           id?: string
+          last_interaction_type?: string | null
           last_message_at?: string | null
+          opt_in_date?: string | null
+          opt_in_status?: string | null
           status?: string
           updated_at?: string
           whatsapp_account_id: string
           workspace_id: string
         }
         Update: {
+          assigned_to?: string | null
+          cart_items?: Json | null
+          cart_total?: number | null
           created_at?: string
+          customer_email?: string | null
+          customer_metadata?: Json | null
           customer_name?: string | null
           customer_phone?: string
           id?: string
+          last_interaction_type?: string | null
           last_message_at?: string | null
+          opt_in_date?: string | null
+          opt_in_status?: string | null
           status?: string
           updated_at?: string
           whatsapp_account_id?: string
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "conversations_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "conversations_whatsapp_account_id_fkey"
             columns: ["whatsapp_account_id"]
@@ -638,6 +669,111 @@ export type Database = {
           },
           {
             foreignKeyName: "order_discounts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          currency: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string
+          delivered_at: string | null
+          id: string
+          items: Json
+          metadata: Json | null
+          notes: string | null
+          order_number: string
+          paid_at: string | null
+          payment_link_expires_at: string | null
+          payment_link_url: string | null
+          payment_method: string | null
+          payment_status: string | null
+          shipped_at: string | null
+          shipping: number | null
+          shipping_address: Json | null
+          status: string
+          subtotal: number
+          tax: number | null
+          total: number
+          tracking_number: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          currency?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone: string
+          delivered_at?: string | null
+          id?: string
+          items?: Json
+          metadata?: Json | null
+          notes?: string | null
+          order_number: string
+          paid_at?: string | null
+          payment_link_expires_at?: string | null
+          payment_link_url?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
+          shipped_at?: string | null
+          shipping?: number | null
+          shipping_address?: Json | null
+          status?: string
+          subtotal: number
+          tax?: number | null
+          total: number
+          tracking_number?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          currency?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string
+          delivered_at?: string | null
+          id?: string
+          items?: Json
+          metadata?: Json | null
+          notes?: string | null
+          order_number?: string
+          paid_at?: string | null
+          payment_link_expires_at?: string | null
+          payment_link_url?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
+          shipped_at?: string | null
+          shipping?: number | null
+          shipping_address?: Json | null
+          status?: string
+          subtotal?: number
+          tax?: number | null
+          total?: number
+          tracking_number?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -1192,6 +1328,7 @@ export type Database = {
     }
     Functions: {
       expire_reservations: { Args: never; Returns: undefined }
+      generate_order_number: { Args: never; Returns: string }
       log_audit_event: {
         Args: {
           p_action: string
@@ -1203,6 +1340,32 @@ export type Database = {
         }
         Returns: string
       }
+      products_search_text: {
+        Args: { p: Database["public"]["Tables"]["products"]["Row"] }
+        Returns: string
+      }
+      search_products: {
+        Args: {
+          category_filter?: string
+          max_price_filter?: number
+          result_limit?: number
+          search_query: string
+          workspace_uuid: string
+        }
+        Returns: {
+          description: string
+          id: string
+          image_url: string
+          price: number
+          similarity_score: number
+          sku: string
+          stock: number
+          title: string
+          variant_options: Json
+        }[]
+      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never
