@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 
 export default function WhatsAppCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { workspaceId } = useWorkspace();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [message, setMessage] = useState('Processing WhatsApp connection...');
 
@@ -20,30 +22,17 @@ export default function WhatsAppCallback() {
           throw new Error('No authorization code received');
         }
 
-        // Exchange code for access token via Meta Graph API
-        // Note: This should typically be done server-side
-        // For now, we'll assume the access token is handled by Meta's SDK
-        
-        // Get the setup info from Meta
-        const setupResponse = await fetch(
-          `https://graph.facebook.com/v21.0/debug_token?input_token=${code}&access_token=${code}`
-        );
-
-        if (!setupResponse.ok) {
-          throw new Error('Failed to exchange authorization code');
+        if (!workspaceId) {
+          throw new Error('No workspace found');
         }
-
-        const setupData = await setupResponse.json();
         
-        // Store the connection via our edge function
+        // Send only code and state to edge function for secure server-side exchange
         const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
           body: {
             code,
-            workspace_id: 'default-workspace', // TODO: Get from context
-            waba_id: setupData.waba_id,
-            phone_number_id: setupData.phone_number_id,
-            access_token: setupData.access_token,
-            app_secret: setupData.app_secret
+            state,
+            workspace_id: workspaceId,
+            redirect_uri: `${window.location.origin}/setup/whatsapp/callback`
           }
         });
 
@@ -70,7 +59,7 @@ export default function WhatsAppCallback() {
     };
 
     processCallback();
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, workspaceId]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
