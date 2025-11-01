@@ -107,13 +107,15 @@ export function AppSidebar() {
                 />
               ))
             ) : (
-              <button
-                onClick={() => navigate("/setup/channel")}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-muted-foreground/40 text-muted-foreground hover:border-primary hover:text-primary transition-colors text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                Add Channel
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => navigate("/setup/channel")}
+                  className="integration-circle integration-circle-inactive"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-muted-foreground">Add Channel</span>
+              </div>
             )}
           </div>
         </div>
@@ -133,13 +135,15 @@ export function AppSidebar() {
                 />
               ))
             ) : (
-              <button
-                onClick={() => navigate("/setup/catalog")}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-muted-foreground/40 text-muted-foreground hover:border-primary hover:text-primary transition-colors text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                Add Catalog
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => navigate("/setup/catalog")}
+                  className="integration-circle integration-circle-inactive"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-muted-foreground">Add Catalog</span>
+              </div>
             )}
           </div>
         </div>
@@ -159,13 +163,15 @@ export function AppSidebar() {
                 />
               ))
             ) : (
-              <button
-                onClick={() => navigate("/setup/payment")}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-muted-foreground/40 text-muted-foreground hover:border-primary hover:text-primary transition-colors text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                Add Payment
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => navigate("/setup/payment")}
+                  className="integration-circle integration-circle-inactive"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-muted-foreground">Add Payment</span>
+              </div>
             )}
           </div>
         </div>
