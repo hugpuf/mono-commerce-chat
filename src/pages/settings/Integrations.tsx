@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
+import { clearWorkspaceConnectionsCache } from "@/hooks/useWorkspaceConnections";
 import { IntegrationCard } from "@/components/settings/IntegrationCard";
 import { DisconnectIntegrationDialog } from "@/components/settings/DisconnectIntegrationDialog";
 import { ShoppingBag, CreditCard, MessageSquare, Plus } from "lucide-react";
@@ -192,6 +193,9 @@ export default function Integrations() {
           break;
       }
 
+      // Clear cache to ensure sidebar updates immediately
+      clearWorkspaceConnectionsCache(workspaceId);
+      
       setDisconnectDialog({ open: false, type: null });
       await fetchIntegrations();
     } catch (error: any) {

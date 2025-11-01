@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
+import { clearWorkspaceConnectionsCache } from "@/hooks/useWorkspaceConnections";
 import { AppShell } from "@/components/AppShell";
 import { CatalogHeader } from "@/components/catalog/CatalogHeader";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
@@ -121,6 +122,9 @@ export default function Catalog() {
         title: "Sync cancelled",
         description: "Product sync has been cancelled.",
       });
+
+      // Clear cache to ensure sidebar updates immediately
+      clearWorkspaceConnectionsCache(workspaceId);
 
       // Refresh data immediately
       fetchCatalogData();

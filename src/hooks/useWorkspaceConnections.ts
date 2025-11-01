@@ -31,6 +31,16 @@ const saveToCache = (workspaceId: string | null, data: WorkspaceConnections) => 
   }
 };
 
+export const clearWorkspaceConnectionsCache = (workspaceId: string | null) => {
+  if (!workspaceId) return;
+  
+  try {
+    localStorage.removeItem(`${CACHE_KEY}-${workspaceId}`);
+  } catch {
+    // Ignore cache errors
+  }
+};
+
 export const useWorkspaceConnections = (workspaceId: string | null) => {
   const query = useQuery({
     queryKey: ['workspace-connections', workspaceId],
@@ -83,12 +93,11 @@ export const useWorkspaceConnections = (workspaceId: string | null) => {
       };
     },
     enabled: !!workspaceId,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 1 * 60 * 1000, // Cache for 1 minute
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnMount: 'always', // Always refetch on mount to ensure fresh data
     placeholderData: (previousData) => previousData, // Show previous data while refetching
-    initialData: () => getInitialData(workspaceId),
   });
 
   // Save to cache when data changes
