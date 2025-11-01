@@ -118,6 +118,9 @@ export default function AddChannel() {
           'https://web.facebook.com',
           'https://m.facebook.com',
           'https://business.facebook.com',
+          'https://facebook.com',
+          'https://l.facebook.com',
+          window.location.origin,
         ]);
         
         if (!allowedOrigins.has(event.origin)) return;

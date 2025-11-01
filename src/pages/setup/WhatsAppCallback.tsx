@@ -21,18 +21,57 @@ export default function WhatsAppCallback() {
       return new Promise((resolve) => {
         const timeout = setTimeout(() => {
           window.removeEventListener('storage', onStorage);
+          window.removeEventListener('message', onMessage);
           resolve(null);
         }, timeoutMs);
 
+        // Listen for storage events (cross-window)
         const onStorage = (e: StorageEvent) => {
           if (e.key === 'whatsapp_waba_data' && e.newValue) {
             clearTimeout(timeout);
             window.removeEventListener('storage', onStorage);
+            window.removeEventListener('message', onMessage);
+            console.log('✅ WABA data from storage event');
             resolve(JSON.parse(e.newValue));
           }
         };
 
+        // Listen for postMessage (direct from Meta to callback page)
+        const onMessage = (event: MessageEvent) => {
+          const allowedOrigins = new Set([
+            'https://www.facebook.com',
+            'https://web.facebook.com',
+            'https://m.facebook.com',
+            'https://business.facebook.com',
+            'https://facebook.com',
+            'https://l.facebook.com',
+            window.location.origin,
+          ]);
+          
+          if (!allowedOrigins.has(event.origin)) return;
+          
+          const message = event.data;
+          if (message?.type === 'WA_EMBEDDED_SIGNUP' && message?.event === 'FINISH') {
+            const { phone_number_id, waba_id } = message.data || {};
+            
+            if (phone_number_id && waba_id) {
+              clearTimeout(timeout);
+              window.removeEventListener('storage', onStorage);
+              window.removeEventListener('message', onMessage);
+              
+              const wabaData = { phone_number_id, waba_id };
+              console.log('✅ WABA data from postMessage FINISH:', wabaData);
+              
+              // Store to localStorage for consistency
+              localStorage.setItem('whatsapp_waba_data', JSON.stringify(wabaData));
+              
+              resolve(wabaData);
+            }
+          }
+        };
+
         window.addEventListener('storage', onStorage);
+        window.addEventListener('message', onMessage);
       });
     };
 
