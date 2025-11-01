@@ -1,5 +1,4 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
 import {
   ShoppingBag,
   CreditCard,
@@ -13,7 +12,7 @@ import {
 } from "lucide-react";
 import { IntegrationCircle } from "./IntegrationCircle";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { supabase } from "@/integrations/supabase/client";
+import { useWorkspaceConnections } from "@/hooks/useWorkspaceConnections";
 import logo from '@/assets/logo.png';
 import shopifyLogo from '@/assets/shopify-logo.png';
 import whatsappLogo from '@/assets/whatsapp-logo.png';
@@ -30,51 +29,11 @@ const mainNavItems = [
 export function AppSidebar() {
   const navigate = useNavigate();
   const { workspace, workspaceId } = useWorkspace();
-  const [catalogSource, setCatalogSource] = useState<any>(null);
-  const [paymentProvider, setPaymentProvider] = useState<any>(null);
-  const [whatsappAccount, setWhatsappAccount] = useState<any>(null);
+  const { data: connections } = useWorkspaceConnections(workspaceId);
 
-  useEffect(() => {
-    if (workspaceId) {
-      fetchIntegrations();
-    }
-  }, [workspaceId]);
-
-  const fetchIntegrations = async () => {
-    try {
-      // Fetch catalog source
-      const { data: catalog } = await supabase
-        .from("catalog_sources")
-        .select("*")
-        .eq("workspace_id", workspaceId)
-        .eq("status", "active")
-        .maybeSingle();
-
-      // Fetch payment provider
-      const { data: payment } = await supabase
-        .from("payment_providers")
-        .select("*")
-        .eq("workspace_id", workspaceId)
-        .eq("status", "active")
-        .maybeSingle();
-
-      // Fetch WhatsApp account
-      const { data: whatsappData } = await supabase
-        .from("whatsapp_accounts")
-        .select("*")
-        .eq("workspace_id", workspaceId)
-        .eq("status", "active")
-        .limit(1);
-      
-      const whatsapp = whatsappData?.[0] || null;
-
-      setCatalogSource(catalog);
-      setPaymentProvider(payment);
-      setWhatsappAccount(whatsapp);
-    } catch (error) {
-      console.error("Error fetching integrations:", error);
-    }
-  };
+  const catalogSource = connections?.catalogSource || null;
+  const paymentProvider = connections?.paymentProvider || null;
+  const whatsappAccount = connections?.whatsappAccount || null;
 
   const activeCatalogs = catalogSource ? [
     { id: catalogSource.provider, name: catalogSource.provider === "shopify" ? "Shopify" : catalogSource.provider, icon: shopifyLogo, status: "connected" as const }
