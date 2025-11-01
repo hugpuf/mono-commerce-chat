@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import whatsappLogo from '@/assets/whatsapp-logo.png';
+import { WHATSAPP_REDIRECT_URI } from '@/lib/constants';
 
 interface ChannelProvider {
   id: string;
@@ -93,7 +94,7 @@ export default function AddChannel() {
       }
 
       // Meta Embedded Signup configuration
-      const redirectUri = `${window.location.origin}/setup/whatsapp/callback`;
+      const redirectUri = WHATSAPP_REDIRECT_URI;
       
       // Encode workspace ID in state so callback can access it even if context isn't ready
       const stateData = { ws: workspaceId, nonce: crypto.randomUUID() };

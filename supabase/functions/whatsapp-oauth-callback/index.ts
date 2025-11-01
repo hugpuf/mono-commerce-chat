@@ -25,8 +25,35 @@ serve(async (req) => {
 
     console.log('Received WhatsApp OAuth callback', { 
       workspace_id, 
-      has_code: !!code
+      has_code: !!code,
+      redirect_uri
     });
+
+    // IDEMPOTENCY: Reserve the OAuth code (first request wins)
+    console.log('Checking if code has been used...');
+    const { error: reserveError } = await supabase
+      .from('oauth_code_uses')
+      .insert({ 
+        code, 
+        workspace_id,
+        provider: 'whatsapp'
+      });
+
+    if (reserveError) {
+      console.error('OAuth code already used (duplicate request):', reserveError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'This authorization code has already been used. Please start the WhatsApp connection process again from the beginning.',
+          code: 'CODE_ALREADY_USED'
+        }),
+        { 
+          status: 409,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    console.log('Code reserved successfully, proceeding with token exchange...');
 
     // Step 1: Exchange code for access token (server-side only)
     const metaAppId = Deno.env.get('META_APP_ID')!;
@@ -69,11 +96,60 @@ serve(async (req) => {
 
     console.log('Successfully exchanged code for access token');
 
-    // Step 2: Fetch WABA (WhatsApp Business Account) data from Graph API
-    console.log('Fetching WABA data from Graph API...');
-    
+    // Step 2A: Fetch user's businesses
+    console.log('Step 2A: Fetching businesses for user...');
+    const businessesResponse = await fetch(
+      'https://graph.facebook.com/v24.0/me/businesses?fields=id,name',
+      {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      }
+    );
+
+    if (!businessesResponse.ok) {
+      const errorData = await businessesResponse.json();
+      console.error('Failed to fetch businesses:', errorData);
+      
+      // Check for missing permission
+      if (errorData.error?.code === 100) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Missing business_management permission. Ensure the embedded signup completed successfully and the app has the required permissions.',
+            details: 'The user must have business_management and whatsapp_business_management permissions.'
+          }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      throw new Error(`Failed to fetch businesses: ${JSON.stringify(errorData)}`);
+    }
+
+    const businessesData = await businessesResponse.json();
+    console.log('Businesses response:', JSON.stringify(businessesData, null, 2));
+
+    const businesses = businessesData.data || [];
+    if (businesses.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'No Meta Business accounts found. Please ensure you have a Meta Business account and have completed the embedded signup flow.',
+          details: 'The app must be associated with a Business in Meta Business Manager.'
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const businessId = businesses[0].id;
+    console.log('Using business:', businessId);
+
+    // Step 2B: Fetch WABA data for that business
+    console.log('Step 2B: Fetching WABA data for business...');
     const wabaResponse = await fetch(
-      'https://graph.facebook.com/v24.0/me/owned_whatsapp_business_accounts?fields=id,name,phone_numbers{id,display_phone_number,verified_name}',
+      `https://graph.facebook.com/v24.0/${businessId}?fields=owned_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name}}`,
       {
         headers: { 'Authorization': `Bearer ${accessToken}` }
       }
@@ -83,11 +159,11 @@ serve(async (req) => {
       const errorData = await wabaResponse.json();
       console.error('Failed to fetch WABA data:', errorData);
       
-      // Check for missing permission error
       if (errorData.error?.code === 100) {
         return new Response(
           JSON.stringify({ 
-            error: 'Missing permission to list WhatsApp Business Accounts. Ensure the embedded signup completed and the app has WhatsApp Business permissions.' 
+            error: 'Missing whatsapp_business_management permission. Ensure the embedded signup completed and the app has WhatsApp Business permissions.',
+            details: 'The access token must include whatsapp_business_management scope.'
           }),
           { 
             status: 400,
@@ -96,18 +172,19 @@ serve(async (req) => {
         );
       }
       
-      throw new Error(`Failed to fetch WhatsApp Business Account data: ${JSON.stringify(errorData)}`);
+      throw new Error(`Failed to fetch WABA data: ${JSON.stringify(errorData)}`);
     }
 
     const wabaData = await wabaResponse.json();
     console.log('WABA response:', JSON.stringify(wabaData, null, 2));
 
-    // Extract the first WABA and phone number
-    const wabas = wabaData.data || [];
+    // Extract WABAs from the business object
+    const wabas = wabaData.owned_whatsapp_business_accounts?.data || [];
     if (wabas.length === 0) {
       return new Response(
         JSON.stringify({ 
-          error: 'No WhatsApp Business Accounts found. Please complete the embedded signup flow and ensure at least one WhatsApp Business Account is provisioned.' 
+          error: 'No WhatsApp Business Accounts found for this business. Please complete the embedded signup flow and ensure at least one WABA is provisioned.',
+          details: 'The embedded signup should automatically create a WABA. Try the signup flow again.'
         }),
         { 
           status: 400,
@@ -137,7 +214,13 @@ serve(async (req) => {
     const displayPhoneNumber = phoneNumber.display_phone_number;
     const verifiedName = phoneNumber.verified_name;
 
-    console.log('Extracted WABA data:', { waba_id, phone_number_id, displayPhoneNumber, verifiedName });
+    console.log('Extracted WABA data:', { 
+      businessId, 
+      waba_id, 
+      phone_number_id, 
+      displayPhoneNumber, 
+      verifiedName 
+    });
 
     // Step 3: Store the WhatsApp account in the database
     const { data, error } = await supabase

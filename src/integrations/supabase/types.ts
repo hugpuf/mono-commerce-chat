@@ -612,6 +612,27 @@ export type Database = {
           },
         ]
       }
+      oauth_code_uses: {
+        Row: {
+          code: string
+          provider: string
+          used_at: string
+          workspace_id: string
+        }
+        Insert: {
+          code: string
+          provider?: string
+          used_at?: string
+          workspace_id: string
+        }
+        Update: {
+          code?: string
+          provider?: string
+          used_at?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       order_discounts: {
         Row: {
           approved_by: string | null
@@ -1327,6 +1348,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_oauth_codes: { Args: never; Returns: undefined }
       expire_reservations: { Args: never; Returns: undefined }
       generate_order_number: { Args: never; Returns: string }
       log_audit_event: {

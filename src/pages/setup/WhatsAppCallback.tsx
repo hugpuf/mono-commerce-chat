@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
+import { WHATSAPP_REDIRECT_URI } from '@/lib/constants';
 
 export default function WhatsAppCallback() {
   const [searchParams] = useSearchParams();
@@ -96,11 +97,35 @@ export default function WhatsAppCallback() {
             code,
             state,
             workspace_id: effectiveWorkspaceId,
-            redirect_uri: `${window.location.origin}/setup/whatsapp/callback`
+            redirect_uri: WHATSAPP_REDIRECT_URI
           }
         });
 
-        if (error) throw error;
+        if (error) {
+          // Try to extract detailed error message
+          let errorMessage = 'Failed to connect WhatsApp. Please try again.';
+          
+          // Check for specific error codes
+          const errorStr = error.message || JSON.stringify(error);
+          if (errorStr.includes('409') || errorStr.includes('CODE_ALREADY_USED')) {
+            errorMessage = 'This connection attempt has expired. Please start the process again.';
+          } else if (errorStr.includes('400')) {
+            // Extract the actual error message from the response
+            try {
+              const match = errorStr.match(/"error":"([^"]+)"/);
+              if (match) errorMessage = match[1];
+            } catch {}
+          } else if (errorStr.includes('business_management')) {
+            errorMessage = 'Missing required permissions. Please ensure you complete all steps in the Meta signup flow.';
+          }
+          
+          setStatus('error');
+          setMessage(errorMessage);
+          
+          // Redirect back after delay
+          setTimeout(() => navigate('/setup/add-channel'), 3000);
+          return;
+        }
 
         console.log('✅ WhatsApp connected successfully');
         setStatus('success');
