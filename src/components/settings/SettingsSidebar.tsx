@@ -6,6 +6,7 @@ import {
   Users,
   CreditCard,
   ChevronRight,
+  Plug,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -21,6 +22,11 @@ const settingsNav: SettingsNavItem[] = [
     title: 'General',
     href: '/settings',
     icon: Building2,
+  },
+  {
+    title: 'Integrations',
+    href: '/settings/integrations',
+    icon: Plug,
   },
   {
     title: 'WhatsApp',

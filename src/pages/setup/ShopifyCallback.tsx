@@ -71,7 +71,7 @@ export default function ShopifyCallback() {
 
         // Redirect to catalog page after 2 seconds
         setTimeout(() => {
-          navigate("/setup/catalog");
+          navigate("/catalog");
         }, 2000);
 
       } catch (err) {

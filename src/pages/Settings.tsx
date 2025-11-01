@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { SettingsSidebar } from '@/components/settings/SettingsSidebar';
 import GeneralSettings from './settings/GeneralSettings';
 import ConnectionSettings from './settings/whatsapp/ConnectionSettings';
+import Integrations from './settings/Integrations';
 
 export default function Settings() {
   return (
@@ -11,6 +12,7 @@ export default function Settings() {
         <div className="container max-w-4xl py-6">
           <Routes>
             <Route index element={<GeneralSettings />} />
+            <Route path="integrations" element={<Integrations />} />
             <Route path="whatsapp">
               <Route index element={<Navigate to="connection" replace />} />
               <Route path="connection" element={<ConnectionSettings />} />

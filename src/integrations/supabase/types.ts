@@ -71,12 +71,14 @@ export type Database = {
           created_at: string
           id: string
           last_sync_at: string | null
+          products_count: number | null
           provider: string
           provider_config: Json | null
           scopes: string[] | null
           shop_domain: string | null
           status: string
           sync_error: string | null
+          sync_status: string | null
           updated_at: string
           webhook_subscriptions: Json | null
           workspace_id: string
@@ -87,12 +89,14 @@ export type Database = {
           created_at?: string
           id?: string
           last_sync_at?: string | null
+          products_count?: number | null
           provider: string
           provider_config?: Json | null
           scopes?: string[] | null
           shop_domain?: string | null
           status?: string
           sync_error?: string | null
+          sync_status?: string | null
           updated_at?: string
           webhook_subscriptions?: Json | null
           workspace_id: string
@@ -103,12 +107,14 @@ export type Database = {
           created_at?: string
           id?: string
           last_sync_at?: string | null
+          products_count?: number | null
           provider?: string
           provider_config?: Json | null
           scopes?: string[] | null
           shop_domain?: string | null
           status?: string
           sync_error?: string | null
+          sync_status?: string | null
           updated_at?: string
           webhook_subscriptions?: Json | null
           workspace_id?: string
@@ -308,6 +314,69 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "data_deletion_requests_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_sync_logs: {
+        Row: {
+          catalog_source_id: string
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          products_deleted: number | null
+          products_synced: number | null
+          products_updated: number | null
+          started_at: string
+          status: string
+          sync_type: string
+          workspace_id: string
+        }
+        Insert: {
+          catalog_source_id: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          products_deleted?: number | null
+          products_synced?: number | null
+          products_updated?: number | null
+          started_at?: string
+          status?: string
+          sync_type: string
+          workspace_id: string
+        }
+        Update: {
+          catalog_source_id?: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          products_deleted?: number | null
+          products_synced?: number | null
+          products_updated?: number | null
+          started_at?: string
+          status?: string
+          sync_type?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_sync_logs_catalog_source_id_fkey"
+            columns: ["catalog_source_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_sync_logs_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
