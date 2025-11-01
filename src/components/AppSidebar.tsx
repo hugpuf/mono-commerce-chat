@@ -15,6 +15,9 @@ import { IntegrationCircle } from "./IntegrationCircle";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import logo from '@/assets/logo.png';
+import shopifyLogo from '@/assets/shopify-logo.png';
+import whatsappLogo from '@/assets/whatsapp-logo.png';
+import stripeLogo from '@/assets/stripe-logo.png';
 
 const mainNavItems = [
   { path: "/conversations", label: "Conversations", icon: MessageCircle },
@@ -73,15 +76,15 @@ export function AppSidebar() {
   };
 
   const activeCatalogs = catalogSource ? [
-    { id: catalogSource.provider, name: catalogSource.provider === "shopify" ? "Shopify" : catalogSource.provider, icon: ShoppingBag, status: "connected" as const }
+    { id: catalogSource.provider, name: catalogSource.provider === "shopify" ? "Shopify" : catalogSource.provider, icon: shopifyLogo, status: "connected" as const }
   ] : [];
 
   const activePayments = paymentProvider ? [
-    { id: paymentProvider.provider, name: paymentProvider.provider === "stripe" ? "Stripe" : paymentProvider.provider, icon: CreditCard, status: "connected" as const }
+    { id: paymentProvider.provider, name: paymentProvider.provider === "stripe" ? "Stripe" : paymentProvider.provider, icon: stripeLogo, status: "connected" as const }
   ] : [];
 
   const activeChannels = whatsappAccount ? [
-    { id: "whatsapp", name: "WhatsApp", icon: MessageCircle, status: "connected" as const, active: true }
+    { id: "whatsapp", name: "WhatsApp", icon: whatsappLogo, status: "connected" as const, active: true }
   ] : [];
 
   return (

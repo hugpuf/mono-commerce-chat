@@ -3,7 +3,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 interface IntegrationCircleProps {
   name: string;
-  icon: LucideIcon;
+  icon: LucideIcon | string;
   connected?: boolean;
   active?: boolean;
   disabled?: boolean;
@@ -13,13 +13,14 @@ interface IntegrationCircleProps {
 
 export function IntegrationCircle({
   name,
-  icon: Icon,
+  icon,
   connected = false,
   active = false,
   disabled = false,
   status,
   onClick,
 }: IntegrationCircleProps) {
+  const Icon = typeof icon !== 'string' ? icon : null;
   const getStatusColor = () => {
     if (!status) return "";
     switch (status) {
@@ -47,7 +48,11 @@ export function IntegrationCircle({
           `}
           disabled={disabled}
         >
-          <Icon className="h-4 w-4" />
+          {typeof icon === 'string' ? (
+            <img src={icon} alt={name} className="h-5 w-5 object-contain" />
+          ) : (
+            <Icon className="h-4 w-4" />
+          )}
           {status && (
             <span
               className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ${getStatusColor()}`}
