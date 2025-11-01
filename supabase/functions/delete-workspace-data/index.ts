@@ -120,7 +120,7 @@ serve(async (req: Request) => {
         .from('data_deletion_requests')
         .update({
           status: 'failed',
-          error_message: deletionError.message,
+          error_message: deletionError instanceof Error ? deletionError.message : 'Unknown error',
           completed_at: new Date().toISOString(),
         })
         .eq('id', deletionRequest.id);
@@ -130,7 +130,7 @@ serve(async (req: Request) => {
   } catch (error) {
     console.error('Error in delete-workspace-data:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
@@ -238,7 +238,7 @@ async function performFullDeletion(supabase: any, workspaceId: string) {
       .list(`${workspaceId}/`);
 
     if (files && files.length > 0) {
-      const filePaths = files.map(file => `${workspaceId}/${file.name}`);
+      const filePaths = files.map((file: any) => `${workspaceId}/${file.name}`);
       await supabase.storage.from('business-logos').remove(filePaths);
       console.log('Deleted storage files');
     }
