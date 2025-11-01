@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -10,8 +10,15 @@ export default function WhatsAppCallback() {
   const { workspaceId, isLoading: workspaceLoading } = useWorkspace();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [message, setMessage] = useState('Processing WhatsApp connection...');
+  const hasRunRef = useRef(false);
 
   useEffect(() => {
+    // Prevent duplicate invocation
+    if (hasRunRef.current) return;
+    if (workspaceLoading) return;
+    
+    hasRunRef.current = true;
+    
     const processCallback = async () => {
       try {
         // Get OAuth code from URL params

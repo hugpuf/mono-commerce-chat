@@ -49,6 +49,18 @@ serve(async (req) => {
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json();
       console.error('Token exchange failed:', errorData);
+      
+      // Check for "authorization code has been used" error
+      if (errorData.error?.error_subcode === 36009) {
+        return new Response(
+          JSON.stringify({ error: 'Authorization code already used. Please try connecting again.' }),
+          { 
+            status: 409,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
       throw new Error(`Failed to exchange code for token: ${JSON.stringify(errorData)}`);
     }
 
@@ -61,7 +73,7 @@ serve(async (req) => {
     console.log('Fetching WABA data from Graph API...');
     
     const wabaResponse = await fetch(
-      'https://graph.facebook.com/v24.0/me/businesses?fields=owned_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name}}',
+      'https://graph.facebook.com/v24.0/me/owned_whatsapp_business_accounts?fields=id,name,phone_numbers{id,display_phone_number,verified_name}',
       {
         headers: { 'Authorization': `Bearer ${accessToken}` }
       }
@@ -70,6 +82,20 @@ serve(async (req) => {
     if (!wabaResponse.ok) {
       const errorData = await wabaResponse.json();
       console.error('Failed to fetch WABA data:', errorData);
+      
+      // Check for missing permission error
+      if (errorData.error?.code === 100) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Missing permission to list WhatsApp Business Accounts. Ensure the embedded signup completed and the app has WhatsApp Business permissions.' 
+          }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
       throw new Error(`Failed to fetch WhatsApp Business Account data: ${JSON.stringify(errorData)}`);
     }
 
@@ -77,14 +103,17 @@ serve(async (req) => {
     console.log('WABA response:', JSON.stringify(wabaData, null, 2));
 
     // Extract the first WABA and phone number
-    const businesses = wabaData.data || [];
-    if (businesses.length === 0) {
-      throw new Error('No businesses found in your Meta account');
-    }
-
-    const wabas = businesses[0].owned_whatsapp_business_accounts?.data || [];
+    const wabas = wabaData.data || [];
     if (wabas.length === 0) {
-      throw new Error('No WhatsApp Business Accounts found');
+      return new Response(
+        JSON.stringify({ 
+          error: 'No WhatsApp Business Accounts found. Please complete the embedded signup flow and ensure at least one WhatsApp Business Account is provisioned.' 
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const waba = wabas[0];
@@ -92,7 +121,15 @@ serve(async (req) => {
     const phoneNumbers = waba.phone_numbers?.data || [];
     
     if (phoneNumbers.length === 0) {
-      throw new Error('No phone numbers found for this WhatsApp Business Account');
+      return new Response(
+        JSON.stringify({ 
+          error: 'No phone numbers found for this WhatsApp Business Account. Please complete the phone number provisioning step in the embedded signup.' 
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const phoneNumber = phoneNumbers[0];
