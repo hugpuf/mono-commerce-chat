@@ -25,7 +25,6 @@ const mainNavItems = [
   { path: "/automations", label: "Automations", icon: Zap },
   { path: "/orders", label: "Orders", icon: ShoppingCart },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
-  { path: "/catalog", label: "Catalog", icon: ShoppingBag },
 ];
 
 export function AppSidebar() {
@@ -104,6 +103,7 @@ export function AppSidebar() {
                   connected={true}
                   status={channel.status}
                   active={channel.active}
+                  onClick={() => navigate("/conversations")}
                 />
               ))
             ) : (
@@ -132,6 +132,7 @@ export function AppSidebar() {
                   icon={catalog.icon}
                   connected={true}
                   status={catalog.status}
+                  onClick={() => navigate("/catalog")}
                 />
               ))
             ) : (
@@ -160,6 +161,7 @@ export function AppSidebar() {
                   icon={payment.icon}
                   connected={true}
                   status={payment.status}
+                  onClick={() => navigate("/orders")}
                 />
               ))
             ) : (
