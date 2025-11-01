@@ -49,7 +49,7 @@ export function IntegrationCircle({
           disabled={disabled}
         >
           {typeof icon === 'string' ? (
-            <img src={icon} alt={name} className="h-5 w-5 object-contain" />
+            <img src={icon} alt={name} className="w-full h-full object-contain p-0" />
           ) : (
             <Icon className="h-4 w-4" />
           )}

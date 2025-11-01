@@ -118,7 +118,7 @@ All colors MUST be HSL.
   }
   
   .integration-circle-connected {
-    @apply bg-foreground text-background border-foreground;
+    @apply bg-background text-foreground border-border;
   }
 
   /* Hairline dividers */
