@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
 import { IntegrationCard } from "@/components/settings/IntegrationCard";
+import { DisconnectIntegrationDialog } from "@/components/settings/DisconnectIntegrationDialog";
 import { ShoppingBag, CreditCard, MessageSquare, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -17,6 +18,11 @@ export default function Integrations() {
   const [catalogSource, setCatalogSource] = useState<any>(null);
   const [paymentProvider, setPaymentProvider] = useState<any>(null);
   const [whatsappAccount, setWhatsappAccount] = useState<any>(null);
+
+  const [disconnectDialog, setDisconnectDialog] = useState<{
+    open: boolean;
+    type: "catalog" | "payment" | "whatsapp" | null;
+  }>({ open: false, type: null });
 
   useEffect(() => {
     if (workspaceId) {
@@ -94,6 +100,85 @@ export default function Integrations() {
     }
   };
 
+  const handleDisconnect = async () => {
+    if (!disconnectDialog.type) return;
+
+    try {
+      switch (disconnectDialog.type) {
+        case "catalog":
+          if (!catalogSource) return;
+          
+          const { error: catalogError } = await supabase
+            .from("catalog_sources")
+            .update({ status: "disconnected" })
+            .eq("id", catalogSource.id);
+
+          if (catalogError) throw catalogError;
+
+          toast({
+            title: "Catalog disconnected",
+            description: "Your product catalog has been disconnected.",
+          });
+          break;
+
+        case "payment":
+          if (!paymentProvider) return;
+          
+          const { error: paymentError } = await supabase
+            .from("payment_providers")
+            .update({ status: "disconnected" })
+            .eq("id", paymentProvider.id);
+
+          if (paymentError) throw paymentError;
+
+          toast({
+            title: "Payment gateway disconnected",
+            description: "Your payment provider has been disconnected.",
+          });
+          break;
+
+        case "whatsapp":
+          if (!whatsappAccount) return;
+          
+          const { error: whatsappError } = await supabase
+            .from("whatsapp_accounts")
+            .update({ status: "inactive" })
+            .eq("id", whatsappAccount.id);
+
+          if (whatsappError) throw whatsappError;
+
+          toast({
+            title: "WhatsApp disconnected",
+            description: "Your WhatsApp Business account has been disconnected.",
+          });
+          break;
+      }
+
+      setDisconnectDialog({ open: false, type: null });
+      await fetchIntegrations();
+    } catch (error: any) {
+      console.error("Disconnect error:", error);
+      toast({
+        title: "Disconnection failed",
+        description: error.message || "Failed to disconnect integration",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getDisconnectWarning = (type: string) => {
+    switch (type) {
+      case "catalog":
+        return "Disconnecting your catalog will remove all synced products and prevent new product updates. You'll need to reconnect to restore catalog functionality.";
+      case "payment":
+        return "Disconnecting your payment gateway will prevent you from processing new transactions. Existing payment links will stop working.";
+      case "whatsapp":
+        return "Disconnecting WhatsApp will prevent you from sending and receiving messages. Your conversation history will be preserved but you won't be able to access it until you reconnect.";
+      default:
+        return undefined;
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -109,15 +194,30 @@ export default function Integrations() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Integrations</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage your connected services and integrations
-        </p>
-      </div>
+    <>
+      <DisconnectIntegrationDialog
+        open={disconnectDialog.open}
+        onOpenChange={(open) => setDisconnectDialog({ open, type: null })}
+        onConfirm={handleDisconnect}
+        integrationName={
+          disconnectDialog.type === "catalog"
+            ? "Product Catalog"
+            : disconnectDialog.type === "payment"
+            ? "Payment Gateway"
+            : "WhatsApp Business"
+        }
+        warningMessage={disconnectDialog.type ? getDisconnectWarning(disconnectDialog.type) : undefined}
+      />
 
-      <div className="space-y-4">
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Integrations</h1>
+          <p className="text-muted-foreground mt-2">
+            Manage your connected services and integrations
+          </p>
+        </div>
+
+        <div className="space-y-4">
         <div>
           <h2 className="text-xl font-semibold mb-3">Product Catalog</h2>
           {catalogSource ? (
@@ -136,6 +236,7 @@ export default function Integrations() {
               onSync={handleCatalogSync}
               syncLoading={syncLoading}
               onSettings={() => navigate("/setup/add-catalog")}
+              onDisconnect={() => setDisconnectDialog({ open: true, type: "catalog" })}
             />
           ) : (
             <IntegrationCard
@@ -171,6 +272,7 @@ export default function Integrations() {
                   : "Live mode"
               }
               onSettings={() => navigate("/setup/add-payment")}
+              onDisconnect={() => setDisconnectDialog({ open: true, type: "payment" })}
             />
           ) : (
             <IntegrationCard
@@ -202,6 +304,7 @@ export default function Integrations() {
               provider="Meta WhatsApp Business"
               statusMessage={`Phone: ${whatsappAccount.phone_number || 'Not configured'}`}
               onSettings={() => navigate("/settings/whatsapp/connection")}
+              onDisconnect={() => setDisconnectDialog({ open: true, type: "whatsapp" })}
             />
           ) : (
             <IntegrationCard
@@ -221,7 +324,8 @@ export default function Integrations() {
             </Button>
           )}
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
