@@ -45,12 +45,14 @@ export const useWorkspaceConnections = (workspaceId: string | null) => {
 
       // Parallel queries for all connection types
       const [catalogResult, paymentResult, whatsappResult] = await Promise.all([
-        // Catalog
+        // Catalog - only consider it connected if it has a shop_domain AND access_token
         supabase
           .from('catalog_sources')
           .select('*')
           .eq('workspace_id', workspaceId)
           .eq('status', 'active')
+          .not('shop_domain', 'is', null)
+          .not('access_token', 'is', null)
           .maybeSingle(),
         
         // Payment
@@ -61,12 +63,14 @@ export const useWorkspaceConnections = (workspaceId: string | null) => {
           .eq('status', 'active')
           .maybeSingle(),
         
-        // WhatsApp
+        // WhatsApp - only consider it connected if it has required fields
         supabase
           .from('whatsapp_accounts')
           .select('*')
           .eq('workspace_id', workspaceId)
           .eq('status', 'active')
+          .not('phone_number_id', 'is', null)
+          .not('access_token', 'is', null)
           .limit(1),
       ]);
 
