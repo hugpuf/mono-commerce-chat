@@ -26,13 +26,30 @@ export default function WhatsAppCallback() {
           throw new Error('No workspace found');
         }
         
-        // Send only code and state to edge function for secure server-side exchange
+        // Get WABA data from sessionStorage (set by AddChannel page via postMessage)
+        const wabaDataStr = sessionStorage.getItem('whatsapp_waba_data');
+        let wabaData = null;
+        
+        if (wabaDataStr) {
+          try {
+            wabaData = JSON.parse(wabaDataStr);
+            console.log('Retrieved WABA data from sessionStorage:', wabaData);
+            // Clear the data after retrieval
+            sessionStorage.removeItem('whatsapp_waba_data');
+          } catch (e) {
+            console.warn('Failed to parse WABA data from sessionStorage:', e);
+          }
+        }
+        
+        // Send code and WABA data to edge function
         const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
           body: {
             code,
             state,
             workspace_id: workspaceId,
-            redirect_uri: `${window.location.origin}/setup/whatsapp/callback`
+            redirect_uri: `${window.location.origin}/setup/whatsapp/callback`,
+            waba_id: wabaData?.waba_id,
+            phone_number_id: wabaData?.phone_number_id
           }
         });
 

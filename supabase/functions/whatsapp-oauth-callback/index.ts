@@ -20,10 +20,17 @@ serve(async (req) => {
       code, 
       workspace_id,
       state,
-      redirect_uri
+      redirect_uri,
+      waba_id,
+      phone_number_id
     } = await req.json();
 
-    console.log('Received WhatsApp OAuth callback', { workspace_id, has_code: !!code });
+    console.log('Received WhatsApp OAuth callback', { 
+      workspace_id, 
+      has_code: !!code,
+      has_waba_id: !!waba_id,
+      has_phone_number_id: !!phone_number_id
+    });
 
     // Step 1: Exchange code for access token (server-side only)
     const metaAppId = Deno.env.get('META_APP_ID')!;
@@ -54,69 +61,46 @@ serve(async (req) => {
 
     console.log('Successfully exchanged code for access token');
 
-    // Step 2: Debug token to get WABA ID and confirm scopes (optional but helpful)
-    const debugResponse = await fetch(
-      `https://graph.facebook.com/v24.0/debug_token?input_token=${accessToken}&access_token=${accessToken}`
-    );
-
-    if (!debugResponse.ok) {
-      console.warn('Debug token failed, continuing without scope verification');
-    } else {
-      const debugData = await debugResponse.json();
-      console.log('Token scopes:', debugData.data?.scopes);
+    // Step 2: Validate we have the WABA data (provided by Embedded Signup postMessage)
+    if (!waba_id || !phone_number_id) {
+      throw new Error('Missing WABA ID or phone number ID from Embedded Signup');
     }
 
-    // Step 3: Get business accounts to find WABA ID
-    const businessResponse = await fetch(
-      `https://graph.facebook.com/v24.0/me/businesses?fields=owned_whatsapp_business_accounts{id}`,
-      {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
+    console.log('Using WABA data from Embedded Signup:', { waba_id, phone_number_id });
+
+    // Step 3: Optionally fetch phone number details for display
+    let displayPhoneNumber = null;
+    let verifiedName = null;
+    
+    try {
+      const phoneDetailsResponse = await fetch(
+        `https://graph.facebook.com/v24.0/${phone_number_id}?fields=display_phone_number,verified_name`,
+        {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        }
+      );
+
+      if (phoneDetailsResponse.ok) {
+        const phoneDetails = await phoneDetailsResponse.json();
+        displayPhoneNumber = phoneDetails.display_phone_number;
+        verifiedName = phoneDetails.verified_name;
+        console.log('Fetched phone details:', { displayPhoneNumber, verifiedName });
+      } else {
+        console.warn('Could not fetch phone details, will use defaults');
       }
-    );
-
-    if (!businessResponse.ok) {
-      throw new Error('Failed to fetch business accounts');
+    } catch (e) {
+      console.warn('Error fetching phone details:', e);
     }
 
-    const businessData = await businessResponse.json();
-    const wabaId = businessData.data?.[0]?.owned_whatsapp_business_accounts?.data?.[0]?.id;
-
-    if (!wabaId) {
-      throw new Error('No WhatsApp Business Account found');
-    }
-
-    console.log('Found WABA ID:', wabaId);
-
-    // Step 4: Get phone numbers under this WABA
-    const phonesResponse = await fetch(
-      `https://graph.facebook.com/v24.0/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name`,
-      {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      }
-    );
-
-    if (!phonesResponse.ok) {
-      throw new Error('Failed to fetch phone numbers');
-    }
-
-    const phonesData = await phonesResponse.json();
-    const phoneNumber = phonesData.data?.[0];
-
-    if (!phoneNumber) {
-      throw new Error('No phone number found for WABA');
-    }
-
-    console.log('Found phone number:', phoneNumber.display_phone_number);
-
-    // Step 5: Store the WhatsApp account in the database
+    // Step 4: Store the WhatsApp account in the database
     const { data, error } = await supabase
       .from('whatsapp_accounts')
       .upsert({
         workspace_id,
-        waba_id: wabaId,
-        phone_number_id: phoneNumber.id,
-        phone_number: phoneNumber.display_phone_number,
-        display_name: phoneNumber.verified_name,
+        waba_id: waba_id,
+        phone_number_id: phone_number_id,
+        phone_number: displayPhoneNumber,
+        display_name: verifiedName,
         access_token: accessToken,
         webhook_verify_token: crypto.randomUUID(),
         status: 'active'
@@ -133,10 +117,10 @@ serve(async (req) => {
 
     console.log('WhatsApp account stored successfully', data);
 
-    // Step 6: Subscribe webhooks at WABA level (no body needed)
+    // Step 5: Subscribe webhooks at WABA level (no body needed)
     try {
       const webhookResponse = await fetch(
-        `https://graph.facebook.com/v24.0/${wabaId}/subscribed_apps`,
+        `https://graph.facebook.com/v24.0/${waba_id}/subscribed_apps`,
         {
           method: 'POST',
           headers: {
