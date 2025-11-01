@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useToast } from "@/hooks/use-toast";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import whatsappLogo from '@/assets/whatsapp-logo.png';
 
 interface ChannelProvider {
@@ -57,6 +58,7 @@ const channelProviders: ChannelProvider[] = [
 export default function AddChannel() {
   const navigate = useNavigate();
   const { toast: toastHook } = useToast();
+  const { workspaceId } = useWorkspace();
   const [metaConfig, setMetaConfig] = useState<{ appId: string; configId: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -92,7 +94,11 @@ export default function AddChannel() {
 
       // Meta Embedded Signup configuration
       const redirectUri = `${window.location.origin}/setup/whatsapp/callback`;
-      const state = crypto.randomUUID();
+      
+      // Encode workspace ID in state so callback can access it even if context isn't ready
+      const stateData = { ws: workspaceId, nonce: crypto.randomUUID() };
+      const state = btoa(JSON.stringify(stateData));
+      console.log('🔐 State prepared:', { hasWorkspace: !!workspaceId });
       
       // Launch Meta's Embedded Signup
       const embedUrl = `https://www.facebook.com/v24.0/dialog/oauth?` +
