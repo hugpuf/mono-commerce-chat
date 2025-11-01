@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
 
     // Only make API call if there's data to update
     if (Object.keys(metaPayload).length > 0) {
-      const metaApiUrl = `https://graph.facebook.com/v21.0/${whatsappAccount.phone_number_id}`;
+      const metaApiUrl = `https://graph.facebook.com/v24.0/${whatsappAccount.phone_number_id}`;
       
       const response = await fetch(metaApiUrl, {
         method: 'POST',

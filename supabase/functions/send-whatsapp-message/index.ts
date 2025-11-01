@@ -49,7 +49,7 @@ serve(async (req) => {
 
     // Send message via Meta Graph API
     const metaResponse = await fetch(
-      `https://graph.facebook.com/v21.0/${whatsappAccount.phone_number_id}/messages`,
+      `https://graph.facebook.com/v24.0/${whatsappAccount.phone_number_id}/messages`,
       {
         method: 'POST',
         headers: {

@@ -95,7 +95,7 @@ export default function AddChannel() {
       const state = crypto.randomUUID();
       
       // Launch Meta's Embedded Signup
-      const embedUrl = `https://www.facebook.com/v21.0/dialog/oauth?` +
+      const embedUrl = `https://www.facebook.com/v24.0/dialog/oauth?` +
         `client_id=${metaConfig.appId}&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
         `config_id=${metaConfig.configId}&` +
