@@ -21,6 +21,7 @@ import ShopifyCallback from "./pages/setup/ShopifyCallback";
 import DeletionStatus from "./pages/DeletionStatus";
 import NotFound from "./pages/NotFound";
 import { WorkspaceProvider } from "./contexts/WorkspaceContext";
+import { AutomationsProvider } from "./contexts/AutomationsContext";
 
 const queryClient = new QueryClient();
 
@@ -38,7 +39,9 @@ const App = () => (
               path="/conversations"
               element={
                 <AppShell>
-                  <Conversations />
+                  <AutomationsProvider>
+                    <Conversations />
+                  </AutomationsProvider>
                 </AppShell>
               }
             />

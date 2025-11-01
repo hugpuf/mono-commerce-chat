@@ -43,10 +43,7 @@ function AutomationsContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Above the line: Global Controls */}
-      <GlobalControls onPreview={() => setPreviewOpen(true)} />
-
-      {/* Below the line: Automation Library */}
+      {/* Workflow Library */}
       <AutomationLibrary
         onCreateNew={handleCreateNew}
         onEdit={handleEdit}

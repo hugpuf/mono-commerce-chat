@@ -8,6 +8,7 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import GlobalControls from "@/components/automations/GlobalControls";
 
 interface Conversation {
   id: string;
@@ -209,9 +210,13 @@ export default function Conversations() {
   }
 
   return (
-    <div className="flex h-full">
-      {/* Conversation List */}
-      <div className="w-80 border-r border-border flex flex-col">
+    <div className="flex flex-col h-full">
+      {/* Workflow Controls */}
+      <GlobalControls />
+      
+      <div className="flex flex-1 overflow-hidden">
+        {/* Conversation List */}
+        <div className="w-80 border-r border-border flex flex-col">
         <div className="p-4 border-b border-border">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -374,6 +379,7 @@ export default function Conversations() {
           Select a conversation to start
         </div>
       )}
+      </div>
     </div>
   );
 }

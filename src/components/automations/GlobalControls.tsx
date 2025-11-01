@@ -8,7 +8,7 @@ import { Play, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAutomations, type AutomationMode } from '@/contexts/AutomationsContext';
 import { cn } from '@/lib/utils';
 
-export default function GlobalControls({ onPreview }: { onPreview: () => void }) {
+export default function GlobalControls({ onPreview }: { onPreview?: () => void } = {}) {
   const { settings, updateSettings } = useAutomations();
   const [expanded, setExpanded] = useState(false);
 
@@ -170,13 +170,15 @@ export default function GlobalControls({ onPreview }: { onPreview: () => void })
               </div>
             </div>
 
-            {/* Preview Button */}
-            <div className="flex justify-end pt-2">
-              <Button onClick={onPreview} variant="outline" className="gap-2">
-                <Play className="h-4 w-4" />
-                Preview / Simulate
-              </Button>
-            </div>
+            {/* Preview Button - Only show if onPreview callback is provided */}
+            {onPreview && (
+              <div className="flex justify-end pt-2">
+                <Button onClick={onPreview} variant="outline" className="gap-2">
+                  <Play className="h-4 w-4" />
+                  Preview / Simulate
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
