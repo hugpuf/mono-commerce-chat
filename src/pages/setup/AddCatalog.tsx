@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ShoppingBag,
@@ -24,6 +25,7 @@ interface CatalogProvider {
   name: string;
   icon: typeof ShoppingBag;
   description: string;
+  comingSoon?: boolean;
 }
 
 const catalogProviders: CatalogProvider[] = [
@@ -32,66 +34,77 @@ const catalogProviders: CatalogProvider[] = [
     name: "Manual Upload",
     icon: Upload,
     description: "Upload CSV file with products",
+    comingSoon: false,
   },
   {
     id: "shopify",
     name: "Shopify",
     icon: ShoppingBag,
     description: "Connect your Shopify store",
+    comingSoon: false,
   },
   {
     id: "woocommerce",
     name: "WooCommerce",
     icon: ShoppingCart,
     description: "WordPress e-commerce plugin",
+    comingSoon: true,
   },
   {
     id: "bigcommerce",
     name: "BigCommerce",
     icon: Store,
     description: "Enterprise e-commerce platform",
+    comingSoon: true,
   },
   {
     id: "magento",
     name: "Magento (Adobe Commerce)",
     icon: Box,
     description: "Adobe's commerce solution",
+    comingSoon: true,
   },
   {
     id: "squarespace",
     name: "Squarespace",
     icon: Hexagon,
     description: "All-in-one website builder",
+    comingSoon: true,
   },
   {
     id: "wix",
     name: "Wix",
     icon: Grid,
     description: "Website builder with e-commerce",
+    comingSoon: true,
   },
   {
     id: "square",
     name: "Square Online",
     icon: Package,
     description: "Square's online store",
+    comingSoon: true,
   },
   {
     id: "google",
     name: "Google Merchant Center",
     icon: Globe,
     description: "Google product listings",
+    comingSoon: true,
   },
   {
     id: "etsy",
     name: "Etsy",
     icon: Package,
     description: "Handmade & vintage marketplace",
+    comingSoon: true,
   },
   {
     id: "amazon",
     name: "Amazon Seller Central",
     icon: Package,
     description: "Amazon marketplace integration",
+    comingSoon: true,
   },
 ];
 
@@ -154,19 +167,33 @@ export default function AddCatalog() {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {catalogProviders.map((provider) => {
             const Icon = provider.icon;
+            const isComingSoon = provider.comingSoon;
             return (
               <Card
                 key={provider.id}
-                className="border-border hover:border-foreground/20 transition-all duration-200"
+                className={`border-border transition-all duration-200 ${
+                  isComingSoon 
+                    ? "opacity-60" 
+                    : "hover:border-foreground/20"
+                }`}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full border border-border flex items-center justify-center bg-muted">
+                    <div className={`w-10 h-10 rounded-full border border-border flex items-center justify-center bg-muted ${
+                      isComingSoon ? "opacity-50" : ""
+                    }`}>
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="flex-1">
-                      <CardTitle className="text-base">{provider.name}</CardTitle>
-                      <CardDescription className="text-xs mt-1">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-base">{provider.name}</CardTitle>
+                        {isComingSoon && (
+                          <Badge variant="secondary" className="text-xs">Soon</Badge>
+                        )}
+                      </div>
+                      <CardDescription className={`text-xs mt-1 ${
+                        isComingSoon ? "opacity-70" : ""
+                      }`}>
                         {provider.description}
                       </CardDescription>
                     </div>
@@ -177,9 +204,15 @@ export default function AddCatalog() {
                     variant="outline"
                     size="sm"
                     className="w-full"
-                    onClick={() => handleConnect(provider.id)}
+                    onClick={() => !isComingSoon && handleConnect(provider.id)}
+                    disabled={isComingSoon}
                   >
-                    {provider.id === "manual" ? "Upload File" : "Connect"}
+                    {isComingSoon 
+                      ? "Coming Soon" 
+                      : provider.id === "manual" 
+                      ? "Upload File" 
+                      : "Connect"
+                    }
                   </Button>
                 </CardContent>
               </Card>
