@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -14,6 +14,8 @@ export default function Catalog() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [stockFilter, setStockFilter] = useState<"all" | "in-stock" | "low-stock" | "out-of-stock">("all");
   
   const [catalogSource, setCatalogSource] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
@@ -102,6 +104,35 @@ export default function Catalog() {
     }
   };
 
+  // Filter products based on search and stock filter
+  const filteredProducts = useMemo(() => {
+    let filtered = [...products];
+
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (p) =>
+          p.title?.toLowerCase().includes(query) ||
+          p.sku?.toLowerCase().includes(query) ||
+          p.description?.toLowerCase().includes(query)
+      );
+    }
+
+    // Stock filter
+    if (stockFilter !== "all") {
+      filtered = filtered.filter((p) => {
+        const stock = p.stock || 0;
+        if (stockFilter === "out-of-stock") return stock === 0;
+        if (stockFilter === "low-stock") return stock > 0 && stock <= 10;
+        if (stockFilter === "in-stock") return stock > 10;
+        return true;
+      });
+    }
+
+    return filtered;
+  }, [products, searchQuery, stockFilter]);
+
   // If no catalog source, show setup page
   if (!loading && !catalogSource) {
     return <AddCatalog />;
@@ -118,12 +149,18 @@ export default function Catalog() {
           <>
             <CatalogHeader
               productsCount={products.length}
+              filteredCount={filteredProducts.length}
               provider={catalogSource?.provider === "shopify" ? "Shopify" : catalogSource?.provider}
+              shopDomain={catalogSource?.shop_domain}
               lastSync={catalogSource?.last_sync_at}
               syncStatus={catalogSource?.sync_status}
               onSync={handleSync}
               onSettings={() => navigate("/settings/integrations")}
               syncLoading={syncLoading}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              stockFilter={stockFilter}
+              onStockFilterChange={setStockFilter}
             />
 
             {catalogSource?.sync_status === "syncing" && products.length === 0 ? (
@@ -135,7 +172,7 @@ export default function Catalog() {
                 </p>
               </div>
             ) : (
-              <ProductGrid products={products} />
+              <ProductGrid products={filteredProducts} shopDomain={catalogSource?.shop_domain} />
             )}
           </>
         )}
