@@ -19,11 +19,12 @@ import { useState } from "react";
 import { CSVUploadDialog } from "@/components/catalog/CSVUploadDialog";
 import { ShopifyConnectDialog } from "@/components/catalog/ShopifyConnectDialog";
 import { useShopifyOAuth } from "@/hooks/useShopifyOAuth";
+import shopifyLogo from '@/assets/shopify-logo.png';
 
 interface CatalogProvider {
   id: string;
   name: string;
-  icon: typeof ShoppingBag;
+  icon: typeof ShoppingBag | string;
   description: string;
   comingSoon?: boolean;
 }
@@ -39,7 +40,7 @@ const catalogProviders: CatalogProvider[] = [
   {
     id: "shopify",
     name: "Shopify",
-    icon: ShoppingBag,
+    icon: shopifyLogo,
     description: "Connect your Shopify store",
     comingSoon: false,
   },
@@ -166,7 +167,7 @@ export default function AddCatalog() {
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {catalogProviders.map((provider) => {
-            const Icon = provider.icon;
+            const Icon = typeof provider.icon !== 'string' ? provider.icon : null;
             const isComingSoon = provider.comingSoon;
             return (
               <Card
@@ -179,10 +180,14 @@ export default function AddCatalog() {
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start gap-3">
-                    <div className={`w-10 h-10 rounded-full border border-border flex items-center justify-center bg-muted ${
+                    <div className={`w-10 h-10 rounded-full border border-border flex items-center justify-center bg-muted overflow-hidden ${
                       isComingSoon ? "opacity-50" : ""
                     }`}>
-                      <Icon className="h-4 w-4" />
+                      {typeof provider.icon === 'string' ? (
+                        <img src={provider.icon} alt={provider.name} className="w-full h-full object-contain p-0" />
+                      ) : (
+                        <Icon className="h-4 w-4" />
+                      )}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">

@@ -7,11 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useToast } from "@/hooks/use-toast";
+import whatsappLogo from '@/assets/whatsapp-logo.png';
 
 interface ChannelProvider {
   id: string;
   name: string;
-  icon: typeof MessageCircle;
+  icon: typeof MessageCircle | string;
   description: string;
   comingSoon?: boolean;
 }
@@ -20,7 +21,7 @@ const channelProviders: ChannelProvider[] = [
   {
     id: "whatsapp",
     name: "WhatsApp Business",
-    icon: MessageCircle,
+    icon: whatsappLogo,
     description: "Official WhatsApp Business API",
   },
   {
@@ -172,7 +173,7 @@ export default function AddChannel() {
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {channelProviders.map((channel) => {
-            const Icon = channel.icon;
+            const Icon = typeof channel.icon !== 'string' ? channel.icon : null;
             return (
               <Card
                 key={channel.id}
@@ -183,8 +184,12 @@ export default function AddChannel() {
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full border border-border flex items-center justify-center bg-muted">
-                      <Icon className="h-4 w-4" />
+                    <div className="w-10 h-10 rounded-full border border-border flex items-center justify-center bg-muted overflow-hidden">
+                      {typeof channel.icon === 'string' ? (
+                        <img src={channel.icon} alt={channel.name} className="w-full h-full object-contain p-0" />
+                      ) : (
+                        <Icon className="h-4 w-4" />
+                      )}
                     </div>
                     <div className="flex-1">
                       <CardTitle className="text-base flex items-center gap-2">
