@@ -59,12 +59,14 @@ export function AppSidebar() {
         .maybeSingle();
 
       // Fetch WhatsApp account
-      const { data: whatsapp } = await supabase
+      const { data: whatsappData } = await supabase
         .from("whatsapp_accounts")
         .select("*")
         .eq("workspace_id", workspaceId)
         .eq("status", "active")
-        .maybeSingle();
+        .limit(1);
+      
+      const whatsapp = whatsappData?.[0] || null;
 
       setCatalogSource(catalog);
       setPaymentProvider(payment);

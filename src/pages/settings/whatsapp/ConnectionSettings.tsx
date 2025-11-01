@@ -44,11 +44,13 @@ export default function ConnectionSettings() {
 
     try {
       // Fetch WhatsApp account
-      const { data: accountData, error: accountError } = await supabase
+      const { data: accountDataArr, error: accountError } = await supabase
         .from('whatsapp_accounts')
         .select('*')
         .eq('workspace_id', workspace.id)
-        .maybeSingle();
+        .limit(1);
+      
+      const accountData = accountDataArr?.[0] || null;
 
       if (accountError) throw accountError;
       setAccount(accountData);

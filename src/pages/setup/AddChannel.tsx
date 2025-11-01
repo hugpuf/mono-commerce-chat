@@ -100,7 +100,6 @@ export default function AddChannel() {
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
         `config_id=${metaConfig.configId}&` +
         `response_type=code&` +
-        `scope=whatsapp_business_management,whatsapp_business_messaging&` +
         `state=${state}`;
       
       console.log('Opening WhatsApp OAuth:', embedUrl);
