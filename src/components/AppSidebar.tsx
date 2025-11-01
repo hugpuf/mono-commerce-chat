@@ -21,7 +21,7 @@ import stripeLogo from '@/assets/stripe-logo.png';
 const mainNavItems = [
   { path: "/conversations", label: "Conversations", icon: MessageCircle },
   { path: "/templates", label: "Templates", icon: FileText },
-  { path: "/automations", label: "Automations", icon: Zap },
+  { path: "/automations", label: "Workflows", icon: Zap },
   { path: "/orders", label: "Orders", icon: ShoppingCart },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
 ];

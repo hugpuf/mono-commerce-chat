@@ -24,7 +24,7 @@ export default function GlobalControls({ onPreview }: { onPreview: () => void })
         {/* Mode Selection */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium">Automation Mode</Label>
+            <Label className="text-sm font-medium">Workflow Mode</Label>
             <Button
               variant="ghost"
               size="sm"

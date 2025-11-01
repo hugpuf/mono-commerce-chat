@@ -78,9 +78,9 @@ export default function FlowBuilder({ open, onOpenChange, automation, onSave }: 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{automation ? 'Edit Automation' : 'Create Automation'}</DialogTitle>
+          <DialogTitle>{automation ? 'Edit Workflow' : 'Create Workflow'}</DialogTitle>
           <DialogDescription>
-            Build your automation flow using natural language or structured blocks.
+            Build your workflow using natural language or structured blocks.
           </DialogDescription>
         </DialogHeader>
 
@@ -92,7 +92,7 @@ export default function FlowBuilder({ open, onOpenChange, automation, onSave }: 
               <Input
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="My Custom Automation"
+                placeholder="My Custom Workflow"
                 className="mt-1"
               />
             </div>
@@ -101,7 +101,7 @@ export default function FlowBuilder({ open, onOpenChange, automation, onSave }: 
               <Textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
-                placeholder="What does this automation do?"
+                placeholder="What does this workflow do?"
                 className="mt-1 min-h-[60px]"
               />
             </div>
@@ -124,7 +124,7 @@ export default function FlowBuilder({ open, onOpenChange, automation, onSave }: 
           <div className="border border-border rounded-md p-4 bg-muted/30">
             <Label className="flex items-center gap-2 mb-2">
               <Sparkles className="h-4 w-4 text-primary" />
-              Describe your automation in plain English
+              Describe your workflow in plain English
             </Label>
             <Textarea
               value={naturalLanguage}
@@ -317,7 +317,7 @@ export default function FlowBuilder({ open, onOpenChange, automation, onSave }: 
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>Save Automation</Button>
+          <Button onClick={handleSave}>Save Workflow</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

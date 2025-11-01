@@ -34,10 +34,10 @@ export default function AutomationLibrary({
     <div className="px-8 py-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Automation Library</h2>
+        <h2 className="text-lg font-semibold">Workflow Library</h2>
         <Button onClick={onCreateNew} className="gap-2">
           <Plus className="h-4 w-4" />
-          Create Automation
+          Create Workflow
         </Button>
       </div>
 
@@ -48,14 +48,14 @@ export default function AutomationLibrary({
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search automations..."
+            placeholder="Search workflows..."
             className="pl-9"
           />
         </div>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
           <TabsList>
             <TabsTrigger value="suggested">Suggested</TabsTrigger>
-            <TabsTrigger value="custom">My Automations</TabsTrigger>
+            <TabsTrigger value="custom">My Workflows</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -64,11 +64,11 @@ export default function AutomationLibrary({
       <div className="space-y-3">
         {filtered.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            <p>No automations found.</p>
+            <p>No workflows found.</p>
             {activeTab === 'custom' && (
               <Button onClick={onCreateNew} variant="outline" className="mt-4 gap-2">
                 <Plus className="h-4 w-4" />
-                Create your first automation
+                Create your first workflow
               </Button>
             )}
           </div>
