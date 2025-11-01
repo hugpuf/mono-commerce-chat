@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RefreshCw, Settings, ShoppingBag, Search, ExternalLink } from "lucide-react";
+import { RefreshCw, Settings, ShoppingBag, Search, ExternalLink, XCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface CatalogHeaderProps {
@@ -13,6 +13,7 @@ interface CatalogHeaderProps {
   lastSync?: Date | string | null;
   syncStatus?: string;
   onSync?: () => void;
+  onCancelSync?: () => void;
   onSettings?: () => void;
   syncLoading?: boolean;
   searchQuery: string;
@@ -29,6 +30,7 @@ export function CatalogHeader({
   lastSync,
   syncStatus,
   onSync,
+  onCancelSync,
   onSettings,
   syncLoading = false,
   searchQuery,
@@ -55,6 +57,12 @@ export function CatalogHeader({
         return (
           <Badge variant="destructive">
             Sync Error
+          </Badge>
+        );
+      case "cancelled":
+        return (
+          <Badge variant="outline" className="bg-muted text-muted-foreground">
+            Sync Cancelled
           </Badge>
         );
       default:
@@ -108,14 +116,23 @@ export function CatalogHeader({
               View in Shopify
             </Button>
           )}
-          {onSync && (
+          {onSync && syncStatus === "syncing" ? (
+            <Button
+              variant="outline"
+              onClick={onCancelSync}
+              className="border-destructive/50 text-destructive hover:bg-destructive/10"
+            >
+              <XCircle className="w-4 h-4 mr-2" />
+              Cancel Sync
+            </Button>
+          ) : onSync && (
             <Button
               variant="outline"
               onClick={onSync}
-              disabled={syncLoading || syncStatus === "syncing"}
+              disabled={syncLoading}
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${syncLoading || syncStatus === "syncing" ? 'animate-spin' : ''}`} />
-              {syncLoading || syncStatus === "syncing" ? 'Syncing...' : 'Sync Now'}
+              <RefreshCw className={`w-4 h-4 mr-2 ${syncLoading ? 'animate-spin' : ''}`} />
+              {syncLoading ? 'Starting...' : 'Sync Now'}
             </Button>
           )}
           {onSettings && (

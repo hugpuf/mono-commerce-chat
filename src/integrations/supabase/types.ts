@@ -68,6 +68,7 @@ export type Database = {
         Row: {
           access_token: string | null
           api_version: string | null
+          cancellation_requested_at: string | null
           created_at: string
           id: string
           last_sync_at: string | null
@@ -86,6 +87,7 @@ export type Database = {
         Insert: {
           access_token?: string | null
           api_version?: string | null
+          cancellation_requested_at?: string | null
           created_at?: string
           id?: string
           last_sync_at?: string | null
@@ -104,6 +106,7 @@ export type Database = {
         Update: {
           access_token?: string | null
           api_version?: string | null
+          cancellation_requested_at?: string | null
           created_at?: string
           id?: string
           last_sync_at?: string | null

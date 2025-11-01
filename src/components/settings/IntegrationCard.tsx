@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Settings, Unlink, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { RefreshCw, Settings, Unlink, CheckCircle, AlertCircle, Clock, XCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface IntegrationCardProps {
@@ -13,6 +13,7 @@ interface IntegrationCardProps {
   lastSync?: Date | string;
   statusMessage?: string;
   onSync?: () => void;
+  onCancelSync?: () => void;
   onSettings?: () => void;
   onDisconnect?: () => void;
   syncLoading?: boolean;
@@ -27,6 +28,7 @@ export function IntegrationCard({
   lastSync,
   statusMessage,
   onSync,
+  onCancelSync,
   onSettings,
   onDisconnect,
   syncLoading = false,
@@ -95,9 +97,19 @@ export function IntegrationCard({
         </p>
       )}
 
-      {status === "connected" && (
+      {(status === "connected" || status === "syncing") && (
         <div className="flex gap-2">
-          {onSync && (
+          {status === "syncing" && onCancelSync ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCancelSync}
+              className="border-destructive/50 text-destructive hover:bg-destructive/10"
+            >
+              <XCircle className="w-4 h-4 mr-2" />
+              Cancel
+            </Button>
+          ) : onSync && (
             <Button
               variant="outline"
               size="sm"
@@ -105,7 +117,7 @@ export function IntegrationCard({
               disabled={syncLoading}
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${syncLoading ? 'animate-spin' : ''}`} />
-              {syncLoading ? 'Syncing...' : 'Sync Now'}
+              {syncLoading ? 'Starting...' : 'Sync Now'}
             </Button>
           )}
           {onSettings && (

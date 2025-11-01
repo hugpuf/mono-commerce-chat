@@ -76,6 +76,15 @@ export default function Integrations() {
     try {
       setSyncLoading(true);
       
+      // Update sync status and clear any previous cancellation
+      await supabase
+        .from("catalog_sources")
+        .update({ 
+          sync_status: "syncing",
+          cancellation_requested_at: null 
+        })
+        .eq("id", catalogSource.id);
+      
       // Call Shopify bulk import function
       const { error } = await supabase.functions.invoke("shopify-bulk-import", {
         body: { catalogSourceId: catalogSource.id },
@@ -99,6 +108,33 @@ export default function Integrations() {
       });
     } finally {
       setSyncLoading(false);
+    }
+  };
+
+  const handleCancelCatalogSync = async () => {
+    if (!catalogSource) return;
+
+    try {
+      const { error } = await supabase.functions.invoke("cancel-sync", {
+        body: { catalogSourceId: catalogSource.id },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Sync cancelled",
+        description: "Product sync has been cancelled.",
+      });
+
+      // Refresh integration status
+      await fetchIntegrations();
+    } catch (error: any) {
+      console.error("Cancel sync error:", error);
+      toast({
+        title: "Failed to cancel sync",
+        description: error.message || "Could not cancel the sync operation",
+        variant: "destructive",
+      });
     }
   };
 
@@ -236,6 +272,7 @@ export default function Integrations() {
                   : "No products synced yet"
               }
               onSync={handleCatalogSync}
+              onCancelSync={handleCancelCatalogSync}
               syncLoading={syncLoading}
               onSettings={() => navigate("/setup/add-catalog")}
               onDisconnect={() => setDisconnectDialog({ open: true, type: "catalog" })}

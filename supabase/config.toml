@@ -1,5 +1,8 @@
 project_id = "wsckktenxumwmzixbdtv"
 
+[functions.cancel-sync]
+verify_jwt = true
+
 [functions.get-meta-config]
 verify_jwt = false
 

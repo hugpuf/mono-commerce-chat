@@ -125,6 +125,21 @@ Deno.serve(async (req) => {
     let downloadUrl = null;
 
     while (!completed && attempts < maxAttempts) {
+      // Check for cancellation before waiting
+      const { data: sourceCheck } = await supabaseClient
+        .from('catalog_sources')
+        .select('sync_status, cancellation_requested_at')
+        .eq('id', catalogSourceId)
+        .single();
+
+      if (sourceCheck?.sync_status === 'cancelled' || sourceCheck?.cancellation_requested_at) {
+        console.log('Sync cancelled by user');
+        return new Response(
+          JSON.stringify({ success: false, message: 'Sync cancelled by user' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
       attempts++;
 
@@ -330,6 +345,8 @@ Deno.serve(async (req) => {
       .update({
         last_sync_at: new Date().toISOString(),
         status: 'synced',
+        sync_status: 'success',
+        cancellation_requested_at: null,
       })
       .eq('id', catalogSourceId);
 

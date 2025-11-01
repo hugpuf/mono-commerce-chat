@@ -70,10 +70,13 @@ export default function Catalog() {
     try {
       setSyncLoading(true);
 
-      // Update sync status
+      // Update sync status and clear any previous cancellation
       await supabase
         .from("catalog_sources")
-        .update({ sync_status: "syncing" })
+        .update({ 
+          sync_status: "syncing",
+          cancellation_requested_at: null 
+        })
         .eq("id", catalogSource.id);
 
       // Call Shopify bulk import function
@@ -101,6 +104,33 @@ export default function Catalog() {
       });
     } finally {
       setSyncLoading(false);
+    }
+  };
+
+  const handleCancelSync = async () => {
+    if (!catalogSource) return;
+
+    try {
+      const { error } = await supabase.functions.invoke("cancel-sync", {
+        body: { catalogSourceId: catalogSource.id },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Sync cancelled",
+        description: "Product sync has been cancelled.",
+      });
+
+      // Refresh data immediately
+      fetchCatalogData();
+    } catch (error: any) {
+      console.error("Cancel sync error:", error);
+      toast({
+        title: "Failed to cancel sync",
+        description: error.message || "Could not cancel the sync operation",
+        variant: "destructive",
+      });
     }
   };
 
@@ -155,6 +185,7 @@ export default function Catalog() {
               lastSync={catalogSource?.last_sync_at}
               syncStatus={catalogSource?.sync_status}
               onSync={handleSync}
+              onCancelSync={handleCancelSync}
               onSettings={() => navigate("/settings/integrations")}
               syncLoading={syncLoading}
               searchQuery={searchQuery}
