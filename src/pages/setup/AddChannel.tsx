@@ -107,7 +107,6 @@ export default function AddChannel() {
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
         `config_id=${metaConfig.configId}&` +
         `response_type=code&` +
-        `scope=business_management,whatsapp_business_management,whatsapp_business_messaging&` +
         `auth_type=rerequest&` +
         `state=${state}`;
       
