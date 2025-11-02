@@ -139,8 +139,7 @@ serve(async (req) => {
 
   console.log('✅ Successfully exchanged code for access token', {
     hasAccessToken: !!accessToken,
-    tokenLength: accessToken?.length,
-    tokenPreview: accessToken ? accessToken.substring(0, 20) + '...' : null
+    tokenLength: accessToken?.length
   });
 
     // Step 2: Extract WABA data (prefer setup_data from Embedded Signup, fallback to API)

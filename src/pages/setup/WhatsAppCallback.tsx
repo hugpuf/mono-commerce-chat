@@ -106,28 +106,31 @@ export default function WhatsAppCallback() {
         });
 
         if (error) {
-          // Try to extract detailed error message
           let errorMessage = 'Failed to connect WhatsApp. Please try again.';
           
-          // Check for specific error codes
+          // Parse specific error types
           const errorStr = error.message || JSON.stringify(error);
-          if (errorStr.includes('409') || errorStr.includes('CODE_ALREADY_USED')) {
-            errorMessage = 'This connection attempt has expired. Please start the process again.';
+          
+          if (errorStr.includes('409') || errorStr.includes('CODE_ALREADY_USED') || errorStr.includes('already been used')) {
+            errorMessage = 'This authorization code has already been used. Please start the connection process again.';
+          } else if (errorStr.includes('invalid') && errorStr.includes('redirect')) {
+            errorMessage = 'Invalid redirect configuration. Please contact support.';
+          } else if (errorStr.includes('business_management') || errorStr.includes('whatsapp_business_management')) {
+            errorMessage = 'Missing required permissions. Please complete all steps in the Meta signup flow.';
           } else if (errorStr.includes('400')) {
-            // Extract the actual error message from the response
+            // Try to extract the actual error message
             try {
               const match = errorStr.match(/"error":"([^"]+)"/);
               if (match) errorMessage = match[1];
             } catch {}
-          } else if (errorStr.includes('business_management')) {
-            errorMessage = 'Missing required permissions. Please ensure you complete all steps in the Meta signup flow.';
           }
           
+          console.error('❌ OAuth callback error:', { error, parsedMessage: errorMessage });
           setStatus('error');
           setMessage(errorMessage);
           
           // Redirect back after delay
-          setTimeout(() => navigate('/setup/add-channel'), 3000);
+          setTimeout(() => navigate('/setup/add-channel'), 3500);
           return;
         }
 
