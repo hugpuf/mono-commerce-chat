@@ -67,11 +67,21 @@ export const WhatsAppLoginButton = () => {
   const handleConnect = () => {
     if (!window.FB || !configId) {
       console.error('Facebook SDK not ready or config missing');
+      toast({
+        title: "Error",
+        description: "Facebook SDK not loaded. Please refresh the page.",
+        variant: "destructive",
+      });
       return;
     }
 
     if (!workspaceId) {
       console.error('No workspace ID available');
+      toast({
+        title: "Error",
+        description: "Workspace not found. Please try again.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -82,47 +92,19 @@ export const WhatsAppLoginButton = () => {
         console.log('Login response:', response);
         
         if (response.authResponse && response.authResponse.code) {
-          console.log('✅ Successfully connected!', response.authResponse);
+          console.log('✅ Embedded Signup completed!', response.authResponse);
           
-          // Extract the code and setup data
+          // Extract the code
           const code = response.authResponse.code;
-          const setup = response.authResponse.setup || {};
           
-          // Call the edge function (handle async inside)
-          supabase.functions.invoke('whatsapp-oauth-callback', {
-            body: {
-              code: code,
-              workspace_id: workspaceId,
-              state: workspaceId,
-              redirect_uri: `${window.location.origin}/setup/whatsapp/callback`,
-              setup_data: setup
-            }
-          }).then(({ data, error }) => {
-            if (error) {
-              console.error('❌ Error connecting WhatsApp:', error);
-              toast({
-                title: "Connection Failed",
-                description: error.message || "Failed to connect WhatsApp. Please try again.",
-                variant: "destructive",
-              });
-            } else {
-              console.log('✅ WhatsApp connected successfully:', data);
-              toast({
-                title: "WhatsApp Connected",
-                description: "Your WhatsApp Business account has been connected successfully.",
-              });
-              navigate('/settings/integrations');
-            }
-          }).catch((error: any) => {
-            console.error('❌ Error connecting WhatsApp:', error);
-            toast({
-              title: "Connection Failed",
-              description: error.message || "Failed to connect WhatsApp. Please try again.",
-              variant: "destructive",
-            });
-          }).finally(() => {
-            setIsConnecting(false);
-          });
+          // Build state parameter with workspace ID
+          const state = btoa(JSON.stringify({ ws: workspaceId }));
+          
+          // Redirect to callback URL (setup data will be in hash fragment)
+          const redirectUrl = `${window.location.origin}/setup/whatsapp/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
+          
+          console.log('🔄 Redirecting to callback URL to complete connection...');
+          window.location.replace(redirectUrl);
         } else {
           console.log('❌ User cancelled login or did not fully authorize.');
           setIsConnecting(false);
@@ -133,7 +115,7 @@ export const WhatsAppLoginButton = () => {
         response_type: 'code',
         override_default_response_type: true,
         extras: {
-          setup: {},
+          setup: 1  // Enable Embedded Signup
         }
       }
     );
