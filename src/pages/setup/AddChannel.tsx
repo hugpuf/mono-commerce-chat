@@ -350,13 +350,6 @@ export default function AddChannel() {
           <p className="text-muted-foreground">
             Provision an official messaging channel for customer communications
           </p>
-          
-          <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
-            <p className="text-sm text-muted-foreground">
-              <strong className="text-foreground">Note:</strong> To connect WhatsApp, you'll need a Meta Business account and a configured Meta App. 
-              The connection uses Meta's Embedded Signup for a seamless one-click experience.
-            </p>
-          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
