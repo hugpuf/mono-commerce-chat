@@ -210,7 +210,9 @@ export const WhatsAppLoginButton = () => {
         response_type: 'code',
         override_default_response_type: true,
         extras: {
-          setup: {}  // Empty setup object enables Embedded Signup
+          setup: {},
+          sessionInfoVersion: "3",
+          version: "v3"
         }
       }
     );
