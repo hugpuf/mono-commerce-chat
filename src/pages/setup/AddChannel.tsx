@@ -125,7 +125,12 @@ export default function AddChannel() {
                 </CardHeader>
                 <CardContent>
                   {channel.id === 'whatsapp' ? (
-                    <WhatsAppLoginButton />
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        Connect your WhatsApp Business Account using Facebook
+                      </p>
+                      <WhatsAppLoginButton />
+                    </div>
                   ) : (
                     <Button
                       variant="outline"
