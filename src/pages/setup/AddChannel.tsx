@@ -4,12 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { MessageCircle, Instagram, Facebook, Smartphone, Send, ArrowLeft, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import whatsappLogo from '@/assets/whatsapp-logo.png';
-import { WHATSAPP_REDIRECT_URI } from '@/lib/constants';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 interface ChannelProvider {
   id: string;
@@ -58,98 +59,63 @@ const channelProviders: ChannelProvider[] = [
 
 export default function AddChannel() {
   const navigate = useNavigate();
-  const { toast: toastHook } = useToast();
   const { workspaceId } = useWorkspace();
-  const [metaConfig, setMetaConfig] = useState<{ appId: string; configId: string } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchMetaConfig = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('get-meta-config');
-        
-        if (error) throw error;
-        
-        if (data?.appId && data?.configId) {
-          setMetaConfig(data);
-        } else {
-          toast.error('Meta App credentials not configured. Please contact support.');
-        }
-      } catch (error) {
-        console.error('Error fetching Meta config:', error);
-        toast.error('Failed to load WhatsApp configuration');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchMetaConfig();
-  }, []);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
+  
+  // Form state
+  const [wabaId, setWabaId] = useState('');
+  const [phoneNumberId, setPhoneNumberId] = useState('');
+  const [displayPhoneNumber, setDisplayPhoneNumber] = useState('');
+  const [businessName, setBusinessName] = useState('');
 
   const handleConnect = (channelId: string) => {
     if (channelId === 'whatsapp') {
-      if (!metaConfig) {
-        toast.error('WhatsApp configuration not available');
-        return;
-      }
-
-      // Meta Embedded Signup configuration
-      const redirectUri = WHATSAPP_REDIRECT_URI;
-      
-      // Encode workspace ID in state so callback can access it even if context isn't ready
-      const stateData = { ws: workspaceId, nonce: crypto.randomUUID() };
-      const state = btoa(JSON.stringify(stateData));
-      console.log('🔐 State prepared:', { hasWorkspace: !!workspaceId });
-      
-      // Launch Meta's Embedded Signup with setup_fields to get WABA data directly
-      const embedUrl = `https://www.facebook.com/v24.0/dialog/oauth?` +
-        `client_id=${metaConfig.appId}&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `config_id=${metaConfig.configId}&` +
-        `response_type=code&` +
-        `scope=whatsapp_business_management,whatsapp_business_messaging&` +
-        `extras={"setup":{"business":{"phone_numbers":["123"]}}}&` +
-        `auth_type=rerequest&` +
-        `state=${state}`;
-      
-      console.log('Opening WhatsApp OAuth:', embedUrl);
-      
-      // Try to open in popup
-      const width = 600;
-      const height = 700;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-      
-      const popup = window.open(
-        embedUrl,
-        'WhatsApp Business Setup',
-        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
-      );
-
-      // Check if popup was blocked
-      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-        // Popup was blocked, show toast and redirect in same window
-        toastHook({
-          title: "Popup Blocked",
-          description: "Opening WhatsApp setup in this window...",
-        });
-        
-        setTimeout(() => {
-          window.location.href = embedUrl;
-        }, 1500);
-      } else {
-        // Popup opened successfully, monitor it
-        const checkPopup = setInterval(() => {
-          if (popup?.closed) {
-            clearInterval(checkPopup);
-            console.log('Popup closed - refreshing connection status');
-            // Reload the page to refresh connection status
-            window.location.reload();
-          }
-        }, 500);
-      }
+      setShowWhatsAppDialog(true);
     } else {
       toast.error('This channel is coming soon');
+    }
+  };
+
+  const handleWhatsAppSetup = async () => {
+    if (!wabaId || !phoneNumberId || !displayPhoneNumber) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (!workspaceId) {
+      toast.error('Workspace not found');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('whatsapp-manual-setup', {
+        body: {
+          workspace_id: workspaceId,
+          waba_id: wabaId,
+          phone_number_id: phoneNumberId,
+          display_phone_number: displayPhoneNumber,
+          business_name: businessName || undefined,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success('WhatsApp connected successfully!');
+        setShowWhatsAppDialog(false);
+        // Navigate to settings or refresh
+        setTimeout(() => navigate('/settings/integrations'), 1500);
+      } else {
+        toast.error(data?.error || 'Failed to connect WhatsApp');
+      }
+    } catch (error) {
+      console.error('Error connecting WhatsApp:', error);
+      toast.error('Failed to connect WhatsApp account');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -174,8 +140,7 @@ export default function AddChannel() {
           
           <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
             <p className="text-sm text-muted-foreground">
-              <strong className="text-foreground">Note:</strong> To connect WhatsApp, you'll need a Meta Business account and a configured Meta App. 
-              The connection uses Meta's Embedded Signup for a seamless one-click experience.
+              <strong className="text-foreground">Note:</strong> To connect WhatsApp, you'll need your WhatsApp Business Account ID and Phone Number ID from Meta Business Manager.
             </p>
           </div>
         </div>
@@ -221,32 +186,100 @@ export default function AddChannel() {
                     size="sm"
                     className="w-full"
                     onClick={() => handleConnect(channel.id)}
-                    disabled={channel.comingSoon || (channel.id === 'whatsapp' && (isLoading || !metaConfig))}
+                    disabled={channel.comingSoon || isLoading}
                   >
-                    {channel.id === 'whatsapp' && isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Loading...
-                      </>
-                    ) : channel.comingSoon ? (
-                      "Coming Soon"
-                    ) : channel.id === 'whatsapp' ? (
-                      "Connect via Meta"
-                    ) : (
-                      "Provision"
-                    )}
+                    {channel.comingSoon ? "Coming Soon" : "Connect"}
                   </Button>
-                  {channel.id === 'whatsapp' && !channel.comingSoon && (
-                    <p className="text-[10px] text-muted-foreground mt-2 text-center">
-                      One-click setup with Meta
-                    </p>
-                  )}
                 </CardContent>
               </Card>
             );
           })}
         </div>
       </div>
+
+      {/* WhatsApp Setup Dialog */}
+      <Dialog open={showWhatsAppDialog} onOpenChange={setShowWhatsAppDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Connect WhatsApp Business</DialogTitle>
+            <DialogDescription>
+              Enter your WhatsApp Business Account details from Meta Business Manager.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="waba-id">WhatsApp Business Account ID *</Label>
+              <Input
+                id="waba-id"
+                placeholder="123456789012345"
+                value={wabaId}
+                onChange={(e) => setWabaId(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone-id">Phone Number ID *</Label>
+              <Input
+                id="phone-id"
+                placeholder="987654321098765"
+                value={phoneNumberId}
+                onChange={(e) => setPhoneNumberId(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="display-phone">Display Phone Number *</Label>
+              <Input
+                id="display-phone"
+                placeholder="+1234567890"
+                value={displayPhoneNumber}
+                onChange={(e) => setDisplayPhoneNumber(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="business-name">Business Name (Optional)</Label>
+              <Input
+                id="business-name"
+                placeholder="My Business"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+              />
+            </div>
+
+            <div className="rounded-lg bg-muted p-3 text-sm">
+              <p className="font-medium mb-2">Where to find these values:</p>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                <li>Go to <a href="https://business.facebook.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Meta Business Manager</a></li>
+                <li>Navigate to Business Settings → WhatsApp Accounts</li>
+                <li>Select your WhatsApp Business Account</li>
+                <li>Copy the Account ID and Phone Number ID</li>
+              </ol>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowWhatsAppDialog(false)}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleWhatsAppSetup} disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                'Connect WhatsApp'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
