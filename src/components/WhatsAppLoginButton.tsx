@@ -22,6 +22,7 @@ export const WhatsAppLoginButton = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
   const [appId, setAppId] = useState<string | null>(null);
+  const [setupData, setSetupData] = useState<any>(null);
 
   useEffect(() => {
     const initializeFacebookSDK = async () => {
@@ -36,10 +37,11 @@ export const WhatsAppLoginButton = () => {
       setConfigId(configData.configId);
       setAppId(configData.appId);
 
-      // Initialize FB SDK (not used for OAuth, but kept for compatibility)
+      // Initialize FB SDK for Embedded Signup
       window.fbAsyncInit = function() {
         window.FB.init({
           appId: configData.appId,
+          autoLogAppEvents: true,
           cookie: true,
           xfbml: true,
           version: 'v24.0'
@@ -64,6 +66,40 @@ export const WhatsAppLoginButton = () => {
     };
 
     initializeFacebookSDK();
+
+    // Add MessageEvent listener for Embedded Signup
+    const handleMessage = (event: MessageEvent) => {
+      // Only accept messages from Facebook
+      if (event.origin !== "https://www.facebook.com" && 
+          event.origin !== "https://web.facebook.com") {
+        return;
+      }
+      
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'WA_EMBEDDED_SIGNUP') {
+          console.log('📦 Received Embedded Signup event:', data);
+          
+          if (data.event === 'FINISH') {
+            const { phone_number_id, waba_id } = data.data;
+            console.log('✅ WABA Setup Complete:', { phone_number_id, waba_id });
+            setSetupData(data.data);
+          } else if (data.event === 'CANCEL') {
+            console.warn('⚠️ User cancelled Embedded Signup at:', data.data.current_step);
+          } else if (data.event === 'ERROR') {
+            console.error('❌ Embedded Signup error:', data.data.error_message);
+          }
+        }
+      } catch {
+        // Non-JSON message, ignore
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
   }, []);
 
   const handleConnect = async () => {
@@ -89,10 +125,10 @@ export const WhatsAppLoginButton = () => {
 
     setIsConnecting(true);
     
-    // Define redirect_uri upfront - MUST be byte-for-byte identical throughout flow
+    // Define redirect_uri upfront
     const redirectUri = `${window.location.origin}/setup/whatsapp/callback`;
     
-    // Generate cryptographically random state (NOT deterministic!)
+    // Generate cryptographically random state
     const state = crypto.randomUUID();
     
     // Store redirect_uri, app_id, and workspace_id in database (persisted for token exchange)
@@ -127,32 +163,57 @@ export const WhatsAppLoginButton = () => {
       return;
     }
     
-    // Compute SHA-256 hash for diagnostics
-    const hashBuffer = await crypto.subtle.digest(
-      'SHA-256',
-      new TextEncoder().encode(redirectUri)
-    );
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    
-    console.log('🚀 Starting OAuth flow with manual dialog');
+    console.log('🚀 Starting Embedded Signup flow with FB.login');
     console.log('🔍 redirect_uri:', redirectUri);
-    console.log('🔍 SHA256 hash:', hashHex);
     console.log('🔍 state:', state);
+    console.log('🔍 config_id:', configId);
     
-    // Build OAuth URL manually for full control over redirect_uri
-    const dialogUrl = new URL('https://www.facebook.com/v24.0/dialog/oauth');
-    dialogUrl.searchParams.set('client_id', appId);
-    dialogUrl.searchParams.set('redirect_uri', redirectUri); // Raw - URL API handles encoding
-    dialogUrl.searchParams.set('response_type', 'code');
-    dialogUrl.searchParams.set('config_id', configId); // ← This enables Embedded Signup
-    dialogUrl.searchParams.set('state', state);
-    dialogUrl.searchParams.set('scope', 'whatsapp_business_management,business_management,whatsapp_business_messaging');
-    
-    console.log('🔗 OAuth Dialog URL (first 150 chars):', dialogUrl.toString().substring(0, 150) + '...');
-    
-    // Full-page redirect to Facebook OAuth dialog
-    window.location.assign(dialogUrl.toString());
+    // Use FB.login with Embedded Signup (popup mode)
+    window.FB.login(
+      (response: any) => {
+        console.log('✅ FB.login response:', response);
+        
+        if (response.authResponse && response.authResponse.code) {
+          const code = response.authResponse.code;
+          
+          // Wait for MessageEvent to populate setupData
+          setTimeout(() => {
+            console.log('🔄 Redirecting to callback with code and setup data');
+            
+            // Construct callback URL
+            const callbackUrl = new URL(redirectUri);
+            callbackUrl.searchParams.set('code', code);
+            callbackUrl.searchParams.set('state', state);
+            
+            // Add setup_data to hash if available
+            if (setupData) {
+              console.log('📦 Including setup_data in redirect:', setupData);
+              callbackUrl.hash = `setup=${encodeURIComponent(JSON.stringify(setupData))}`;
+            } else {
+              console.warn('⚠️ No setup_data received from MessageEvent');
+            }
+            
+            window.location.assign(callbackUrl.toString());
+          }, 500); // Small delay to ensure MessageEvent is processed
+        } else {
+          console.log('❌ User cancelled or did not authorize');
+          setIsConnecting(false);
+          toast({
+            title: "Cancelled",
+            description: "WhatsApp connection was cancelled.",
+            variant: "destructive",
+          });
+        }
+      },
+      {
+        config_id: configId,
+        response_type: 'code',
+        override_default_response_type: true,
+        extras: {
+          setup: {}  // Empty setup object enables Embedded Signup
+        }
+      }
+    );
   };
 
   if (isLoading) {
