@@ -101,13 +101,14 @@ export default function AddChannel() {
       const state = btoa(JSON.stringify(stateData));
       console.log('🔐 State prepared:', { hasWorkspace: !!workspaceId });
       
-      // Launch Meta's Embedded Signup
+      // Launch Meta's Embedded Signup with setup_fields to get WABA data directly
       const embedUrl = `https://www.facebook.com/v24.0/dialog/oauth?` +
         `client_id=${metaConfig.appId}&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
         `config_id=${metaConfig.configId}&` +
         `response_type=code&` +
-        `scope=business_management,whatsapp_business_management,whatsapp_business_messaging&` +
+        `scope=whatsapp_business_management,whatsapp_business_messaging&` +
+        `extras={"setup":{"business":{"phone_numbers":["123"]}}}&` +
         `auth_type=rerequest&` +
         `state=${state}`;
       

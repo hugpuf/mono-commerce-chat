@@ -26,7 +26,10 @@ export default function WhatsAppCallback() {
         const code = searchParams.get('code');
         const state = searchParams.get('state');
         
-        console.log('🔍 Callback params:', { hasCode: !!code, hasState: !!state });
+        // Get setup data from Meta's Embedded Signup response
+        const setupData = searchParams.get('setup');
+        
+        console.log('🔍 Callback params:', { hasCode: !!code, hasState: !!state, hasSetupData: !!setupData });
         
         if (!code) {
           throw new Error('No authorization code received');
@@ -91,13 +94,14 @@ export default function WhatsAppCallback() {
           has_workspace_id: !!effectiveWorkspaceId
         });
         
-        // Send code to edge function (it will fetch WABA data from Graph API)
+        // Send code and setup data to edge function
         const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
           body: {
             code,
             state,
             workspace_id: effectiveWorkspaceId,
-            redirect_uri: WHATSAPP_REDIRECT_URI
+            redirect_uri: WHATSAPP_REDIRECT_URI,
+            setup_data: setupData ? JSON.parse(setupData) : null
           }
         });
 
