@@ -106,7 +106,7 @@ export default function AddChannel() {
       setIsConnecting(true);
 
       try {
-        console.log('🚀 Initiating WhatsApp OAuth redirect', {
+        console.log('🚀 Initiating WhatsApp OAuth in popup', {
           workspaceId,
           configId: metaConfig.configId,
           redirectUri: WHATSAPP_REDIRECT_URI
@@ -115,7 +115,7 @@ export default function AddChannel() {
         // Encode workspace ID in state parameter
         const state = btoa(JSON.stringify({ ws: workspaceId }));
 
-        // Construct OAuth URL for redirect flow
+        // Construct OAuth URL
         const oauthUrl = 
           `https://www.facebook.com/v24.0/dialog/oauth?` +
           `client_id=${encodeURIComponent(metaConfig.appId)}` +
@@ -125,12 +125,37 @@ export default function AddChannel() {
           `&scope=${encodeURIComponent('whatsapp_business_management,whatsapp_business_messaging')}` +
           `&state=${encodeURIComponent(state)}`;
 
-        console.log('🔗 Redirecting to Meta OAuth...');
+        console.log('🪟 Opening Meta OAuth in popup window...');
         
-        // Redirect to Meta's OAuth page
-        window.location.assign(oauthUrl);
+        // Open in popup window for better UX
+        const width = 600;
+        const height = 700;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+        
+        const popup = window.open(
+          oauthUrl,
+          'whatsapp-oauth',
+          `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+        );
+
+        if (!popup) {
+          toast.error('Popup blocked. Please allow popups for this site.');
+          setIsConnecting(false);
+          return;
+        }
+
+        // Monitor popup - it will close after OAuth completes
+        const checkPopup = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkPopup);
+            console.log('🪟 OAuth popup closed');
+            setIsConnecting(false);
+          }
+        }, 500);
+
       } catch (error) {
-        console.error('❌ Error initiating OAuth redirect:', error);
+        console.error('❌ Error opening OAuth popup:', error);
         toast.error('Failed to launch WhatsApp connection flow');
         setIsConnecting(false);
       }
