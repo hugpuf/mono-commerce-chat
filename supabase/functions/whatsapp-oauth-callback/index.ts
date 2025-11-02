@@ -124,26 +124,42 @@ serve(async (req) => {
     console.log('🔄 Exchanging code for access token...');
     console.log('🔑 Using app_id:', app_id);
     console.log('🔗 Using redirect_uri:', redirect_uri);
+    
+    // Enhanced debugging - byte-by-byte URI comparison
+    console.log('🔍 REDIRECT_URI DEBUG:');
+    console.log('   Length:', redirect_uri.length);
+    console.log('   First 10 chars:', redirect_uri.substring(0, 10));
+    console.log('   Last 10 chars:', redirect_uri.substring(redirect_uri.length - 10));
+    console.log('   Encoded:', encodeURIComponent(redirect_uri));
+    console.log('   Has trailing slash?', redirect_uri.endsWith('/'));
+    console.log('   Has query params?', redirect_uri.includes('?'));
+    
+    // Build the request body parameters
+    const tokenParams = new URLSearchParams({
+      client_id: app_id,
+      client_secret: metaAppSecret,
+      redirect_uri: redirect_uri,
+      code: code
+    });
+    
     console.log('📋 Token exchange parameters:', {
       client_id: app_id,
       redirect_uri: redirect_uri,
+      redirect_uri_encoded: encodeURIComponent(redirect_uri),
       secret_length: metaAppSecret.length,
-      code_length: code.length
+      code_length: code.length,
+      code_preview: code.substring(0, 20) + '...'
     });
     
-    const tokenResponse = await fetch(
-      'https://graph.facebook.com/v24.0/oauth/access_token',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: app_id,
-          client_secret: metaAppSecret,
-          redirect_uri: redirect_uri,
-          code: code
-        })
-      }
-    );
+    const tokenUrl = 'https://graph.facebook.com/v24.0/oauth/access_token';
+    console.log('🌐 Full request URL:', tokenUrl);
+    console.log('📤 Request body:', tokenParams.toString().substring(0, 200) + '...');
+    
+    const tokenResponse = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: tokenParams
+    });
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json();
