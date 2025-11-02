@@ -11,6 +11,31 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import whatsappLogo from '@/assets/whatsapp-logo.png';
 import { WHATSAPP_REDIRECT_URI } from '@/lib/constants';
 
+// Declare Facebook SDK types
+declare global {
+  interface Window {
+    fbAsyncInit?: () => void;
+    FB?: {
+      init: (params: { appId: string; version: string }) => void;
+      login: (
+        callback: (response: {
+          status: string;
+          authResponse?: {
+            code: string;
+            accessToken?: string;
+          };
+          setup?: {
+            waba_id: string;
+            phone_number_id: string;
+            business_id?: string;
+          };
+        }) => void,
+        options: { config_id: string; response_type: string; override_default_response_type: boolean; extras: Record<string, unknown> }
+      ) => void;
+    };
+  }
+}
+
 interface ChannelProvider {
   id: string;
   name: string;
@@ -62,6 +87,8 @@ export default function AddChannel() {
   const { workspaceId } = useWorkspace();
   const [metaConfig, setMetaConfig] = useState<{ appId: string; configId: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [fbSdkLoaded, setFbSdkLoaded] = useState(false);
 
   useEffect(() => {
     const fetchMetaConfig = async () => {
@@ -86,67 +113,134 @@ export default function AddChannel() {
     fetchMetaConfig();
   }, []);
 
-  const handleConnect = (channelId: string) => {
+  // Load Facebook SDK
+  useEffect(() => {
+    if (!metaConfig) return;
+
+    // Check if SDK is already loaded
+    if (window.FB) {
+      setFbSdkLoaded(true);
+      return;
+    }
+
+    // Load Facebook SDK script
+    window.fbAsyncInit = function() {
+      window.FB!.init({
+        appId: metaConfig.appId,
+        version: 'v24.0'
+      });
+      setFbSdkLoaded(true);
+      console.log('✅ Facebook SDK initialized');
+    };
+
+    // Insert SDK script
+    const script = document.createElement('script');
+    script.src = 'https://connect.facebook.net/en_US/sdk.js';
+    script.async = true;
+    script.defer = true;
+    script.crossOrigin = 'anonymous';
+    document.body.appendChild(script);
+
+    return () => {
+      // Cleanup script on unmount
+      const existingScript = document.querySelector('script[src*="facebook.net/en_US/sdk.js"]');
+      if (existingScript) {
+        document.body.removeChild(existingScript);
+      }
+    };
+  }, [metaConfig]);
+
+  const handleConnect = async (channelId: string) => {
     if (channelId === 'whatsapp') {
-      if (!metaConfig) {
-        toast.error('WhatsApp configuration not available');
+      if (!metaConfig || !fbSdkLoaded || !window.FB) {
+        toast.error('WhatsApp configuration not ready. Please wait...');
         return;
       }
 
-      // Meta Embedded Signup configuration
-      const redirectUri = WHATSAPP_REDIRECT_URI;
-      
-      // Encode workspace ID in state so callback can access it even if context isn't ready
-      const stateData = { ws: workspaceId, nonce: crypto.randomUUID() };
-      const state = btoa(JSON.stringify(stateData));
-      console.log('🔐 State prepared:', { hasWorkspace: !!workspaceId });
-      
-      // Launch Meta's Embedded Signup with setup_fields to get WABA data directly
-      const embedUrl = `https://www.facebook.com/v24.0/dialog/oauth?` +
-        `client_id=${metaConfig.appId}&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `config_id=${metaConfig.configId}&` +
-        `response_type=code&` +
-        `scope=whatsapp_business_management,whatsapp_business_messaging&` +
-        `extras={"setup":{"business":{"phone_numbers":["123"]}}}&` +
-        `auth_type=rerequest&` +
-        `state=${state}`;
-      
-      console.log('Opening WhatsApp OAuth:', embedUrl);
-      
-      // Try to open in popup
-      const width = 600;
-      const height = 700;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-      
-      const popup = window.open(
-        embedUrl,
-        'WhatsApp Business Setup',
-        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
-      );
+      if (!workspaceId) {
+        toast.error('No workspace selected');
+        return;
+      }
 
-      // Check if popup was blocked
-      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-        // Popup was blocked, show toast and redirect in same window
-        toastHook({
-          title: "Popup Blocked",
-          description: "Opening WhatsApp setup in this window...",
-        });
-        
-        setTimeout(() => {
-          window.location.href = embedUrl;
-        }, 1500);
-      } else {
-        // Popup opened successfully, monitor it
-        const checkPopup = setInterval(() => {
-          if (popup?.closed) {
-            clearInterval(checkPopup);
-            console.log('Popup closed - refreshing connection status');
-            // Reload the page to refresh connection status
-            window.location.reload();
+      setIsConnecting(true);
+      console.log('🚀 Initiating WhatsApp connection via Facebook SDK');
+
+      try {
+        // Use Facebook SDK to launch Embedded Signup
+        window.FB.login(
+          async (response) => {
+            console.log('📱 FB.login response:', response);
+
+            if (response.status === 'connected' && response.authResponse?.code) {
+              const { code } = response.authResponse;
+              const setupData = response.setup;
+
+              console.log('✅ OAuth successful:', {
+                hasCode: !!code,
+                hasSetupData: !!setupData,
+                wabaId: setupData?.waba_id,
+                phoneNumberId: setupData?.phone_number_id
+              });
+
+              // Show processing toast
+              toast.loading('Connecting WhatsApp account...', { id: 'whatsapp-connection' });
+
+              try {
+                // Call edge function with the code and setup data
+                const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
+                  body: {
+                    code,
+                    workspace_id: workspaceId,
+                    redirect_uri: WHATSAPP_REDIRECT_URI,
+                    state: btoa(JSON.stringify({ ws: workspaceId })),
+                    setup_data: setupData ? {
+                      waba_id: setupData.waba_id,
+                      phone_number_id: setupData.phone_number_id,
+                      business_id: setupData.business_id
+                    } : undefined
+                  }
+                });
+
+                if (error) {
+                  throw error;
+                }
+
+                console.log('✅ WhatsApp connection successful:', data);
+                toast.success('WhatsApp connected successfully!', { id: 'whatsapp-connection' });
+                
+                // Navigate to success page or back
+                setTimeout(() => {
+                  navigate('/settings/integrations');
+                }, 1000);
+
+              } catch (error) {
+                console.error('❌ Failed to complete WhatsApp connection:', error);
+                toast.error('Failed to connect WhatsApp. Please try again.', { id: 'whatsapp-connection' });
+              }
+            } else {
+              console.warn('⚠️ OAuth was cancelled or failed:', response);
+              toast.error('WhatsApp connection was cancelled');
+            }
+
+            setIsConnecting(false);
+          },
+          {
+            config_id: metaConfig.configId,
+            response_type: 'code',
+            override_default_response_type: true,
+            extras: {
+              setup: {
+                business: {
+                  phone_numbers: ['123']
+                }
+              }
+            }
           }
-        }, 500);
+        );
+      } catch (error) {
+        console.error('❌ Error launching FB.login:', error);
+        toast.error('Failed to start WhatsApp connection');
+        setIsConnecting(false);
       }
     } else {
       toast.error('This channel is coming soon');
@@ -221,12 +315,17 @@ export default function AddChannel() {
                     size="sm"
                     className="w-full"
                     onClick={() => handleConnect(channel.id)}
-                    disabled={channel.comingSoon || (channel.id === 'whatsapp' && (isLoading || !metaConfig))}
+                    disabled={channel.comingSoon || (channel.id === 'whatsapp' && (isLoading || !metaConfig || !fbSdkLoaded || isConnecting))}
                   >
-                    {channel.id === 'whatsapp' && isLoading ? (
+                    {channel.id === 'whatsapp' && (isLoading || !fbSdkLoaded) ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Loading...
+                        Loading SDK...
+                      </>
+                    ) : channel.id === 'whatsapp' && isConnecting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Connecting...
                       </>
                     ) : channel.comingSoon ? (
                       "Coming Soon"
