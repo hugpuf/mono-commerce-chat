@@ -50,36 +50,18 @@ export default function WhatsAppCallback() {
         }
 
         // Parse workspace ID and redirect_uri from state parameter (fallback chain)
+        // NOTE: workspace_id is now stored in oauth_states table, not in state parameter
         let effectiveWorkspaceId: string | null = null;
-        let redirectUri: string | null = null;
         let workspaceSource = 'none';
         
-        // Try 1: Parse from state parameter
-        if (state) {
-          try {
-            const stateData = JSON.parse(atob(state));
-            if (stateData.ws) {
-              effectiveWorkspaceId = stateData.ws;
-              workspaceSource = 'state';
-              console.log('✅ Workspace from state parameter');
-            }
-            if (stateData.redirect_uri) {
-              redirectUri = stateData.redirect_uri;
-              console.log('🔗 Using redirect_uri from state:', redirectUri);
-            }
-          } catch (e) {
-            console.log('⚠️ Could not parse state parameter');
-          }
-        }
-        
-        // Try 2: Use workspace from context
-        if (!effectiveWorkspaceId && workspaceId) {
+        // Try 1: Use workspace from context
+        if (workspaceId) {
           effectiveWorkspaceId = workspaceId;
           workspaceSource = 'context';
           console.log('✅ Workspace from context');
         }
         
-        // Try 3: Fetch directly from database
+        // Try 2: Fetch directly from database
         if (!effectiveWorkspaceId) {
           console.log('⏳ Fetching workspace from database...');
           setMessage('Waiting for workspace...');
@@ -100,31 +82,24 @@ export default function WhatsAppCallback() {
           }
         }
         
-        // Final check
-        if (!effectiveWorkspaceId) {
-          throw new Error('Could not determine workspace. Please try again from the channel setup page.');
-        }
-        
+        // Final check - workspace_id will be resolved from oauth_states in edge function
+        // We send what we have, the edge function will use its stored value as the source of truth
         console.log('📊 Workspace resolution:', { source: workspaceSource, id: effectiveWorkspaceId?.substring(0, 8) + '...' });
         setMessage('Connecting WhatsApp account...');
         
-        // Use redirect_uri from state (byte-for-byte identical to OAuth start) or fallback to constant
-        const finalRedirectUri = redirectUri || WHATSAPP_REDIRECT_URI;
-        console.log('🔍 Using redirect_uri for token exchange:', finalRedirectUri);
-        
         console.log('🚀 Invoking whatsapp-oauth-callback with:', {
           has_code: !!code,
-          has_workspace_id: !!effectiveWorkspaceId,
-          redirect_uri: finalRedirectUri
+          has_state: !!state,
+          has_workspace_id: !!effectiveWorkspaceId
         });
         
         // Send code and setup data to edge function
+        // Note: workspace_id is optional here, edge function will use value from oauth_states table
         const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
           body: {
             code,
             state,
-            workspace_id: effectiveWorkspaceId,
-            redirect_uri: finalRedirectUri,  // Use exact URI from OAuth start
+            workspace_id: effectiveWorkspaceId,  // Optional, DB value takes precedence
             setup_data: setupData
           }
         });

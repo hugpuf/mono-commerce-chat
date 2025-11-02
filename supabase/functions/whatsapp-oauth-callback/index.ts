@@ -39,14 +39,11 @@ serve(async (req) => {
       has_setup_data: !!setup_data && Object.keys(setup_data).length > 0
     });
     
-    // CRITICAL: Fetch the EXACT redirect_uri and app_id from database (stored at OAuth start)
-    let redirect_uri = clientRedirectUri; // fallback to client-provided value (should not be used if DB has entry)
-    let app_id = Deno.env.get('META_APP_ID')!;
-    
+    // CRITICAL: Fetch the EXACT redirect_uri, app_id, and workspace_id from database
     console.log('🔍 Looking up OAuth state in database...');
     const { data: stateData, error: stateError } = await supabase
       .from('oauth_states')
-      .select('redirect_uri, app_id')
+      .select('redirect_uri, app_id, workspace_id')
       .eq('state', state)
       .maybeSingle();
     
@@ -66,12 +63,11 @@ serve(async (req) => {
       );
     }
 
-    redirect_uri = stateData.redirect_uri;
-    if (stateData.app_id) {
-      app_id = stateData.app_id;
-    }
-    console.log('✅ Retrieved redirect_uri from database:', redirect_uri);
-    console.log('✅ Retrieved app_id from database:', app_id);
+    const redirect_uri = stateData.redirect_uri;
+    const app_id = stateData.app_id || Deno.env.get('META_APP_ID')!;
+    const effectiveWorkspaceId = stateData.workspace_id || workspace_id;
+    
+    console.log('✅ Retrieved from database:', { redirect_uri, app_id, workspace_id: effectiveWorkspaceId });
 
     // Diagnostic logging for redirect_uri matching (critical for 36008 error prevention)
     console.log('🔍 Token exchange will use redirect_uri:', redirect_uri);
@@ -94,7 +90,7 @@ serve(async (req) => {
       .from('oauth_code_uses')
       .insert({ 
         code, 
-        workspace_id,
+        workspace_id: effectiveWorkspaceId,
         provider: 'whatsapp'
       });
 
@@ -271,7 +267,7 @@ serve(async (req) => {
     const { data, error } = await supabase
       .from('whatsapp_accounts')
       .upsert({
-        workspace_id,
+        workspace_id: effectiveWorkspaceId,
         waba_id: waba_id,
         phone_number_id: phone_number_id,
         phone_number: displayPhoneNumber,

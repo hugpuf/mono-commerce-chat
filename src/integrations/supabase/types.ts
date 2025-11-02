@@ -642,18 +642,21 @@ export type Database = {
           created_at: string
           redirect_uri: string
           state: string
+          workspace_id: string | null
         }
         Insert: {
           app_id?: string | null
           created_at?: string
           redirect_uri: string
           state: string
+          workspace_id?: string | null
         }
         Update: {
           app_id?: string | null
           created_at?: string
           redirect_uri?: string
           state?: string
+          workspace_id?: string | null
         }
         Relationships: []
       }
@@ -1373,6 +1376,7 @@ export type Database = {
     }
     Functions: {
       cleanup_old_oauth_codes: { Args: never; Returns: undefined }
+      cleanup_old_oauth_states: { Args: never; Returns: undefined }
       expire_reservations: { Args: never; Returns: undefined }
       generate_order_number: { Args: never; Returns: string }
       log_audit_event: {

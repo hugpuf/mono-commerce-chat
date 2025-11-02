@@ -92,17 +92,18 @@ export const WhatsAppLoginButton = () => {
     // Define redirect_uri upfront - MUST be byte-for-byte identical throughout flow
     const redirectUri = `${window.location.origin}/setup/whatsapp/callback`;
     
-    // Generate state parameter
-    const state = btoa(JSON.stringify({ ws: workspaceId }));
+    // Generate cryptographically random state (NOT deterministic!)
+    const state = crypto.randomUUID();
     
-    // Store redirect_uri and app_id in database (persisted for token exchange)
+    // Store redirect_uri, app_id, and workspace_id in database (persisted for token exchange)
     try {
       const { error: dbError } = await supabase
         .from('oauth_states')
         .insert({
           state,
           redirect_uri: redirectUri,
-          app_id: appId
+          app_id: appId,
+          workspace_id: workspaceId
         });
       
       if (dbError) {
