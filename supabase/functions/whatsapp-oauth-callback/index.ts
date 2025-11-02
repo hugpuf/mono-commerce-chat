@@ -133,17 +133,29 @@ serve(async (req) => {
     console.log('   Has trailing slash?', redirect_uri.endsWith('/'));
     console.log('   Has query params?', redirect_uri.includes('?'));
     
-    // Build token exchange params - URLSearchParams will handle encoding correctly
+    // Prefer client-provided redirect_uri if available to ensure byte-for-byte match
+    const effectiveRedirectUri = (typeof clientRedirectUri === 'string' && clientRedirectUri.length > 0)
+      ? clientRedirectUri
+      : redirect_uri;
+    
+    if (clientRedirectUri && clientRedirectUri !== redirect_uri) {
+      console.log('⚠️ redirect_uri mismatch detected between client and DB. Using client-provided value for token exchange.', {
+        db_redirect_uri: redirect_uri,
+        client_redirect_uri: clientRedirectUri
+      });
+    }
+    
+    // Build token exchange params - URLSearchParams will handle encoding consistently
     const tokenParams = new URLSearchParams({
       client_id: app_id,
       client_secret: metaAppSecret,
-      redirect_uri: redirect_uri,  // Raw string, URLSearchParams encodes it
+      redirect_uri: effectiveRedirectUri,  // Use the exact client-provided value when available
       code: code
     });
     
     console.log('📋 Token exchange parameters:', {
       client_id: app_id,
-      redirect_uri: redirect_uri,
+      redirect_uri_raw: effectiveRedirectUri,
       secret_length: metaAppSecret.length,
       code_length: code.length,
       code_preview: code.substring(0, 20) + '...'

@@ -99,6 +99,7 @@ export default function WhatsAppCallback() {
           body: {
             code,
             state,
+            redirect_uri: WHATSAPP_REDIRECT_URI,
             workspace_id: effectiveWorkspaceId,  // Optional, DB value takes precedence
             setup_data: setupData
           }
