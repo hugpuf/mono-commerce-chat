@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
@@ -12,6 +13,7 @@ declare global {
 }
 
 export const WhatsAppLoginButton = () => {
+  const { workspaceId } = useWorkspace();
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
@@ -64,18 +66,39 @@ export const WhatsAppLoginButton = () => {
       return;
     }
 
+    if (!workspaceId) {
+      console.error('No workspace ID available');
+      return;
+    }
+
     setIsConnecting(true);
     
     window.FB.login(
       (response: any) => {
         console.log('Login response:', response);
-        setIsConnecting(false);
         
-        if (response.authResponse) {
+        if (response.authResponse && response.authResponse.code) {
           console.log('✅ Successfully connected!', response.authResponse);
-          // The OAuth callback will handle the rest
+          
+          // Extract the code and setup data
+          const code = response.authResponse.code;
+          const setup = response.authResponse.setup || {};
+          
+          // Construct redirect URL to callback page
+          const params = new URLSearchParams({
+            code: code,
+            state: workspaceId
+          });
+          
+          // Add setup data as hash fragment (matches Meta's pattern)
+          const setupHash = Object.keys(setup).length > 0 ? `#setup=${encodeURIComponent(JSON.stringify(setup))}` : '';
+          const redirectUrl = `/setup/whatsapp-callback?${params.toString()}${setupHash}`;
+          
+          console.log('Redirecting to:', redirectUrl);
+          window.location.href = redirectUrl;
         } else {
           console.log('❌ User cancelled login or did not fully authorize.');
+          setIsConnecting(false);
         }
       },
       {
