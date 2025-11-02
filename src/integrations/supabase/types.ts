@@ -636,6 +636,27 @@ export type Database = {
         }
         Relationships: []
       }
+      oauth_states: {
+        Row: {
+          app_id: string | null
+          created_at: string
+          redirect_uri: string
+          state: string
+        }
+        Insert: {
+          app_id?: string | null
+          created_at?: string
+          redirect_uri: string
+          state: string
+        }
+        Update: {
+          app_id?: string | null
+          created_at?: string
+          redirect_uri?: string
+          state?: string
+        }
+        Relationships: []
+      }
       order_discounts: {
         Row: {
           approved_by: string | null
