@@ -21,6 +21,7 @@ export const WhatsAppLoginButton = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
+  const [appId, setAppId] = useState<string | null>(null);
 
   useEffect(() => {
     const initializeFacebookSDK = async () => {
@@ -33,6 +34,7 @@ export const WhatsAppLoginButton = () => {
       }
 
       setConfigId(configData.configId);
+      setAppId(configData.appId);
 
       // Initialize FB SDK
       window.fbAsyncInit = function() {
@@ -65,11 +67,11 @@ export const WhatsAppLoginButton = () => {
   }, []);
 
   const handleConnect = async () => {
-    if (!window.FB || !configId) {
+    if (!window.FB || !configId || !appId) {
       console.error('Facebook SDK not ready or config missing');
       toast({
         title: "Error",
-        description: "Facebook SDK not loaded. Please refresh the page.",
+        description: "Facebook SDK not loaded or App ID missing. Please refresh the page.",
         variant: "destructive",
       });
       return;
@@ -100,7 +102,7 @@ export const WhatsAppLoginButton = () => {
         .insert({
           state,
           redirect_uri: redirectUri,
-          app_id: configId
+          app_id: appId
         });
       
       if (dbError) {

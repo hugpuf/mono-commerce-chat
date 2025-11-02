@@ -24,6 +24,13 @@ serve(async (req) => {
       setup_data
     } = await req.json();
 
+    if (!state) {
+      return new Response(
+        JSON.stringify({ error: 'missing_state: OAuth state not provided. Please restart the connection from the app.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log('📨 Received WhatsApp OAuth callback', { 
       workspace_id, 
       has_code: !!code,
@@ -33,33 +40,39 @@ serve(async (req) => {
     });
     
     // CRITICAL: Fetch the EXACT redirect_uri and app_id from database (stored at OAuth start)
-    let redirect_uri = clientRedirectUri; // fallback to client-provided value
+    let redirect_uri = clientRedirectUri; // fallback to client-provided value (should not be used if DB has entry)
     let app_id = Deno.env.get('META_APP_ID')!;
     
-    if (state) {
-      console.log('🔍 Looking up OAuth state in database...');
-      const { data: stateData, error: stateError } = await supabase
-        .from('oauth_states')
-        .select('redirect_uri, app_id')
-        .eq('state', state)
-        .maybeSingle();
-      
-      if (stateError) {
-        console.error('❌ Failed to fetch oauth_state:', stateError);
-      } else if (stateData) {
-        redirect_uri = stateData.redirect_uri;
-        if (stateData.app_id) {
-          app_id = stateData.app_id;
-        }
-        console.log('✅ Retrieved redirect_uri from database:', redirect_uri);
-        console.log('✅ Retrieved app_id from database:', app_id);
-      } else {
-        console.warn('⚠️ No oauth_state found for state parameter, using client-provided redirect_uri');
-      }
-    } else {
-      console.warn('⚠️ No state parameter provided, cannot lookup redirect_uri in DB');
-    }
+    console.log('🔍 Looking up OAuth state in database...');
+    const { data: stateData, error: stateError } = await supabase
+      .from('oauth_states')
+      .select('redirect_uri, app_id')
+      .eq('state', state)
+      .maybeSingle();
     
+    if (stateError) {
+      console.error('❌ Failed to fetch oauth_state:', stateError);
+      return new Response(
+        JSON.stringify({ error: 'state_lookup_failed' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!stateData) {
+      console.error('❌ No oauth_state record found for provided state');
+      return new Response(
+        JSON.stringify({ error: 'missing_state: OAuth launch data not found. Please restart the connection.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    redirect_uri = stateData.redirect_uri;
+    if (stateData.app_id) {
+      app_id = stateData.app_id;
+    }
+    console.log('✅ Retrieved redirect_uri from database:', redirect_uri);
+    console.log('✅ Retrieved app_id from database:', app_id);
+
     // Diagnostic logging for redirect_uri matching (critical for 36008 error prevention)
     console.log('🔍 Token exchange will use redirect_uri:', redirect_uri);
     const hash = await crypto.subtle.digest(
