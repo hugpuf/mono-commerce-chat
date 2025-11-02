@@ -49,8 +49,9 @@ export default function WhatsAppCallback() {
           throw new Error('No authorization code received');
         }
 
-        // Parse workspace ID from state parameter (fallback chain)
+        // Parse workspace ID and redirect_uri from state parameter (fallback chain)
         let effectiveWorkspaceId: string | null = null;
+        let redirectUri: string | null = null;
         let workspaceSource = 'none';
         
         // Try 1: Parse from state parameter
@@ -61,6 +62,10 @@ export default function WhatsAppCallback() {
               effectiveWorkspaceId = stateData.ws;
               workspaceSource = 'state';
               console.log('✅ Workspace from state parameter');
+            }
+            if (stateData.redirect_uri) {
+              redirectUri = stateData.redirect_uri;
+              console.log('🔗 Using redirect_uri from state:', redirectUri);
             }
           } catch (e) {
             console.log('⚠️ Could not parse state parameter');
@@ -103,9 +108,14 @@ export default function WhatsAppCallback() {
         console.log('📊 Workspace resolution:', { source: workspaceSource, id: effectiveWorkspaceId?.substring(0, 8) + '...' });
         setMessage('Connecting WhatsApp account...');
         
+        // Use redirect_uri from state (byte-for-byte identical to OAuth start) or fallback to constant
+        const finalRedirectUri = redirectUri || WHATSAPP_REDIRECT_URI;
+        console.log('🔍 Using redirect_uri for token exchange:', finalRedirectUri);
+        
         console.log('🚀 Invoking whatsapp-oauth-callback with:', {
           has_code: !!code,
-          has_workspace_id: !!effectiveWorkspaceId
+          has_workspace_id: !!effectiveWorkspaceId,
+          redirect_uri: finalRedirectUri
         });
         
         // Send code and setup data to edge function
@@ -114,7 +124,7 @@ export default function WhatsAppCallback() {
             code,
             state,
             workspace_id: effectiveWorkspaceId,
-            redirect_uri: WHATSAPP_REDIRECT_URI,
+            redirect_uri: finalRedirectUri,  // Use exact URI from OAuth start
             setup_data: setupData
           }
         });

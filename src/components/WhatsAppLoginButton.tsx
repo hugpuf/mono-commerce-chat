@@ -87,6 +87,12 @@ export const WhatsAppLoginButton = () => {
 
     setIsConnecting(true);
     
+    // Define redirect_uri upfront - MUST be byte-for-byte identical throughout flow
+    const redirectUri = `${window.location.origin}/setup/whatsapp/callback`;
+    
+    // Log for diagnostics
+    console.log('🚀 Starting OAuth with redirect_uri:', redirectUri);
+    
     window.FB.login(
       (response: any) => {
         console.log('Login response:', response);
@@ -97,11 +103,14 @@ export const WhatsAppLoginButton = () => {
           // Extract the code
           const code = response.authResponse.code;
           
-          // Build state parameter with workspace ID
-          const state = btoa(JSON.stringify({ ws: workspaceId }));
+          // Build state parameter with workspace ID AND redirect_uri to ensure byte-for-byte match
+          const state = btoa(JSON.stringify({ 
+            ws: workspaceId,
+            redirect_uri: redirectUri  // Store exact URI for token exchange
+          }));
           
           // Redirect to callback URL (setup data will be in hash fragment)
-          const redirectUrl = `${window.location.origin}/setup/whatsapp/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
+          const redirectUrl = `${redirectUri}?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
           
           console.log('🔄 Redirecting to callback URL to complete connection...');
           window.location.replace(redirectUrl);
@@ -114,6 +123,7 @@ export const WhatsAppLoginButton = () => {
         config_id: configId,
         response_type: 'code',
         override_default_response_type: true,
+        redirect_uri: redirectUri,  // Explicitly pass redirect_uri to FB.login
         extras: {
           setup: 1  // Enable Embedded Signup
         }

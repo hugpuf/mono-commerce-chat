@@ -28,8 +28,20 @@ serve(async (req) => {
       workspace_id, 
       has_code: !!code,
       redirect_uri,
-      has_setup_data: !!setup_data
+      has_setup_data: !!setup_data && Object.keys(setup_data).length > 0
     });
+    
+    // Diagnostic logging for redirect_uri matching (critical for 36008 error prevention)
+    console.log('🔍 Token exchange will use redirect_uri:', redirect_uri);
+    if (redirect_uri) {
+      const hash = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(redirect_uri)
+      );
+      const hashArray = Array.from(new Uint8Array(hash));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      console.log('🔍 SHA256 hash of redirect_uri:', hashHex);
+    }
     
     // Log setup data for debugging
     if (setup_data) {
