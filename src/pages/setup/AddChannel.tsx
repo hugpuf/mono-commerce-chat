@@ -216,7 +216,7 @@ export default function AddChannel() {
         // So we need to handle this differently
         
         window.FB.login(
-          async (response) => {
+          (response) => {
             console.log('📱 FB.login response received:', {
               status: response.status,
               hasAuthResponse: !!response.authResponse,
@@ -236,72 +236,77 @@ export default function AddChannel() {
               // Show processing toast
               toast.loading('Connecting WhatsApp account...', { id: 'whatsapp-connection' });
 
-              try {
-                const payload = {
-                  code,
-                  workspace_id: workspaceId,
-                  redirect_uri: WHATSAPP_REDIRECT_URI,
-                  state: btoa(JSON.stringify({ ws: workspaceId }))
-                  // No setup_data - backend will fetch via API
-                };
+              // Wrap async operations in IIFE to avoid async callback issue
+              (async () => {
+                try {
+                  const payload = {
+                    code,
+                    workspace_id: workspaceId,
+                    redirect_uri: WHATSAPP_REDIRECT_URI,
+                    state: btoa(JSON.stringify({ ws: workspaceId }))
+                    // No setup_data - backend will fetch via API
+                  };
 
-                console.log('📤 Invoking edge function with payload:', {
-                  hasCode: !!payload.code,
-                  workspaceId: payload.workspace_id,
-                  redirectUri: payload.redirect_uri
-                });
+                  console.log('📤 Invoking edge function with payload:', {
+                    hasCode: !!payload.code,
+                    workspaceId: payload.workspace_id,
+                    redirectUri: payload.redirect_uri
+                  });
 
-                // Call edge function with the code
-                const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
-                  body: payload
-                });
+                  // Call edge function with the code
+                  const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
+                    body: payload
+                  });
 
-                console.log('📥 Edge function response:', {
-                  hasData: !!data,
-                  hasError: !!error,
-                  data: data ? JSON.stringify(data, null, 2) : null,
-                  error: error ? JSON.stringify(error, null, 2) : null
-                });
+                  console.log('📥 Edge function response:', {
+                    hasData: !!data,
+                    hasError: !!error,
+                    data: data ? JSON.stringify(data, null, 2) : null,
+                    error: error ? JSON.stringify(error, null, 2) : null
+                  });
 
-                if (error) {
-                  console.error('❌ Edge function returned error:', error);
-                  throw error;
-                }
+                  if (error) {
+                    console.error('❌ Edge function returned error:', error);
+                    throw error;
+                  }
 
-                console.log('✅ WhatsApp connection successful:', data);
-                toast.success('WhatsApp connected successfully!', { id: 'whatsapp-connection' });
-                
-                // Navigate to success page or back
-                setTimeout(() => {
-                  console.log('🔄 Navigating to integrations page');
-                  navigate('/settings/integrations');
-                }, 1000);
-
-              } catch (error) {
-                console.error('❌ Failed to complete WhatsApp connection:', {
-                  error,
-                  errorMessage: error instanceof Error ? error.message : 'Unknown error',
-                  errorStack: error instanceof Error ? error.stack : undefined
-                });
-                
-                const errorMessage = error instanceof Error && error.message 
-                  ? error.message 
-                  : 'Failed to connect WhatsApp. Please try again.';
+                  console.log('✅ WhatsApp connection successful:', data);
+                  toast.success('WhatsApp connected successfully!', { id: 'whatsapp-connection' });
                   
-                toast.error(errorMessage, { id: 'whatsapp-connection' });
-              }
+                  // Navigate to success page or back
+                  setTimeout(() => {
+                    console.log('🔄 Navigating to integrations page');
+                    navigate('/settings/integrations');
+                  }, 1000);
+
+                } catch (error) {
+                  console.error('❌ Failed to complete WhatsApp connection:', {
+                    error,
+                    errorMessage: error instanceof Error ? error.message : 'Unknown error',
+                    errorStack: error instanceof Error ? error.stack : undefined
+                  });
+                  
+                  const errorMessage = error instanceof Error && error.message 
+                    ? error.message 
+                    : 'Failed to connect WhatsApp. Please try again.';
+                    
+                  toast.error(errorMessage, { id: 'whatsapp-connection' });
+                } finally {
+                  setIsConnecting(false);
+                }
+              })();
             } else if (response.status === 'unknown') {
               console.warn('⚠️ OAuth was cancelled by user or popup was blocked');
               toast.error('WhatsApp connection was cancelled or popup was blocked');
+              setIsConnecting(false);
             } else {
               console.warn('⚠️ OAuth returned unexpected status:', {
                 status: response.status,
                 response: JSON.stringify(response, null, 2)
               });
               toast.error('Unable to connect WhatsApp. Please try again.');
+              setIsConnecting(false);
             }
-
-            setIsConnecting(false);
           },
           {
             config_id: metaConfig.configId,
