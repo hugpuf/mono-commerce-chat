@@ -13,12 +13,12 @@ export const useWhatsAppOAuth = () => {
     // Get the Meta Config ID from the edge function
     const { data: configData, error: configError } = await supabase.functions.invoke('get-meta-config');
     
-    if (configError || !configData?.config_id) {
+    if (configError || !configData?.configId) {
       console.error('Failed to get Meta config:', configError);
       throw new Error("WhatsApp configuration not set up. Please contact support.");
     }
 
-    const configId = configData.config_id;
+    const configId = configData.configId;
 
     // Encode workspace in state for callback
     const state = btoa(JSON.stringify({ ws: workspaceId }));
