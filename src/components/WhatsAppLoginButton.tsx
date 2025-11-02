@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
@@ -14,6 +16,8 @@ declare global {
 
 export const WhatsAppLoginButton = () => {
   const { workspaceId } = useWorkspace();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
@@ -74,28 +78,49 @@ export const WhatsAppLoginButton = () => {
     setIsConnecting(true);
     
     window.FB.login(
-      (response: any) => {
+      async (response: any) => {
         console.log('Login response:', response);
         
         if (response.authResponse && response.authResponse.code) {
           console.log('✅ Successfully connected!', response.authResponse);
           
-          // Extract the code and setup data
-          const code = response.authResponse.code;
-          const setup = response.authResponse.setup || {};
-          
-          // Construct redirect URL to callback page
-          const params = new URLSearchParams({
-            code: code,
-            state: workspaceId
-          });
-          
-          // Add setup data as hash fragment (matches Meta's pattern)
-          const setupHash = Object.keys(setup).length > 0 ? `#setup=${encodeURIComponent(JSON.stringify(setup))}` : '';
-          const redirectUrl = `/setup/whatsapp-callback?${params.toString()}${setupHash}`;
-          
-          console.log('Redirecting to:', redirectUrl);
-          window.location.href = redirectUrl;
+          try {
+            // Extract the code and setup data
+            const code = response.authResponse.code;
+            const setup = response.authResponse.setup || {};
+            
+            // Call the edge function directly
+            const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
+              body: {
+                code: code,
+                workspace_id: workspaceId,
+                state: workspaceId,
+                redirect_uri: `${window.location.origin}/setup/whatsapp/callback`,
+                setup_data: setup
+              }
+            });
+
+            if (error) throw error;
+
+            console.log('✅ WhatsApp connected successfully:', data);
+            
+            toast({
+              title: "WhatsApp Connected",
+              description: "Your WhatsApp Business account has been connected successfully.",
+            });
+
+            // Navigate to settings or home
+            navigate('/settings/integrations');
+          } catch (error: any) {
+            console.error('❌ Error connecting WhatsApp:', error);
+            toast({
+              title: "Connection Failed",
+              description: error.message || "Failed to connect WhatsApp. Please try again.",
+              variant: "destructive",
+            });
+          } finally {
+            setIsConnecting(false);
+          }
         } else {
           console.log('❌ User cancelled login or did not fully authorize.');
           setIsConnecting(false);
