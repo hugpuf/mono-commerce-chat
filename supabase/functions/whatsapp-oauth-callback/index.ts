@@ -111,11 +111,25 @@ serve(async (req) => {
     console.log('Code reserved successfully, proceeding with token exchange...');
 
     // Step 1: Exchange code for access token (server-side only)
-    const metaAppSecret = Deno.env.get('META_APP_SECRET')!;
+    const metaAppSecret = Deno.env.get('META_APP_SECRET')?.trim();
+
+    if (!metaAppSecret) {
+      console.error('❌ META_APP_SECRET is not configured');
+      throw new Error('META_APP_SECRET environment variable is not set');
+    }
+
+    // Log secret length for debugging (without exposing actual value)
+    console.log('🔐 Secret loaded, length:', metaAppSecret.length);
 
     console.log('🔄 Exchanging code for access token...');
     console.log('🔑 Using app_id:', app_id);
     console.log('🔗 Using redirect_uri:', redirect_uri);
+    console.log('📋 Token exchange parameters:', {
+      client_id: app_id,
+      redirect_uri: redirect_uri,
+      secret_length: metaAppSecret.length,
+      code_length: code.length
+    });
     
     const tokenResponse = await fetch(
       'https://graph.facebook.com/v24.0/oauth/access_token',
