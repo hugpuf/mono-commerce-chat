@@ -295,29 +295,35 @@ serve(async (req) => {
 
     console.log('WhatsApp account stored successfully', data);
 
-    // Step 4: Subscribe webhooks at WABA level (no body needed)
+    // Step 4: Subscribe webhooks at WABA level using SYSTEM USER TOKEN
     try {
-      const webhookResponse = await fetch(
-        `https://graph.facebook.com/v24.0/${waba_id}/subscribed_apps`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        }
-      );
-
-      if (webhookResponse.ok) {
-        console.log('Webhook subscribed successfully');
-        
-        // Update webhook status
-        await supabase
-          .from('whatsapp_accounts')
-          .update({ webhook_status: 'active' })
-          .eq('id', data.id);
+      const systemUserToken = Deno.env.get('META_SYSTEM_USER_TOKEN');
+      
+      if (!systemUserToken) {
+        console.warn('META_SYSTEM_USER_TOKEN not configured, skipping webhook subscription');
       } else {
-        const errorData = await webhookResponse.json();
-        console.error('Failed to subscribe webhook:', errorData);
+        const webhookResponse = await fetch(
+          `https://graph.facebook.com/v24.0/${waba_id}/subscribed_apps`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${systemUserToken}`
+            }
+          }
+        );
+
+        if (webhookResponse.ok) {
+          console.log('Webhook subscribed successfully using system user token');
+          
+          // Update webhook status
+          await supabase
+            .from('whatsapp_accounts')
+            .update({ webhook_status: 'active' })
+            .eq('id', data.id);
+        } else {
+          const errorData = await webhookResponse.json();
+          console.error('Failed to subscribe webhook:', errorData);
+        }
       }
     } catch (webhookError) {
       console.error('Error subscribing webhook:', webhookError);

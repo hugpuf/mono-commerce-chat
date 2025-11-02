@@ -26,8 +26,22 @@ export default function WhatsAppCallback() {
         const code = searchParams.get('code');
         const state = searchParams.get('state');
         
-        // Get setup data from Meta's Embedded Signup response
-        const setupData = searchParams.get('setup');
+        // Meta returns setup data in the URL hash fragment, not query params
+        // Example: #setup={"data":...}
+        let setupData = null;
+        const hash = window.location.hash;
+        if (hash.includes('setup=')) {
+          try {
+            const setupMatch = hash.match(/setup=([^&]+)/);
+            if (setupMatch) {
+              const setupString = decodeURIComponent(setupMatch[1]);
+              setupData = JSON.parse(setupString);
+              console.log('✅ Parsed setup data from hash fragment:', setupData);
+            }
+          } catch (e) {
+            console.error('⚠️ Failed to parse setup data from hash:', e);
+          }
+        }
         
         console.log('🔍 Callback params:', { hasCode: !!code, hasState: !!state, hasSetupData: !!setupData });
         
@@ -101,7 +115,7 @@ export default function WhatsAppCallback() {
             state,
             workspace_id: effectiveWorkspaceId,
             redirect_uri: WHATSAPP_REDIRECT_URI,
-            setup_data: setupData ? JSON.parse(setupData) : null
+            setup_data: setupData
           }
         });
 
