@@ -133,27 +133,31 @@ serve(async (req) => {
     console.log('   Has trailing slash?', redirect_uri.endsWith('/'));
     console.log('   Has query params?', redirect_uri.includes('?'));
     
-    // Build token exchange URL with GET request - let URL class handle encoding consistently
-    const tokenUrl = new URL('https://graph.facebook.com/v24.0/oauth/access_token');
-    tokenUrl.searchParams.set('client_id', app_id);
-    tokenUrl.searchParams.set('client_secret', metaAppSecret);
-    tokenUrl.searchParams.set('redirect_uri', redirect_uri);  // Let URL class handle encoding
-    tokenUrl.searchParams.set('code', code);
+    // Build token exchange params - URLSearchParams will handle encoding correctly
+    const tokenParams = new URLSearchParams({
+      client_id: app_id,
+      client_secret: metaAppSecret,
+      redirect_uri: redirect_uri,  // Raw string, URLSearchParams encodes it
+      code: code
+    });
     
     console.log('📋 Token exchange parameters:', {
       client_id: app_id,
       redirect_uri: redirect_uri,
-      redirect_uri_from_url: tokenUrl.searchParams.get('redirect_uri'),
       secret_length: metaAppSecret.length,
       code_length: code.length,
       code_preview: code.substring(0, 20) + '...'
     });
     
-    console.log('🌐 Full request URL (first 150 chars):', tokenUrl.toString().substring(0, 150) + '...');
+    const tokenUrl = 'https://graph.facebook.com/v24.0/oauth/access_token';
+    console.log('🌐 Token URL:', tokenUrl);
+    console.log('📤 Body params (first 150 chars):', tokenParams.toString().substring(0, 150) + '...');
     
-    // Use GET instead of POST - often more reliable with Facebook OAuth
-    const tokenResponse = await fetch(tokenUrl.toString(), {
-      method: 'GET'
+    // Use POST with body params (not GET with query params)
+    const tokenResponse = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: tokenParams
     });
 
     if (!tokenResponse.ok) {
