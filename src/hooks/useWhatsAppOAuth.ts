@@ -39,8 +39,21 @@ export const useWhatsAppOAuth = () => {
 
     console.log("🚀 Initiating WhatsApp OAuth with Embedded Signup");
     
-    // Redirect to Meta's Embedded Signup flow
-    window.location.href = authUrl.toString();
+    // Open as popup window
+    const width = 600;
+    const height = 700;
+    const left = (window.screen.width - width) / 2;
+    const top = (window.screen.height - height) / 2;
+    
+    const popup = window.open(
+      authUrl.toString(),
+      "WhatsApp Embedded Signup",
+      `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+    );
+    
+    if (!popup) {
+      throw new Error("Popup was blocked. Please allow popups for this site.");
+    }
   };
 
   return { initiateOAuth };
