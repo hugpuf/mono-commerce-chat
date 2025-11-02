@@ -153,17 +153,25 @@ serve(async (req) => {
       code: code
     });
     
-    console.log('📋 Token exchange parameters:', {
-      client_id: app_id,
-      redirect_uri_raw: effectiveRedirectUri,
-      secret_length: metaAppSecret.length,
-      code_length: code.length,
-      code_preview: code.substring(0, 20) + '...'
-    });
+    console.log('🔍 OAUTH DEBUG DETAILS -----------------------------------');
+    console.log('Redirect URI from DB:', redirect_uri);
+    console.log('Redirect URI from callback query:', clientRedirectUri);
+    console.log('Final redirect_uri used in POST:', effectiveRedirectUri);
+    
+    // Calculate SHA256 hash
+    const uriEncoder = new TextEncoder();
+    const uriData = uriEncoder.encode(effectiveRedirectUri);
+    const uriHashBuffer = await crypto.subtle.digest('SHA-256', uriData);
+    const uriHashArray = Array.from(new Uint8Array(uriHashBuffer));
+    const uriHashHex = uriHashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    console.log('SHA256 (used in token exchange):', uriHashHex);
+    console.log('Encoded version:', encodeURIComponent(effectiveRedirectUri));
+    console.log('-----------------------------------------------------------');
+    
+    console.log('📤 TOKEN EXCHANGE BODY:', Object.fromEntries(tokenParams.entries()));
     
     const tokenUrl = 'https://graph.facebook.com/v24.0/oauth/access_token';
     console.log('🌐 Token URL:', tokenUrl);
-    console.log('📤 Body params (first 150 chars):', tokenParams.toString().substring(0, 150) + '...');
     
     // Use POST with body params (not GET with query params)
     const tokenResponse = await fetch(tokenUrl, {
