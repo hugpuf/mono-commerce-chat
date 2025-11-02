@@ -11,8 +11,6 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import whatsappLogo from '@/assets/whatsapp-logo.png';
 import { WHATSAPP_REDIRECT_URI } from '@/lib/constants';
 
-// Removed Facebook SDK - using redirect-based OAuth instead
-
 interface ChannelProvider {
   id: string;
   name: string;
@@ -64,7 +62,6 @@ export default function AddChannel() {
   const { workspaceId } = useWorkspace();
   const [metaConfig, setMetaConfig] = useState<{ appId: string; configId: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isConnecting, setIsConnecting] = useState(false);
 
   useEffect(() => {
     const fetchMetaConfig = async () => {
@@ -89,75 +86,67 @@ export default function AddChannel() {
     fetchMetaConfig();
   }, []);
 
-  // Removed Facebook SDK loading - using redirect-based OAuth instead
-
-  const handleConnect = async (channelId: string) => {
+  const handleConnect = (channelId: string) => {
     if (channelId === 'whatsapp') {
       if (!metaConfig) {
-        toast.error('Meta configuration not loaded. Please refresh the page.');
+        toast.error('WhatsApp configuration not available');
         return;
       }
 
-      if (!workspaceId) {
-        toast.error('Workspace not loaded. Please refresh the page.');
-        return;
-      }
+      // Meta Embedded Signup configuration
+      const redirectUri = WHATSAPP_REDIRECT_URI;
+      
+      // Encode workspace ID in state so callback can access it even if context isn't ready
+      const stateData = { ws: workspaceId, nonce: crypto.randomUUID() };
+      const state = btoa(JSON.stringify(stateData));
+      console.log('🔐 State prepared:', { hasWorkspace: !!workspaceId });
+      
+      // Launch Meta's Embedded Signup with setup_fields to get WABA data directly
+      const embedUrl = `https://www.facebook.com/v24.0/dialog/oauth?` +
+        `client_id=${metaConfig.appId}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `config_id=${metaConfig.configId}&` +
+        `response_type=code&` +
+        `scope=whatsapp_business_management,whatsapp_business_messaging&` +
+        `extras={"setup":{"business":{"phone_numbers":["123"]}}}&` +
+        `auth_type=rerequest&` +
+        `state=${state}`;
+      
+      console.log('Opening WhatsApp OAuth:', embedUrl);
+      
+      // Try to open in popup
+      const width = 600;
+      const height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      
+      const popup = window.open(
+        embedUrl,
+        'WhatsApp Business Setup',
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+      );
 
-      setIsConnecting(true);
-
-      try {
-        console.log('🚀 Initiating WhatsApp OAuth in popup', {
-          workspaceId,
-          configId: metaConfig.configId,
-          redirectUri: WHATSAPP_REDIRECT_URI
+      // Check if popup was blocked
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        // Popup was blocked, show toast and redirect in same window
+        toastHook({
+          title: "Popup Blocked",
+          description: "Opening WhatsApp setup in this window...",
         });
-
-        // Encode workspace ID in state parameter
-        const state = btoa(JSON.stringify({ ws: workspaceId }));
-
-        // Construct OAuth URL (standard OAuth - no embedded signup)
-
-        const oauthUrl = 
-          `https://www.facebook.com/v24.0/dialog/oauth?` +
-          `client_id=${encodeURIComponent(metaConfig.appId)}` +
-          `&redirect_uri=${encodeURIComponent(WHATSAPP_REDIRECT_URI)}` +
-          `&response_type=code` +
-          `&scope=${encodeURIComponent('whatsapp_business_management,whatsapp_business_messaging,business_management')}` +
-          `&state=${encodeURIComponent(state)}`;
-
-        console.log('🪟 Opening Meta OAuth in popup window...');
         
-        // Open in popup window for better UX
-        const width = 600;
-        const height = 700;
-        const left = window.screenX + (window.outerWidth - width) / 2;
-        const top = window.screenY + (window.outerHeight - height) / 2;
-        
-        const popup = window.open(
-          oauthUrl,
-          'whatsapp-oauth',
-          `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
-        );
-
-        if (!popup) {
-          toast.error('Popup blocked. Please allow popups for this site.');
-          setIsConnecting(false);
-          return;
-        }
-
-        // Monitor popup - it will close after OAuth completes
+        setTimeout(() => {
+          window.location.href = embedUrl;
+        }, 1500);
+      } else {
+        // Popup opened successfully, monitor it
         const checkPopup = setInterval(() => {
-          if (popup.closed) {
+          if (popup?.closed) {
             clearInterval(checkPopup);
-            console.log('🪟 OAuth popup closed');
-            setIsConnecting(false);
+            console.log('Popup closed - refreshing connection status');
+            // Reload the page to refresh connection status
+            window.location.reload();
           }
         }, 500);
-
-      } catch (error) {
-        console.error('❌ Error opening OAuth popup:', error);
-        toast.error('Failed to launch WhatsApp connection flow');
-        setIsConnecting(false);
       }
     } else {
       toast.error('This channel is coming soon');
@@ -182,6 +171,13 @@ export default function AddChannel() {
           <p className="text-muted-foreground">
             Provision an official messaging channel for customer communications
           </p>
+          
+          <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
+            <p className="text-sm text-muted-foreground">
+              <strong className="text-foreground">Note:</strong> To connect WhatsApp, you'll need a Meta Business account and a configured Meta App. 
+              The connection uses Meta's Embedded Signup for a seamless one-click experience.
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -225,17 +221,12 @@ export default function AddChannel() {
                     size="sm"
                     className="w-full"
                     onClick={() => handleConnect(channel.id)}
-                    disabled={channel.comingSoon || (channel.id === 'whatsapp' && (isLoading || !metaConfig || isConnecting))}
+                    disabled={channel.comingSoon || (channel.id === 'whatsapp' && (isLoading || !metaConfig))}
                   >
                     {channel.id === 'whatsapp' && isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Loading...
-                      </>
-                    ) : channel.id === 'whatsapp' && isConnecting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Connecting...
                       </>
                     ) : channel.comingSoon ? (
                       "Coming Soon"
