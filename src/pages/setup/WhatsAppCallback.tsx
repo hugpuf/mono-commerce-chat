@@ -27,9 +27,16 @@ export default function WhatsAppCallback() {
         const state = searchParams.get('state');
         
         // Get setup data from Meta's Embedded Signup response
+        // Meta may send this as 'setup' query param or in URL hash
         const setupData = searchParams.get('setup');
         
-        console.log('🔍 Callback params:', { hasCode: !!code, hasState: !!state, hasSetupData: !!setupData });
+        console.log('🔍 Callback params:', { 
+          hasCode: !!code, 
+          hasState: !!state, 
+          hasSetupData: !!setupData,
+          allParams: Array.from(searchParams.entries()),
+          hash: window.location.hash
+        });
         
         if (!code) {
           throw new Error('No authorization code received');

@@ -115,7 +115,12 @@ export default function AddChannel() {
         // Encode workspace ID in state parameter
         const state = btoa(JSON.stringify({ ws: workspaceId }));
 
-        // Construct OAuth URL
+        // Construct OAuth URL with extras to get setup data
+        const extras = JSON.stringify({
+          setup: {},
+          feature: 'whatsapp_embedded_signup'
+        });
+
         const oauthUrl = 
           `https://www.facebook.com/v24.0/dialog/oauth?` +
           `client_id=${encodeURIComponent(metaConfig.appId)}` +
@@ -123,6 +128,7 @@ export default function AddChannel() {
           `&redirect_uri=${encodeURIComponent(WHATSAPP_REDIRECT_URI)}` +
           `&response_type=code` +
           `&scope=${encodeURIComponent('whatsapp_business_management,whatsapp_business_messaging')}` +
+          `&extras=${encodeURIComponent(extras)}` +
           `&state=${encodeURIComponent(state)}`;
 
         console.log('🪟 Opening Meta OAuth in popup window...');
