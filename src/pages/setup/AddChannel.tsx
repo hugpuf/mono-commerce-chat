@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "sonner";
 import whatsappLogo from '@/assets/whatsapp-logo.png';
-import { useWhatsAppOAuth } from "@/hooks/useWhatsAppOAuth";
+import { WhatsAppLoginButton } from "@/components/WhatsAppLoginButton";
 
 interface ChannelProvider {
   id: string;
@@ -55,19 +55,12 @@ const channelProviders: ChannelProvider[] = [
 
 export default function AddChannel() {
   const navigate = useNavigate();
-  const { initiateOAuth } = useWhatsAppOAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleConnect = async (channelId: string) => {
     if (channelId === 'whatsapp') {
-      try {
-        setIsLoading(true);
-        await initiateOAuth();
-      } catch (error) {
-        console.error('Failed to start WhatsApp OAuth:', error);
-        toast.error(error instanceof Error ? error.message : 'Failed to start WhatsApp connection');
-        setIsLoading(false);
-      }
+      // WhatsApp uses the embedded login button, no action needed here
+      return;
     } else {
       toast.info('Coming soon!', {
         description: `${channelId.charAt(0).toUpperCase() + channelId.slice(1)} integration will be available soon.`,
@@ -131,15 +124,19 @@ export default function AddChannel() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => handleConnect(channel.id)}
-                    disabled={channel.comingSoon || isLoading}
-                  >
-                    {channel.comingSoon ? "Coming Soon" : "Connect"}
-                  </Button>
+                  {channel.id === 'whatsapp' ? (
+                    <WhatsAppLoginButton />
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleConnect(channel.id)}
+                      disabled={channel.comingSoon || isLoading}
+                    >
+                      {channel.comingSoon ? "Coming Soon" : "Connect"}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );
