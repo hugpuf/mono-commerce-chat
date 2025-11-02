@@ -142,20 +142,19 @@ export const WhatsAppLoginButton = () => {
     console.log('🔍 state_id (UUID):', stateId);
     console.log('🔍 config_id:', configId);
     
-    // Manually construct the v24.0 OAuth dialog URL
-    const dialogUrl = new URL('https://www.facebook.com/v24.0/dialog/oauth');
-    dialogUrl.searchParams.set('client_id', appId);
-    dialogUrl.searchParams.set('redirect_uri', redirectUri);
-    dialogUrl.searchParams.set('response_type', 'code');
+    // Use Meta-hosted Embedded Signup landing page
+    const dialogUrl = new URL('https://business.facebook.com/messaging/whatsapp/onboard/');
+    dialogUrl.searchParams.set('app_id', appId);
     dialogUrl.searchParams.set('config_id', configId);
+    dialogUrl.searchParams.set('redirect_uri', redirectUri);
     dialogUrl.searchParams.set('state', stateId);
-    dialogUrl.searchParams.set('scope', 'whatsapp_business_management,business_management,whatsapp_business_messaging');
     
-    // Add extras for Embedded Signup v3
+    // Add extras for Embedded Signup v3 (app_only_install mode)
     const extras = {
-      setup: {},
-      sessionInfoVersion: "3",
-      version: "v3"
+      featureType: 'whatsapp_business_app_onboarding',
+      sessionInfoVersion: '3',
+      version: 'v3',
+      features: [{ name: 'app_only_install' }]
     };
     dialogUrl.searchParams.set('extras', JSON.stringify(extras));
     
