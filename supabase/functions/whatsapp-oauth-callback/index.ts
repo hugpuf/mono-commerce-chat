@@ -31,34 +31,8 @@ serve(async (req) => {
       );
     }
 
-    // Parse and verify state parameter (base64url format)
-    let parsedState: any;
-    try {
-      // Base64url decode: convert - and _ back to + and /, add padding if needed
-      const base64UrlDecode = (input: string): string => {
-        let s = input.replace(/-/g, '+').replace(/_/g, '/');
-        const pad = s.length % 4;
-        if (pad) s += '='.repeat(4 - pad);
-        return atob(s);
-      };
-      
-      const stateJson = base64UrlDecode(stateParam);
-      parsedState = JSON.parse(stateJson);
-      console.log('📋 Parsed state:', { 
-        ru: parsedState.ru?.substring(0, 30) + '...',
-        ruh: parsedState.ruh,
-        ui_ver: parsedState.ui_ver,
-        env: parsedState.env
-      });
-    } catch (e) {
-      console.error('❌ Failed to parse state parameter:', e);
-      return new Response(
-        JSON.stringify({ error: 'invalid_state: State parameter is malformed' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('📨 Received WhatsApp OAuth callback', { 
+    // State is now a simple UUID - no decoding needed
+    console.log('📨 Received WhatsApp OAuth callback', {
       workspace_id, 
       has_code: !!code,
       has_state: !!stateParam,
@@ -95,35 +69,6 @@ serve(async (req) => {
     const effectiveWorkspaceId = stateData.workspace_id || workspace_id;
     
     console.log('✅ Retrieved from database:', { redirect_uri, app_id, workspace_id: effectiveWorkspaceId });
-
-    // VERIFY STATE HASH: Critical for 36008 prevention
-    console.log('🔐 Verifying state hash...');
-    const serverHash = await crypto.subtle.digest(
-      'SHA-256',
-      new TextEncoder().encode(redirect_uri)
-    );
-    const serverHashArray = Array.from(new Uint8Array(serverHash));
-    const serverHashHex = serverHashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    
-    console.log('🔍 State hash verification:', {
-      client_hash: parsedState.ruh,
-      server_hash: serverHashHex,
-      match: parsedState.ruh === serverHashHex
-    });
-    
-    if (parsedState.ruh !== serverHashHex) {
-      console.error('❌ STATE/REDIRECT_URI MISMATCH DETECTED!');
-      console.error('Client redirect_uri (from state.ru):', parsedState.ru);
-      console.error('Server redirect_uri (from DB):', redirect_uri);
-      return new Response(
-        JSON.stringify({ 
-          error: 'redirect_uri_mismatch: The redirect URI does not match between client and server. Please restart the connection.' 
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    console.log('✅ State hash verified successfully');
     console.log('🔍 Token exchange will use redirect_uri:', redirect_uri);
     
     // Log setup data for debugging

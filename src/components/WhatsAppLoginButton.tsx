@@ -102,29 +102,8 @@ export const WhatsAppLoginButton = () => {
 
     setIsConnecting(true);
     
-    // Generate cryptographically random state
+    // Generate cryptographically random state (UUID only - no encoding)
     const stateId = crypto.randomUUID();
-    
-    // Calculate SHA256 hash of redirect_uri for verification
-    const encoder = new TextEncoder();
-    const data = encoder.encode(redirectUri);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    
-    // Create state payload with verification hash
-    const statePayload = {
-      ru: redirectUri,
-      ruh: hashHex,
-      ui_ver: 'v24.0',
-      env: 'preview'
-    };
-    
-    // Base64url encode the state (URL-safe)
-    const base64UrlEncode = (str: string): string => {
-      return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-    };
-    const stateParam = base64UrlEncode(JSON.stringify(statePayload));
     
     // Store state, redirect_uri, app_id, and workspace_id in database
     try {
@@ -160,8 +139,7 @@ export const WhatsAppLoginButton = () => {
     
     console.log('🚀 Starting manual OAuth dialog flow');
     console.log('🔍 redirect_uri:', redirectUri);
-    console.log('🔍 state_id:', stateId);
-    console.log('🔍 state_hash:', hashHex);
+    console.log('🔍 state_id (UUID):', stateId);
     console.log('🔍 config_id:', configId);
     
     // Manually construct the v24.0 OAuth dialog URL
