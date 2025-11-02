@@ -26,20 +26,35 @@ export default function WhatsAppCallback() {
         const code = searchParams.get('code');
         const state = searchParams.get('state');
         
-        // Meta returns setup data in the URL hash fragment, not query params
-        // Example: #setup={"data":...}
+        // Try to get setup_data from multiple sources
         let setupData = null;
-        const hash = window.location.hash;
-        if (hash.includes('setup=')) {
+        
+        // Source 1: sessionStorage (from MessageEvent listener)
+        const storedSetupData = sessionStorage.getItem('wa_setup_data');
+        if (storedSetupData) {
           try {
-            const setupMatch = hash.match(/setup=([^&]+)/);
-            if (setupMatch) {
-              const setupString = decodeURIComponent(setupMatch[1]);
-              setupData = JSON.parse(setupString);
-              console.log('✅ Parsed setup data from hash fragment:', setupData);
-            }
+            setupData = JSON.parse(storedSetupData);
+            console.log('✅ Retrieved setup_data from sessionStorage:', setupData);
+            sessionStorage.removeItem('wa_setup_data'); // Clean up
           } catch (e) {
-            console.error('⚠️ Failed to parse setup data from hash:', e);
+            console.error('⚠️ Failed to parse stored setup data:', e);
+          }
+        }
+        
+        // Source 2: URL hash fragment (fallback)
+        if (!setupData) {
+          const hash = window.location.hash;
+          if (hash.includes('setup=')) {
+            try {
+              const setupMatch = hash.match(/setup=([^&]+)/);
+              if (setupMatch) {
+                const setupString = decodeURIComponent(setupMatch[1]);
+                setupData = JSON.parse(setupString);
+                console.log('✅ Parsed setup data from hash fragment:', setupData);
+              }
+            } catch (e) {
+              console.error('⚠️ Failed to parse setup data from hash:', e);
+            }
           }
         }
         
@@ -135,10 +150,18 @@ export default function WhatsAppCallback() {
         setStatus('success');
         setMessage('WhatsApp connected successfully!');
         
-        // Redirect after 2 seconds
-        setTimeout(() => {
-          navigate('/');
-        }, 2000);
+        // If in popup, notify opener and close
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({ type: 'WA_CONNECT_SUCCESS' }, window.location.origin);
+          setTimeout(() => {
+            window.close();
+          }, 1000);
+        } else {
+          // If not popup, redirect after 2 seconds
+          setTimeout(() => {
+            navigate('/');
+          }, 2000);
+        }
 
       } catch (error) {
         console.error('❌ Error processing WhatsApp callback:', error);

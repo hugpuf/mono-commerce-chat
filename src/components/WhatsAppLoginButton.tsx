@@ -1,34 +1,25 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
-declare global {
-  interface Window {
-    FB: any;
-    fbAsyncInit: () => void;
-    checkLoginState: () => void;
-  }
-}
-
 export const WhatsAppLoginButton = () => {
   const { workspaceId } = useWorkspace();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
   const [appId, setAppId] = useState<string | null>(null);
+  const [redirectUri, setRedirectUri] = useState<string | null>(null);
   const [setupData, setSetupData] = useState<any>(null);
 
   useEffect(() => {
-    const initializeFacebookSDK = async () => {
-      // Get Meta config
+    const initializeConfig = async () => {
+      // Get Meta config including redirect_uri from backend (single source of truth)
       const { data: configData } = await supabase.functions.invoke('get-meta-config');
-      if (!configData?.appId || !configData?.configId) {
+      if (!configData?.appId || !configData?.configId || !configData?.redirectUri) {
         console.error('Failed to get Meta config');
         setIsLoading(false);
         return;
@@ -36,36 +27,18 @@ export const WhatsAppLoginButton = () => {
 
       setConfigId(configData.configId);
       setAppId(configData.appId);
-
-      // Initialize FB SDK for Embedded Signup
-      window.fbAsyncInit = function() {
-        window.FB.init({
-          appId: configData.appId,
-          autoLogAppEvents: true,
-          cookie: true,
-          xfbml: true,
-          version: 'v24.0'
-        });
-
-        console.log('✅ Facebook SDK initialized');
-        setIsLoading(false);
-      };
-
-      // Load SDK script if not already loaded
-      if (!document.getElementById('facebook-jssdk')) {
-        const script = document.createElement('script');
-        script.id = 'facebook-jssdk';
-        script.async = true;
-        script.defer = true;
-        script.crossOrigin = 'anonymous';
-        script.src = 'https://connect.facebook.net/en_US/sdk.js';
-        document.body.appendChild(script);
-      } else if (window.FB) {
-        setIsLoading(false);
-      }
+      setRedirectUri(configData.redirectUri);
+      
+      console.log('✅ Meta config loaded:', {
+        appId: configData.appId,
+        configId: configData.configId,
+        redirectUri: configData.redirectUri
+      });
+      
+      setIsLoading(false);
     };
 
-    initializeFacebookSDK();
+    initializeConfig();
 
     // Add MessageEvent listener for Embedded Signup
     const handleMessage = (event: MessageEvent) => {
@@ -83,7 +56,11 @@ export const WhatsAppLoginButton = () => {
           if (data.event === 'FINISH') {
             const { phone_number_id, waba_id } = data.data;
             console.log('✅ WABA Setup Complete:', { phone_number_id, waba_id });
-            setSetupData(data.data);
+            const capturedData = data.data;
+            setSetupData(capturedData);
+            
+            // Store in sessionStorage for callback page to retrieve
+            sessionStorage.setItem('wa_setup_data', JSON.stringify(capturedData));
           } else if (data.event === 'CANCEL') {
             console.warn('⚠️ User cancelled Embedded Signup at:', data.data.current_step);
           } else if (data.event === 'ERROR') {
@@ -103,8 +80,8 @@ export const WhatsAppLoginButton = () => {
   }, []);
 
   const handleConnect = async () => {
-    if (!configId || !appId) {
-      console.error('Config ID or App ID missing');
+    if (!configId || !appId || !redirectUri) {
+      console.error('Config incomplete');
       toast({
         title: "Error",
         description: "Configuration missing. Please refresh the page.",
@@ -125,18 +102,33 @@ export const WhatsAppLoginButton = () => {
 
     setIsConnecting(true);
     
-    // Define redirect_uri upfront
-    const redirectUri = `${window.location.origin}/setup/whatsapp/callback`;
-    
     // Generate cryptographically random state
-    const state = crypto.randomUUID();
+    const stateId = crypto.randomUUID();
     
-    // Store redirect_uri, app_id, and workspace_id in database (persisted for token exchange)
+    // Calculate SHA256 hash of redirect_uri for verification
+    const encoder = new TextEncoder();
+    const data = encoder.encode(redirectUri);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    // Create state payload with verification hash
+    const statePayload = {
+      ru: redirectUri,
+      ruh: hashHex,
+      ui_ver: 'v24.0',
+      env: 'preview'
+    };
+    
+    // Base64 encode the state
+    const stateParam = btoa(JSON.stringify(statePayload));
+    
+    // Store state, redirect_uri, app_id, and workspace_id in database
     try {
       const { error: dbError } = await supabase
         .from('oauth_states')
         .insert({
-          state,
+          state: stateId,
           redirect_uri: redirectUri,
           app_id: appId,
           workspace_id: workspaceId
@@ -163,59 +155,70 @@ export const WhatsAppLoginButton = () => {
       return;
     }
     
-    console.log('🚀 Starting Embedded Signup flow with FB.login');
+    console.log('🚀 Starting manual OAuth dialog flow');
     console.log('🔍 redirect_uri:', redirectUri);
-    console.log('🔍 state:', state);
+    console.log('🔍 state_id:', stateId);
+    console.log('🔍 state_hash:', hashHex);
     console.log('🔍 config_id:', configId);
     
-    // Use FB.login with Embedded Signup (popup mode)
-    window.FB.login(
-      (response: any) => {
-        console.log('✅ FB.login response:', response);
-        
-        if (response.authResponse && response.authResponse.code) {
-          const code = response.authResponse.code;
-          
-          // Wait for MessageEvent to populate setupData
-          setTimeout(() => {
-            console.log('🔄 Redirecting to callback with code and setup data');
-            
-            // Construct callback URL
-            const callbackUrl = new URL(redirectUri);
-            callbackUrl.searchParams.set('code', code);
-            callbackUrl.searchParams.set('state', state);
-            
-            // Add setup_data to hash if available
-            if (setupData) {
-              console.log('📦 Including setup_data in redirect:', setupData);
-              callbackUrl.hash = `setup=${encodeURIComponent(JSON.stringify(setupData))}`;
-            } else {
-              console.warn('⚠️ No setup_data received from MessageEvent');
-            }
-            
-            window.location.assign(callbackUrl.toString());
-          }, 500); // Small delay to ensure MessageEvent is processed
-        } else {
-          console.log('❌ User cancelled or did not authorize');
-          setIsConnecting(false);
-          toast({
-            title: "Cancelled",
-            description: "WhatsApp connection was cancelled.",
-            variant: "destructive",
-          });
-        }
-      },
-      {
-        config_id: configId,
-        response_type: 'code',
-        override_default_response_type: true,
-        extras: {
-          setup: {},
-          sessionInfoVersion: "3",
-          version: "v3"
-        }
-      }
+    // Manually construct the v24.0 OAuth dialog URL
+    const dialogUrl = new URL('https://www.facebook.com/v24.0/dialog/oauth');
+    dialogUrl.searchParams.set('client_id', appId);
+    dialogUrl.searchParams.set('redirect_uri', redirectUri);
+    dialogUrl.searchParams.set('response_type', 'code');
+    dialogUrl.searchParams.set('config_id', configId);
+    dialogUrl.searchParams.set('state', stateId);
+    dialogUrl.searchParams.set('scope', 'whatsapp_business_management,business_management,whatsapp_business_messaging');
+    
+    // Add extras for Embedded Signup v3
+    const extras = {
+      setup: {},
+      sessionInfoVersion: "3",
+      version: "v3"
+    };
+    dialogUrl.searchParams.set('extras', JSON.stringify(extras));
+    
+    console.info('🌐 OAUTH DIALOG URL:', dialogUrl.toString());
+    
+    // Open in popup window to receive MessageEvents and keep main page alive
+    const popup = window.open(
+      dialogUrl.toString(),
+      'wa-embed-popup',
+      'width=600,height=800,scrollbars=yes,resizable=yes'
     );
+    
+    if (!popup) {
+      toast({
+        title: "Popup Blocked",
+        description: "Please allow popups for this site and try again.",
+        variant: "destructive",
+      });
+      setIsConnecting(false);
+      return;
+    }
+    
+    // Listen for success message from popup
+    const handlePopupMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'WA_CONNECT_SUCCESS') {
+        console.log('✅ Received success message from popup');
+        window.removeEventListener('message', handlePopupMessage);
+        setIsConnecting(false);
+        
+        // Refresh or redirect to show connected state
+        window.location.href = '/';
+      }
+    };
+    
+    window.addEventListener('message', handlePopupMessage);
+    
+    // Fallback: if popup closes without success message
+    const checkPopupClosed = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkPopupClosed);
+        window.removeEventListener('message', handlePopupMessage);
+        setIsConnecting(false);
+      }
+    }, 1000);
   };
 
   if (isLoading) {
@@ -226,7 +229,7 @@ export const WhatsAppLoginButton = () => {
     );
   }
 
-  if (!configId) {
+  if (!configId || !redirectUri) {
     return (
       <div className="text-sm text-destructive">
         Configuration error. Please contact support.

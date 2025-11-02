@@ -19,14 +19,33 @@ serve(async (req) => {
     const { 
       code, 
       workspace_id,
-      state,
+      state: stateParam,
       redirect_uri: clientRedirectUri,
       setup_data
     } = await req.json();
 
-    if (!state) {
+    if (!stateParam) {
       return new Response(
         JSON.stringify({ error: 'missing_state: OAuth state not provided. Please restart the connection from the app.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Parse and verify state parameter
+    let parsedState: any;
+    try {
+      const stateJson = atob(stateParam); // base64 decode
+      parsedState = JSON.parse(stateJson);
+      console.log('📋 Parsed state:', { 
+        ru: parsedState.ru?.substring(0, 30) + '...',
+        ruh: parsedState.ruh,
+        ui_ver: parsedState.ui_ver,
+        env: parsedState.env
+      });
+    } catch (e) {
+      console.error('❌ Failed to parse state parameter:', e);
+      return new Response(
+        JSON.stringify({ error: 'invalid_state: State parameter is malformed' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -34,7 +53,7 @@ serve(async (req) => {
     console.log('📨 Received WhatsApp OAuth callback', { 
       workspace_id, 
       has_code: !!code,
-      has_state: !!state,
+      has_state: !!stateParam,
       client_redirect_uri: clientRedirectUri,
       has_setup_data: !!setup_data && Object.keys(setup_data).length > 0
     });
@@ -44,7 +63,7 @@ serve(async (req) => {
     const { data: stateData, error: stateError } = await supabase
       .from('oauth_states')
       .select('redirect_uri, app_id, workspace_id')
-      .eq('state', state)
+      .eq('state', stateParam)
       .maybeSingle();
     
     if (stateError) {
@@ -69,15 +88,35 @@ serve(async (req) => {
     
     console.log('✅ Retrieved from database:', { redirect_uri, app_id, workspace_id: effectiveWorkspaceId });
 
-    // Diagnostic logging for redirect_uri matching (critical for 36008 error prevention)
-    console.log('🔍 Token exchange will use redirect_uri:', redirect_uri);
-    const hash = await crypto.subtle.digest(
+    // VERIFY STATE HASH: Critical for 36008 prevention
+    console.log('🔐 Verifying state hash...');
+    const serverHash = await crypto.subtle.digest(
       'SHA-256',
       new TextEncoder().encode(redirect_uri)
     );
-    const hashArray = Array.from(new Uint8Array(hash));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    console.log('🔍 SHA256 hash of redirect_uri:', hashHex);
+    const serverHashArray = Array.from(new Uint8Array(serverHash));
+    const serverHashHex = serverHashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    console.log('🔍 State hash verification:', {
+      client_hash: parsedState.ruh,
+      server_hash: serverHashHex,
+      match: parsedState.ruh === serverHashHex
+    });
+    
+    if (parsedState.ruh !== serverHashHex) {
+      console.error('❌ STATE/REDIRECT_URI MISMATCH DETECTED!');
+      console.error('Client redirect_uri (from state.ru):', parsedState.ru);
+      console.error('Server redirect_uri (from DB):', redirect_uri);
+      return new Response(
+        JSON.stringify({ 
+          error: 'redirect_uri_mismatch: The redirect URI does not match between client and server. Please restart the connection.' 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log('✅ State hash verified successfully');
+    console.log('🔍 Token exchange will use redirect_uri:', redirect_uri);
     
     // Log setup data for debugging
     if (setup_data) {
