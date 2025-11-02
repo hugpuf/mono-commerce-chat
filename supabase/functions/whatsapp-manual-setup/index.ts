@@ -31,7 +31,7 @@ serve(async (req) => {
 
     // Verify the WABA exists and get details using system user token
     const wabaResponse = await fetch(
-      `https://graph.facebook.com/v21.0/${waba_id}?access_token=${systemUserToken}`,
+      `https://graph.facebook.com/v24.0/${waba_id}?access_token=${systemUserToken}`,
       { method: 'GET' }
     );
 
@@ -49,7 +49,7 @@ serve(async (req) => {
 
     // Fetch phone number details
     const phoneResponse = await fetch(
-      `https://graph.facebook.com/v21.0/${phone_number_id}?access_token=${systemUserToken}`,
+      `https://graph.facebook.com/v24.0/${phone_number_id}?access_token=${systemUserToken}`,
       { method: 'GET' }
     );
 
@@ -97,7 +97,7 @@ serve(async (req) => {
 
     try {
       const webhookResponse = await fetch(
-        `https://graph.facebook.com/v21.0/${waba_id}/subscribed_apps`,
+        `https://graph.facebook.com/v24.0/${waba_id}/subscribed_apps`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

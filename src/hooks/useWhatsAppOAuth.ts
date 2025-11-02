@@ -27,7 +27,7 @@ export const useWhatsAppOAuth = () => {
           appId: configData.appId,
           cookie: true,
           xfbml: true,
-          version: 'v21.0'
+          version: 'v24.0'
         });
         
         // Check login status after SDK is ready

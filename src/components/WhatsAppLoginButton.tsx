@@ -36,13 +36,13 @@ export const WhatsAppLoginButton = () => {
       setConfigId(configData.configId);
       setAppId(configData.appId);
 
-      // Initialize FB SDK
+      // Initialize FB SDK (not used for OAuth, but kept for compatibility)
       window.fbAsyncInit = function() {
         window.FB.init({
           appId: configData.appId,
           cookie: true,
           xfbml: true,
-          version: 'v21.0'
+          version: 'v24.0'
         });
 
         console.log('✅ Facebook SDK initialized');
@@ -67,11 +67,11 @@ export const WhatsAppLoginButton = () => {
   }, []);
 
   const handleConnect = async () => {
-    if (!window.FB || !configId || !appId) {
-      console.error('Facebook SDK not ready or config missing');
+    if (!configId || !appId) {
+      console.error('Config ID or App ID missing');
       toast({
         title: "Error",
-        description: "Facebook SDK not loaded or App ID missing. Please refresh the page.",
+        description: "Configuration missing. Please refresh the page.",
         variant: "destructive",
       });
       return;
@@ -135,41 +135,24 @@ export const WhatsAppLoginButton = () => {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     
-    console.log('🚀 Starting OAuth flow');
+    console.log('🚀 Starting OAuth flow with manual dialog');
     console.log('🔍 redirect_uri:', redirectUri);
     console.log('🔍 SHA256 hash:', hashHex);
     console.log('🔍 state:', state);
     
-    window.FB.login(
-      (response: any) => {
-        console.log('✅ FB.login response received:', response);
-        
-        if (response.authResponse && response.authResponse.code) {
-          console.log('✅ Embedded Signup completed!', response.authResponse);
-          
-          // Extract the code
-          const code = response.authResponse.code;
-          
-          // Redirect to callback URL (state already persisted in DB, setup data in hash)
-          const redirectUrl = `${redirectUri}?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
-          
-          console.log('🔄 Redirecting to callback with code and state...');
-          window.location.replace(redirectUrl);
-        } else {
-          console.log('❌ User cancelled login or did not fully authorize.');
-          setIsConnecting(false);
-        }
-      },
-      {
-        config_id: configId,
-        response_type: 'code',
-        override_default_response_type: true,
-        redirect_uri: redirectUri,  // Explicitly pass redirect_uri to FB.login
-        extras: {
-          setup: 1  // Enable Embedded Signup
-        }
-      }
-    );
+    // Build OAuth URL manually for full control over redirect_uri
+    const dialogUrl = new URL('https://www.facebook.com/v24.0/dialog/oauth');
+    dialogUrl.searchParams.set('client_id', appId);
+    dialogUrl.searchParams.set('redirect_uri', redirectUri); // Raw - URL API handles encoding
+    dialogUrl.searchParams.set('response_type', 'code');
+    dialogUrl.searchParams.set('config_id', configId); // ← This enables Embedded Signup
+    dialogUrl.searchParams.set('state', state);
+    dialogUrl.searchParams.set('scope', 'whatsapp_business_management,business_management,whatsapp_business_messaging');
+    
+    console.log('🔗 OAuth Dialog URL (first 150 chars):', dialogUrl.toString().substring(0, 150) + '...');
+    
+    // Full-page redirect to Facebook OAuth dialog
+    window.location.assign(dialogUrl.toString());
   };
 
   if (isLoading) {
