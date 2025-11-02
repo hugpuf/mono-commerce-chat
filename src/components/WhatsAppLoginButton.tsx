@@ -64,7 +64,7 @@ export const WhatsAppLoginButton = () => {
     initializeFacebookSDK();
   }, []);
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     if (!window.FB || !configId) {
       console.error('Facebook SDK not ready or config missing');
       toast({
@@ -90,12 +90,56 @@ export const WhatsAppLoginButton = () => {
     // Define redirect_uri upfront - MUST be byte-for-byte identical throughout flow
     const redirectUri = `${window.location.origin}/setup/whatsapp/callback`;
     
-    // Log for diagnostics
-    console.log('🚀 Starting OAuth with redirect_uri:', redirectUri);
+    // Generate state parameter
+    const state = btoa(JSON.stringify({ ws: workspaceId }));
+    
+    // Store redirect_uri and app_id in database (persisted for token exchange)
+    try {
+      const { error: dbError } = await supabase
+        .from('oauth_states')
+        .insert({
+          state,
+          redirect_uri: redirectUri,
+          app_id: configId
+        });
+      
+      if (dbError) {
+        console.error('Failed to store OAuth state:', dbError);
+        toast({
+          title: "Error",
+          description: "Failed to prepare OAuth flow. Please try again.",
+          variant: "destructive",
+        });
+        setIsConnecting(false);
+        return;
+      }
+    } catch (err) {
+      console.error('Error storing OAuth state:', err);
+      toast({
+        title: "Error",
+        description: "Failed to prepare OAuth flow. Please try again.",
+        variant: "destructive",
+      });
+      setIsConnecting(false);
+      return;
+    }
+    
+    // Compute SHA-256 hash for diagnostics
+    const hashBuffer = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(redirectUri)
+    );
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    console.log('🚀 Starting OAuth flow');
+    console.log('🔍 redirect_uri:', redirectUri);
+    console.log('🔍 SHA256 hash:', hashHex);
+    console.log('🔍 state:', state);
     
     window.FB.login(
       (response: any) => {
-        console.log('Login response:', response);
+        console.log('✅ FB.login response received:', response);
         
         if (response.authResponse && response.authResponse.code) {
           console.log('✅ Embedded Signup completed!', response.authResponse);
@@ -103,16 +147,10 @@ export const WhatsAppLoginButton = () => {
           // Extract the code
           const code = response.authResponse.code;
           
-          // Build state parameter with workspace ID AND redirect_uri to ensure byte-for-byte match
-          const state = btoa(JSON.stringify({ 
-            ws: workspaceId,
-            redirect_uri: redirectUri  // Store exact URI for token exchange
-          }));
-          
-          // Redirect to callback URL (setup data will be in hash fragment)
+          // Redirect to callback URL (state already persisted in DB, setup data in hash)
           const redirectUrl = `${redirectUri}?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
           
-          console.log('🔄 Redirecting to callback URL to complete connection...');
+          console.log('🔄 Redirecting to callback with code and state...');
           window.location.replace(redirectUrl);
         } else {
           console.log('❌ User cancelled login or did not fully authorize.');

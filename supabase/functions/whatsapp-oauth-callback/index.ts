@@ -20,28 +20,55 @@ serve(async (req) => {
       code, 
       workspace_id,
       state,
-      redirect_uri,
+      redirect_uri: clientRedirectUri,
       setup_data
     } = await req.json();
 
-    console.log('Received WhatsApp OAuth callback', { 
+    console.log('📨 Received WhatsApp OAuth callback', { 
       workspace_id, 
       has_code: !!code,
-      redirect_uri,
+      has_state: !!state,
+      client_redirect_uri: clientRedirectUri,
       has_setup_data: !!setup_data && Object.keys(setup_data).length > 0
     });
     
+    // CRITICAL: Fetch the EXACT redirect_uri and app_id from database (stored at OAuth start)
+    let redirect_uri = clientRedirectUri; // fallback to client-provided value
+    let app_id = Deno.env.get('META_APP_ID')!;
+    
+    if (state) {
+      console.log('🔍 Looking up OAuth state in database...');
+      const { data: stateData, error: stateError } = await supabase
+        .from('oauth_states')
+        .select('redirect_uri, app_id')
+        .eq('state', state)
+        .maybeSingle();
+      
+      if (stateError) {
+        console.error('❌ Failed to fetch oauth_state:', stateError);
+      } else if (stateData) {
+        redirect_uri = stateData.redirect_uri;
+        if (stateData.app_id) {
+          app_id = stateData.app_id;
+        }
+        console.log('✅ Retrieved redirect_uri from database:', redirect_uri);
+        console.log('✅ Retrieved app_id from database:', app_id);
+      } else {
+        console.warn('⚠️ No oauth_state found for state parameter, using client-provided redirect_uri');
+      }
+    } else {
+      console.warn('⚠️ No state parameter provided, cannot lookup redirect_uri in DB');
+    }
+    
     // Diagnostic logging for redirect_uri matching (critical for 36008 error prevention)
     console.log('🔍 Token exchange will use redirect_uri:', redirect_uri);
-    if (redirect_uri) {
-      const hash = await crypto.subtle.digest(
-        'SHA-256',
-        new TextEncoder().encode(redirect_uri)
-      );
-      const hashArray = Array.from(new Uint8Array(hash));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      console.log('🔍 SHA256 hash of redirect_uri:', hashHex);
-    }
+    const hash = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(redirect_uri)
+    );
+    const hashArray = Array.from(new Uint8Array(hash));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    console.log('🔍 SHA256 hash of redirect_uri:', hashHex);
     
     // Log setup data for debugging
     if (setup_data) {
@@ -75,16 +102,19 @@ serve(async (req) => {
     console.log('Code reserved successfully, proceeding with token exchange...');
 
     // Step 1: Exchange code for access token (server-side only)
-    const metaAppId = Deno.env.get('META_APP_ID')!;
     const metaAppSecret = Deno.env.get('META_APP_SECRET')!;
 
+    console.log('🔄 Exchanging code for access token...');
+    console.log('🔑 Using app_id:', app_id);
+    console.log('🔗 Using redirect_uri:', redirect_uri);
+    
     const tokenResponse = await fetch(
       'https://graph.facebook.com/v24.0/oauth/access_token',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          client_id: metaAppId,
+          client_id: app_id,
           client_secret: metaAppSecret,
           redirect_uri: redirect_uri,
           code: code
