@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
 declare global {
@@ -12,8 +13,8 @@ declare global {
 
 export const WhatsAppLoginButton = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
-  const buttonContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const initializeFacebookSDK = async () => {
@@ -27,22 +28,6 @@ export const WhatsAppLoginButton = () => {
 
       setConfigId(configData.configId);
 
-      // Set up the callback for login state
-      window.checkLoginState = function() {
-        window.FB.getLoginStatus(function(response: any) {
-          console.log('Login state response:', response);
-          if (response.status === 'connected') {
-            console.log('✅ User connected successfully');
-            // The setup data will be in the response
-            console.log('Auth response:', response.authResponse);
-          } else if (response.status === 'not_authorized') {
-            console.log('⚠️ User logged into Facebook but not authorized');
-          } else {
-            console.log('ℹ️ User not logged into Facebook');
-          }
-        });
-      };
-
       // Initialize FB SDK
       window.fbAsyncInit = function() {
         window.FB.init({
@@ -54,11 +39,6 @@ export const WhatsAppLoginButton = () => {
 
         console.log('✅ Facebook SDK initialized');
         setIsLoading(false);
-
-        // Parse XFBML elements (the login button)
-        if (buttonContainerRef.current) {
-          window.FB.XFBML.parse(buttonContainerRef.current);
-        }
       };
 
       // Load SDK script if not already loaded
@@ -72,12 +52,42 @@ export const WhatsAppLoginButton = () => {
         document.body.appendChild(script);
       } else if (window.FB) {
         setIsLoading(false);
-        window.FB.XFBML.parse(buttonContainerRef.current);
       }
     };
 
     initializeFacebookSDK();
   }, []);
+
+  const handleConnect = () => {
+    if (!window.FB || !configId) {
+      console.error('Facebook SDK not ready or config missing');
+      return;
+    }
+
+    setIsConnecting(true);
+    
+    window.FB.login(
+      (response: any) => {
+        console.log('Login response:', response);
+        setIsConnecting(false);
+        
+        if (response.authResponse) {
+          console.log('✅ Successfully connected!', response.authResponse);
+          // The OAuth callback will handle the rest
+        } else {
+          console.log('❌ User cancelled login or did not fully authorize.');
+        }
+      },
+      {
+        config_id: configId,
+        response_type: 'code',
+        override_default_response_type: true,
+        extras: {
+          setup: {},
+        }
+      }
+    );
+  };
 
   if (isLoading) {
     return (
@@ -96,17 +106,19 @@ export const WhatsAppLoginButton = () => {
   }
 
   return (
-    <div ref={buttonContainerRef}>
-      <div
-        className="fb-login-button"
-        data-config-id={configId}
-        data-onlogin="checkLoginState();"
-        data-width=""
-        data-size="large"
-        data-button-type="continue_with"
-        data-auto-logout-link="false"
-        data-use-continue-as="true"
-      />
-    </div>
+    <Button 
+      onClick={handleConnect} 
+      disabled={isConnecting}
+      className="w-full"
+    >
+      {isConnecting ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Connecting...
+        </>
+      ) : (
+        'Connect WhatsApp'
+      )}
+    </Button>
   );
 };
