@@ -29,7 +29,20 @@ export const useWhatsAppOAuth = () => {
           xfbml: true,
           version: 'v21.0'
         });
-        setFbSdkReady(true);
+        
+        // Check login status after SDK is ready
+        window.FB.getLoginStatus(function(response: any) {
+          console.log('FB Login Status:', response);
+          if (response.status === 'connected') {
+            console.log('✅ User is logged into Facebook and has authorized the app');
+          } else if (response.status === 'not_authorized') {
+            console.log('⚠️ User is logged into Facebook but has not authorized the app');
+          } else {
+            console.log('ℹ️ User is not logged into Facebook');
+          }
+          setFbSdkReady(true);
+        });
+        
         console.log('✅ Facebook SDK initialized');
       };
 
@@ -71,15 +84,18 @@ export const useWhatsAppOAuth = () => {
 
     console.log("🚀 Initiating WhatsApp Embedded Signup");
     
-    // Use FB.login with Embedded Signup
+    // Use FB.login with Embedded Signup - this opens the popup
     window.FB.login(
       function(response: any) {
         console.log('FB.login response:', response);
-        if (response.authResponse) {
-          console.log('✅ User authorized the app');
-          // The callback page will handle the rest
+        
+        if (response.status === 'connected') {
+          console.log('✅ User authorized - status connected');
+          console.log('Auth response:', response.authResponse);
+        } else if (response.status === 'not_authorized') {
+          console.log('⚠️ User is logged into Facebook but not authorized the app');
         } else {
-          console.log('❌ User cancelled login or did not authorize');
+          console.log('❌ User cancelled login or not logged into Facebook');
         }
       },
       {
