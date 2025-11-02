@@ -30,7 +30,13 @@ declare global {
             business_id?: string;
           };
         }) => void,
-        options: { config_id: string; response_type: string; override_default_response_type: boolean; extras: Record<string, unknown> }
+        options: { 
+          config_id: string; 
+          response_type: string; 
+          override_default_response_type: boolean;
+          scope?: string;
+          extras: Record<string, unknown>;
+        }
       ) => void;
     };
   }
@@ -205,6 +211,10 @@ export default function AddChannel() {
         // Use Facebook SDK to launch Embedded Signup
         console.log('📞 Calling FB.login with config_id:', metaConfig.configId);
         
+        // Important: FB.login for embedded signup doesn't return setup_data in response
+        // The setup data comes through the redirect URL as query parameters
+        // So we need to handle this differently
+        
         window.FB.login(
           async (response) => {
             console.log('📱 FB.login response received:', {
@@ -217,17 +227,11 @@ export default function AddChannel() {
 
             if (response.status === 'connected' && response.authResponse?.code) {
               const { code } = response.authResponse;
-              const setupData = response.setup;
-
-              console.log('✅ OAuth successful - received data:', {
-                codeLength: code.length,
-                hasSetupData: !!setupData,
-                setupData: setupData ? {
-                  wabaId: setupData.waba_id,
-                  phoneNumberId: setupData.phone_number_id,
-                  businessId: setupData.business_id
-                } : null
-              });
+              
+              // NOTE: Setup data is NOT in response.setup for embedded signup
+              // It should be passed via URL redirect, but since we're using SDK popup,
+              // we won't get it here. The backend will need to fetch it.
+              console.log('✅ OAuth successful - received authorization code');
 
               // Show processing toast
               toast.loading('Connecting WhatsApp account...', { id: 'whatsapp-connection' });
@@ -237,22 +241,17 @@ export default function AddChannel() {
                   code,
                   workspace_id: workspaceId,
                   redirect_uri: WHATSAPP_REDIRECT_URI,
-                  state: btoa(JSON.stringify({ ws: workspaceId })),
-                  setup_data: setupData ? {
-                    waba_id: setupData.waba_id,
-                    phone_number_id: setupData.phone_number_id,
-                    business_id: setupData.business_id
-                  } : undefined
+                  state: btoa(JSON.stringify({ ws: workspaceId }))
+                  // No setup_data - backend will fetch via API
                 };
 
                 console.log('📤 Invoking edge function with payload:', {
                   hasCode: !!payload.code,
                   workspaceId: payload.workspace_id,
-                  hasSetupData: !!payload.setup_data,
-                  setupDataKeys: payload.setup_data ? Object.keys(payload.setup_data) : []
+                  redirectUri: payload.redirect_uri
                 });
 
-                // Call edge function with the code and setup data
+                // Call edge function with the code
                 const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
                   body: payload
                 });
@@ -284,14 +283,22 @@ export default function AddChannel() {
                   errorMessage: error instanceof Error ? error.message : 'Unknown error',
                   errorStack: error instanceof Error ? error.stack : undefined
                 });
-                toast.error('Failed to connect WhatsApp. Please try again.', { id: 'whatsapp-connection' });
+                
+                const errorMessage = error instanceof Error && error.message 
+                  ? error.message 
+                  : 'Failed to connect WhatsApp. Please try again.';
+                  
+                toast.error(errorMessage, { id: 'whatsapp-connection' });
               }
+            } else if (response.status === 'unknown') {
+              console.warn('⚠️ OAuth was cancelled by user or popup was blocked');
+              toast.error('WhatsApp connection was cancelled or popup was blocked');
             } else {
-              console.warn('⚠️ OAuth was cancelled or failed:', {
+              console.warn('⚠️ OAuth returned unexpected status:', {
                 status: response.status,
                 response: JSON.stringify(response, null, 2)
               });
-              toast.error('WhatsApp connection was cancelled');
+              toast.error('Unable to connect WhatsApp. Please try again.');
             }
 
             setIsConnecting(false);
@@ -300,12 +307,9 @@ export default function AddChannel() {
             config_id: metaConfig.configId,
             response_type: 'code',
             override_default_response_type: true,
+            scope: 'whatsapp_business_management,whatsapp_business_messaging',
             extras: {
-              setup: {
-                business: {
-                  phone_numbers: ['123']
-                }
-              }
+              setup: {}
             }
           }
         );
@@ -315,9 +319,12 @@ export default function AddChannel() {
         console.error('❌ Error launching FB.login:', {
           error,
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
-          errorStack: error instanceof Error ? error.stack : undefined
+          errorStack: error instanceof Error ? error.stack : undefined,
+          fbAvailable: !!window.FB,
+          fbSdkLoaded
         });
-        toast.error('Failed to start WhatsApp connection');
+        
+        toast.error('Failed to start WhatsApp connection. Please refresh and try again.');
         setIsConnecting(false);
       }
     } else {
@@ -395,10 +402,15 @@ export default function AddChannel() {
                     onClick={() => handleConnect(channel.id)}
                     disabled={channel.comingSoon || (channel.id === 'whatsapp' && (isLoading || !metaConfig || !fbSdkLoaded || isConnecting))}
                   >
-                    {channel.id === 'whatsapp' && (isLoading || !fbSdkLoaded) ? (
+                    {channel.id === 'whatsapp' && isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Loading SDK...
+                        Initializing...
+                      </>
+                    ) : channel.id === 'whatsapp' && !fbSdkLoaded ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Preparing...
                       </>
                     ) : channel.id === 'whatsapp' && isConnecting ? (
                       <>
