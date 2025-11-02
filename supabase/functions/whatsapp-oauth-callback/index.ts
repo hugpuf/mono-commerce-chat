@@ -31,10 +31,18 @@ serve(async (req) => {
       );
     }
 
-    // Parse and verify state parameter
+    // Parse and verify state parameter (base64url format)
     let parsedState: any;
     try {
-      const stateJson = atob(stateParam); // base64 decode
+      // Base64url decode: convert - and _ back to + and /, add padding if needed
+      const base64UrlDecode = (input: string): string => {
+        let s = input.replace(/-/g, '+').replace(/_/g, '/');
+        const pad = s.length % 4;
+        if (pad) s += '='.repeat(4 - pad);
+        return atob(s);
+      };
+      
+      const stateJson = base64UrlDecode(stateParam);
       parsedState = JSON.parse(stateJson);
       console.log('📋 Parsed state:', { 
         ru: parsedState.ru?.substring(0, 30) + '...',

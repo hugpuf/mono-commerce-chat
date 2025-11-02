@@ -120,8 +120,11 @@ export const WhatsAppLoginButton = () => {
       env: 'preview'
     };
     
-    // Base64 encode the state
-    const stateParam = btoa(JSON.stringify(statePayload));
+    // Base64url encode the state (URL-safe)
+    const base64UrlEncode = (str: string): string => {
+      return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    };
+    const stateParam = base64UrlEncode(JSON.stringify(statePayload));
     
     // Store state, redirect_uri, app_id, and workspace_id in database
     try {
