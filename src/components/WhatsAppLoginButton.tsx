@@ -350,6 +350,7 @@ export const WhatsAppLoginButton = () => {
         config_id: configId,
         response_type: 'code',
         override_default_response_type: true,
+        redirect_uri: redirectUri,
         extras: {
           setup: {}
         }
