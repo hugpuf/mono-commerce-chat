@@ -99,7 +99,7 @@ export const useWhatsAppOAuth = () => {
         }
       },
       {
-        config_id: configId,
+        login_config_id: configId, // CRITICAL: Use login_config_id for Embedded Signup
         response_type: 'code',
         override_default_response_type: true,
         extras: {

@@ -142,12 +142,12 @@ export const WhatsAppLoginButton = () => {
     console.log('🔍 state_id (UUID):', stateId);
     console.log('🔍 config_id:', configId);
     
-    // Build the OAuth dialog URL (let config_id control Embedded Signup)
+    // Build the OAuth dialog URL (let login_config_id control Embedded Signup)
     const dialogUrl = new URL('https://www.facebook.com/v24.0/dialog/oauth');
     dialogUrl.searchParams.set('client_id', appId);
     dialogUrl.searchParams.set('redirect_uri', redirectUri);
     dialogUrl.searchParams.set('response_type', 'code');
-    dialogUrl.searchParams.set('config_id', configId);
+    dialogUrl.searchParams.set('login_config_id', configId); // CRITICAL: Use login_config_id for Embedded Signup
     dialogUrl.searchParams.set('state', stateId);
     dialogUrl.searchParams.set('scope', 'whatsapp_business_management,business_management,whatsapp_business_messaging');
     
@@ -159,7 +159,7 @@ export const WhatsAppLoginButton = () => {
     console.log('📋 URL Parameters:');
     console.log('   • client_id:', appId);
     console.log('   • redirect_uri:', redirectUri);
-    console.log('   • config_id:', configId);
+    console.log('   • login_config_id:', configId);
     console.log('   • state:', stateId);
     console.log('   • response_type: code');
     console.log('   • scope: whatsapp_business_management,business_management,whatsapp_business_messaging');
@@ -167,7 +167,7 @@ export const WhatsAppLoginButton = () => {
     console.log('   • redirect_uri has trailing slash?', redirectUri.endsWith('/'));
     console.log('   • redirect_uri length:', redirectUri.length);
     console.log('   • redirect_uri protocol:', redirectUri.startsWith('https://') ? 'HTTPS ✓' : 'INVALID ✗');
-    console.log('   • config_id present?', configId ? 'YES ✓' : 'NO ✗');
+    console.log('   • login_config_id present?', configId ? 'YES ✓' : 'NO ✗');
     console.log('⏰ Launch timestamp:', new Date().toISOString());
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
