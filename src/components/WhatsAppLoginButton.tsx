@@ -1,10 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+
+// Global guard to ensure only one ES popup is ever open
+declare global {
+  interface Window {
+    __WA_ES_POPUP__?: Window | null;
+    __WA_ES_MESSAGE_HANDLER?: (event: MessageEvent) => void;
+  }
+}
 
 export const WhatsAppLoginButton = () => {
   const { workspaceId } = useWorkspace();
@@ -15,6 +23,11 @@ export const WhatsAppLoginButton = () => {
   const [configId, setConfigId] = useState<string | null>(null);
   const [appId, setAppId] = useState<string | null>(null);
   const [redirectUri, setRedirectUri] = useState<string | null>(null);
+  
+  // Refs to enforce single-window behavior
+  const launchingRef = useRef(false); // Synchronous guard for double-click
+  const popupRef = useRef<Window | null>(null); // Track current popup
+  const popupCheckRef = useRef<NodeJS.Timeout | null>(null); // Interval ID for popup monitor
 
   useEffect(() => {
     const initializeConfig = async () => {
@@ -41,15 +54,24 @@ export const WhatsAppLoginButton = () => {
 
     initializeConfig();
 
+    // Dedupe listener: remove any existing handler before adding new one
+    if (window.__WA_ES_MESSAGE_HANDLER) {
+      console.log('🧹 Removing existing postMessage handler (deduping)');
+      window.removeEventListener('message', window.__WA_ES_MESSAGE_HANDLER);
+      window.__WA_ES_MESSAGE_HANDLER = undefined;
+    }
+
     // Add MessageEvent listener for Embedded Signup (postMessage mode)
     const handleMessage = async (event: MessageEvent) => {
-      // Only accept messages from Facebook
-      if (event.origin !== "https://www.facebook.com" && 
-          event.origin !== "https://web.facebook.com") {
+      // Accept any facebook.com domain (includes business.facebook.com, www.facebook.com, web.facebook.com)
+      const isFacebookOrigin = event.origin.endsWith('.facebook.com') || event.origin === 'https://facebook.com';
+      
+      if (!isFacebookOrigin) {
+        console.log('🚫 Ignored postMessage from non-Facebook origin:', event.origin);
         return;
       }
       
-      console.log('📨 Received postMessage from Facebook:', event.data);
+      console.log('📨 Received postMessage from Facebook:', { origin: event.origin, data: event.data });
       
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
@@ -77,6 +99,17 @@ export const WhatsAppLoginButton = () => {
             try {
               setIsConnecting(true);
               
+              // Close popup and clear guards
+              if (popupRef.current && !popupRef.current.closed) {
+                popupRef.current.close();
+              }
+              popupRef.current = null;
+              window.__WA_ES_POPUP__ = null;
+              if (popupCheckRef.current) {
+                clearInterval(popupCheckRef.current);
+                popupCheckRef.current = null;
+              }
+              
               // Get redirect_uri from config
               const { data: configData } = await supabase.functions.invoke('get-meta-config');
               
@@ -100,6 +133,8 @@ export const WhatsAppLoginButton = () => {
                 description: "Your WhatsApp Business account is now connected.",
               });
               
+              setIsConnecting(false);
+              
               // Navigate to success page
               navigate('/setup/whatsapp/callback?success=true');
               
@@ -114,9 +149,29 @@ export const WhatsAppLoginButton = () => {
             }
           } else if (data.event === 'CANCEL') {
             console.log('ℹ️ User cancelled WhatsApp signup');
+            // Close popup and clear guards
+            if (popupRef.current && !popupRef.current.closed) {
+              popupRef.current.close();
+            }
+            popupRef.current = null;
+            window.__WA_ES_POPUP__ = null;
+            if (popupCheckRef.current) {
+              clearInterval(popupCheckRef.current);
+              popupCheckRef.current = null;
+            }
             setIsConnecting(false);
           } else if (data.event === 'ERROR') {
             console.error('❌ Error in WhatsApp signup:', data.data);
+            // Close popup and clear guards
+            if (popupRef.current && !popupRef.current.closed) {
+              popupRef.current.close();
+            }
+            popupRef.current = null;
+            window.__WA_ES_POPUP__ = null;
+            if (popupCheckRef.current) {
+              clearInterval(popupCheckRef.current);
+              popupCheckRef.current = null;
+            }
             toast({
               title: "Connection Error",
               description: "An error occurred during WhatsApp signup.",
@@ -130,14 +185,39 @@ export const WhatsAppLoginButton = () => {
       }
     };
 
+    // Store handler globally for deduping
+    window.__WA_ES_MESSAGE_HANDLER = handleMessage;
     window.addEventListener('message', handleMessage);
+    console.log('✅ postMessage listener attached');
     
     return () => {
+      console.log('🧹 postMessage listener cleanup');
       window.removeEventListener('message', handleMessage);
+      if (window.__WA_ES_MESSAGE_HANDLER === handleMessage) {
+        window.__WA_ES_MESSAGE_HANDLER = undefined;
+      }
+      // Clear any running popup monitor
+      if (popupCheckRef.current) {
+        clearInterval(popupCheckRef.current);
+        popupCheckRef.current = null;
+      }
     };
   }, [workspaceId, toast, navigate]);
 
   const handleConnect = async () => {
+    // Synchronous guard: prevent double launches
+    if (launchingRef.current) {
+      console.log('🛡️ Launch already in progress (launchingRef guard)');
+      return;
+    }
+    
+    // Check if an existing popup is still open
+    if (window.__WA_ES_POPUP__ && !window.__WA_ES_POPUP__.closed) {
+      console.log('🔄 Focusing existing ES popup window');
+      window.__WA_ES_POPUP__.focus();
+      return;
+    }
+    
     if (!configId || !appId || !redirectUri) {
       console.error('Config incomplete');
       toast({
@@ -158,6 +238,7 @@ export const WhatsAppLoginButton = () => {
       return;
     }
 
+    launchingRef.current = true;
     setIsConnecting(true);
     
     // Generate cryptographically random state (UUID only - no encoding)
@@ -202,13 +283,11 @@ export const WhatsAppLoginButton = () => {
     console.log('🔍 state_id (UUID):', stateId);
     console.log('🔍 config_id:', configId);
     
-    // Build the WhatsApp Embedded Signup URL (OAuth dialog for postMessage)
-    const signupUrl = new URL('https://www.facebook.com/v24.0/dialog/oauth');
-    signupUrl.searchParams.set('client_id', appId);
-    signupUrl.searchParams.set('config_id', configId);
-    signupUrl.searchParams.set('response_type', 'code');
-    signupUrl.searchParams.set('override_default_response_type', 'true');
+    // Build the WhatsApp Embedded Signup URL (business.facebook.com for ES)
     // CRITICAL: Do NOT include redirect_uri - this forces pure postMessage mode
+    const signupUrl = new URL('https://business.facebook.com/messaging/whatsapp/onboard/');
+    signupUrl.searchParams.set('app_id', appId);
+    signupUrl.searchParams.set('config_id', configId);
     signupUrl.searchParams.set('state', stateId);
     
     // ========== CLIENT LAUNCH LOGGING ==========
@@ -217,11 +296,9 @@ export const WhatsAppLoginButton = () => {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🌐 Full Signup URL:', signupUrl.toString());
     console.log('📋 URL Parameters:');
-    console.log('   • client_id (app_id):', appId);
+    console.log('   • app_id:', appId);
     console.log('   • config_id:', configId);
-    console.log('   • response_type:', 'code');
-    console.log('   • override_default_response_type:', 'true');
-    console.log('   • redirect_uri:', 'OMITTED (pure postMessage mode)');
+    console.log('   • redirect_uri:', 'OMITTED (pure postMessage mode) ✓');
     console.log('   • state (UUID):', stateId);
     console.log('🔍 Mode:');
     console.log('   • Popup window with postMessage listener ✓');
@@ -230,7 +307,7 @@ export const WhatsAppLoginButton = () => {
     console.log('⏰ Launch timestamp:', new Date().toISOString());
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
-    // Open WhatsApp Embedded Signup in popup (keeps parent page alive for message listener)
+    // Open WhatsApp Embedded Signup in popup with stable name for reuse/focus
     const popup = window.open(
       signupUrl.toString(),
       'whatsapp_signup',
@@ -243,18 +320,29 @@ export const WhatsAppLoginButton = () => {
         description: "Please allow popups for this site to connect WhatsApp.",
         variant: "destructive",
       });
+      launchingRef.current = false;
       setIsConnecting(false);
       return;
     }
     
     console.log('✅ Popup window opened successfully');
     
-    // Keep connecting state while popup is open
-    const popupCheckInterval = setInterval(() => {
+    // Store popup in refs and global guard
+    popupRef.current = popup;
+    window.__WA_ES_POPUP__ = popup;
+    launchingRef.current = false; // Launch complete, allow future clicks after this popup closes
+    
+    // Monitor popup close to reset state
+    popupCheckRef.current = setInterval(() => {
       if (popup.closed) {
-        clearInterval(popupCheckInterval);
+        console.log('ℹ️ Popup window closed by user');
+        if (popupCheckRef.current) {
+          clearInterval(popupCheckRef.current);
+          popupCheckRef.current = null;
+        }
+        popupRef.current = null;
+        window.__WA_ES_POPUP__ = null;
         setIsConnecting(false);
-        console.log('ℹ️ Popup window closed');
       }
     }, 500);
   };
