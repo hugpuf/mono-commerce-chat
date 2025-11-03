@@ -5,15 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
-// Global guards for single-window ES flow
-declare global {
-  interface Window {
-    __WA_ES_POPUP__?: Window | null;
-    __WA_ES_LOCK__?: boolean;
-    __WA_ES_MESSAGE_HANDLER__?: (e: MessageEvent) => void;
-  }
-}
-
 export const WhatsAppLoginButton = () => {
   const { workspaceId } = useWorkspace();
   const { toast } = useToast();
@@ -21,12 +12,14 @@ export const WhatsAppLoginButton = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
   const [appId, setAppId] = useState<string | null>(null);
+  const [redirectUri, setRedirectUri] = useState<string | null>(null);
+  const [setupData, setSetupData] = useState<any>(null);
 
   useEffect(() => {
     const initializeConfig = async () => {
-      // Get Meta config from backend
+      // Get Meta config including redirect_uri from backend (single source of truth)
       const { data: configData } = await supabase.functions.invoke('get-meta-config');
-      if (!configData?.appId || !configData?.configId) {
+      if (!configData?.appId || !configData?.configId || !configData?.redirectUri) {
         console.error('Failed to get Meta config');
         setIsLoading(false);
         return;
@@ -34,10 +27,12 @@ export const WhatsAppLoginButton = () => {
 
       setConfigId(configData.configId);
       setAppId(configData.appId);
+      setRedirectUri(configData.redirectUri);
       
       console.log('✅ Meta config loaded:', {
         appId: configData.appId,
-        configId: configData.configId
+        configId: configData.configId,
+        redirectUri: configData.redirectUri
       });
       
       setIsLoading(false);
@@ -45,80 +40,47 @@ export const WhatsAppLoginButton = () => {
 
     initializeConfig();
 
-    // Deduped postMessage listener for Embedded Signup
-    const handler = (event: MessageEvent) => {
+    // Add MessageEvent listener for Embedded Signup
+    const handleMessage = (event: MessageEvent) => {
+      // Only accept messages from Facebook
+      if (event.origin !== "https://www.facebook.com" && 
+          event.origin !== "https://web.facebook.com") {
+        return;
+      }
+      
       try {
-        const host = new URL(event.origin).hostname;
-        if (!host.endsWith('.facebook.com')) {
-          return;
-        }
-
         const data = JSON.parse(event.data);
-        if (data?.type !== 'WA_EMBEDDED_SIGNUP') {
-          return;
-        }
-
-        console.log('📦 ES event:', data.event, data.data);
-
-        const cleanup = () => {
-          if (window.__WA_ES_POPUP__ && !window.__WA_ES_POPUP__.closed) {
-            window.__WA_ES_POPUP__.close();
+        if (data.type === 'WA_EMBEDDED_SIGNUP') {
+          console.log('📦 Received Embedded Signup event:', data);
+          
+          if (data.event === 'FINISH') {
+            const { phone_number_id, waba_id } = data.data;
+            console.log('✅ WABA Setup Complete:', { phone_number_id, waba_id });
+            const capturedData = data.data;
+            setSetupData(capturedData);
+            
+            // Store in sessionStorage for callback page to retrieve
+            sessionStorage.setItem('wa_setup_data', JSON.stringify(capturedData));
+          } else if (data.event === 'CANCEL') {
+            console.warn('⚠️ User cancelled Embedded Signup at:', data.data.current_step);
+          } else if (data.event === 'ERROR') {
+            console.error('❌ Embedded Signup error:', data.data.error_message);
           }
-          window.__WA_ES_POPUP__ = null;
-          window.__WA_ES_LOCK__ = false;
-          setIsConnecting(false);
-        };
-
-        if (data.event === 'FINISH') {
-          sessionStorage.setItem('wa_setup_data', JSON.stringify(data.data));
-          console.log('✅ ES FINISH:', data.data);
-          cleanup();
-          toast({ 
-            title: "WhatsApp connected", 
-            description: "Setup data received successfully." 
-          });
-        } else if (data.event === 'CANCEL') {
-          console.warn('⚠️ ES CANCEL:', data.data?.current_step);
-          cleanup();
-          toast({ 
-            title: "Setup cancelled", 
-            description: "WhatsApp setup was cancelled.", 
-            variant: "destructive" 
-          });
-        } else if (data.event === 'ERROR') {
-          console.error('❌ ES ERROR:', data.data?.error_message);
-          cleanup();
-          toast({ 
-            title: "Setup error", 
-            description: data.data?.error_message || "An error occurred during setup.", 
-            variant: "destructive" 
-          });
         }
       } catch {
-        // Ignore non-JSON messages
+        // Non-JSON message, ignore
       }
     };
 
-    // Remove previous handler if exists
-    if (window.__WA_ES_MESSAGE_HANDLER__) {
-      window.removeEventListener('message', window.__WA_ES_MESSAGE_HANDLER__ as EventListener);
-    }
+    window.addEventListener('message', handleMessage);
     
-    window.addEventListener('message', handler);
-    window.__WA_ES_MESSAGE_HANDLER__ = handler;
-    console.log('✅ ES message handler attached');
-
     return () => {
-      window.removeEventListener('message', handler);
-      if (window.__WA_ES_MESSAGE_HANDLER__ === handler) {
-        window.__WA_ES_MESSAGE_HANDLER__ = undefined;
-      }
-      console.log('🔄 ES message handler removed');
+      window.removeEventListener('message', handleMessage);
     };
-  }, [toast]);
+  }, []);
 
   const handleConnect = async () => {
-    if (!configId || !appId) {
+    if (!configId || !appId || !redirectUri) {
       console.error('Config incomplete');
       toast({
         title: "Error",
@@ -138,109 +100,79 @@ export const WhatsAppLoginButton = () => {
       return;
     }
 
-    // Single-window guard: reuse existing popup
-    if (window.__WA_ES_POPUP__ && !window.__WA_ES_POPUP__.closed) {
-      console.log('🔁 Reusing existing ES popup');
-      window.__WA_ES_POPUP__.focus();
-      setIsConnecting(true);
-      return;
-    }
-
-    // Single-window guard: prevent concurrent launches
-    if (window.__WA_ES_LOCK__) {
-      console.log('⛔ ES launch locked, ignoring extra click');
-      return;
-    }
-
-    window.__WA_ES_LOCK__ = true;
     setIsConnecting(true);
     
-    // Generate state and store in database
+    // Generate cryptographically random state (UUID only - no encoding)
     const stateId = crypto.randomUUID();
     
+    // Store state, redirect_uri, app_id, and workspace_id in database
     try {
       const { error: dbError } = await supabase
         .from('oauth_states')
         .insert({
           state: stateId,
-          redirect_uri: '', // Empty for ES flow (uses postMessage)
+          redirect_uri: redirectUri,
           app_id: appId,
           workspace_id: workspaceId
         });
       
       if (dbError) {
-        console.error('Failed to store state:', dbError);
+        console.error('Failed to store OAuth state:', dbError);
         toast({
           title: "Error",
-          description: "Failed to prepare setup. Please try again.",
+          description: "Failed to prepare OAuth flow. Please try again.",
           variant: "destructive",
         });
-        window.__WA_ES_LOCK__ = false;
         setIsConnecting(false);
         return;
       }
     } catch (err) {
-      console.error('Error storing state:', err);
+      console.error('Error storing OAuth state:', err);
       toast({
         title: "Error",
-        description: "Failed to prepare setup. Please try again.",
+        description: "Failed to prepare OAuth flow. Please try again.",
         variant: "destructive",
       });
-      window.__WA_ES_LOCK__ = false;
       setIsConnecting(false);
       return;
     }
     
-    // Build pure Embedded Signup URL (NO redirect_uri)
-    const signupUrl = new URL('https://business.facebook.com/messaging/whatsapp/onboard/');
-    signupUrl.searchParams.set('app_id', appId);
-    signupUrl.searchParams.set('config_id', configId);
-    signupUrl.searchParams.set('state', stateId);
+    console.log('🚀 Starting OAuth dialog flow');
+    console.log('🔍 redirect_uri:', redirectUri);
+    console.log('🔍 state_id (UUID):', stateId);
+    console.log('🔍 config_id:', configId);
     
+    // Build the OAuth dialog URL (let config_id control Embedded Signup)
+    const dialogUrl = new URL('https://www.facebook.com/v24.0/dialog/oauth');
+    dialogUrl.searchParams.set('client_id', appId);
+    dialogUrl.searchParams.set('redirect_uri', redirectUri);
+    dialogUrl.searchParams.set('response_type', 'code');
+    dialogUrl.searchParams.set('config_id', configId);
+    dialogUrl.searchParams.set('state', stateId);
+    dialogUrl.searchParams.set('scope', 'whatsapp_business_management,business_management,whatsapp_business_messaging');
+    
+    // ========== CLIENT LAUNCH LOGGING ==========
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🚀 ES LAUNCH - Pure Embedded Signup');
+    console.log('🚀 OAUTH LAUNCH - Full Diagnostic');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🌐 Full ES URL:', signupUrl.toString());
-    console.log('📋 Parameters:');
-    console.log('   • app_id:', appId);
+    console.log('🌐 Full OAuth URL:', dialogUrl.toString());
+    console.log('📋 URL Parameters:');
+    console.log('   • client_id:', appId);
+    console.log('   • redirect_uri:', redirectUri);
     console.log('   • config_id:', configId);
     console.log('   • state:', stateId);
-    console.log('   • redirect_uri: NOT SET (postMessage flow)');
+    console.log('   • response_type: code');
+    console.log('   • scope: whatsapp_business_management,business_management,whatsapp_business_messaging');
+    console.log('🔍 URL Validation:');
+    console.log('   • redirect_uri has trailing slash?', redirectUri.endsWith('/'));
+    console.log('   • redirect_uri length:', redirectUri.length);
+    console.log('   • redirect_uri protocol:', redirectUri.startsWith('https://') ? 'HTTPS ✓' : 'INVALID ✗');
+    console.log('   • config_id present?', configId ? 'YES ✓' : 'NO ✗');
     console.log('⏰ Launch timestamp:', new Date().toISOString());
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
-    // Open popup
-    const popup = window.open(
-      signupUrl.toString(),
-      'whatsapp_es_signup',
-      'width=700,height=900,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes'
-    );
-
-    if (!popup) {
-      console.error('❌ Popup blocked');
-      toast({
-        title: "Popup blocked",
-        description: "Please allow popups and try again.",
-        variant: "destructive",
-      });
-      window.__WA_ES_LOCK__ = false;
-      setIsConnecting(false);
-      return;
-    }
-
-    window.__WA_ES_POPUP__ = popup;
-    console.log('✅ ES popup opened');
-
-    // Monitor popup close
-    const closeCheck = setInterval(() => {
-      if (!window.__WA_ES_POPUP__ || window.__WA_ES_POPUP__.closed) {
-        clearInterval(closeCheck);
-        window.__WA_ES_POPUP__ = null;
-        window.__WA_ES_LOCK__ = false;
-        setIsConnecting(false);
-        console.log('ℹ️ ES popup closed, flow reset');
-      }
-    }, 500);
+    // Redirect to OAuth dialog (not popup, full redirect)
+    window.location.assign(dialogUrl.toString());
   };
 
   if (isLoading) {
@@ -251,7 +183,7 @@ export const WhatsAppLoginButton = () => {
     );
   }
 
-  if (!configId || !appId) {
+  if (!configId || !redirectUri) {
     return (
       <div className="text-sm text-destructive">
         Configuration error. Please contact support.
