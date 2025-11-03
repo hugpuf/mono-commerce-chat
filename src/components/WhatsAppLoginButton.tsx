@@ -44,6 +44,10 @@ export const WhatsAppLoginButton = () => {
         configId: configData.configId,
         redirectUri: configData.redirectUri
       });
+      console.log('🔍 REDIRECT URI CHECK:');
+      console.log('  - Raw value from backend:', configData.redirectUri);
+      console.log('  - Length:', configData.redirectUri?.length);
+      console.log('  - Bytes:', [...(configData.redirectUri || '')].map(c => c.charCodeAt(0)));
 
       // Initialize Facebook SDK per Meta's official docs
       window.fbAsyncInit = function() {
@@ -225,6 +229,7 @@ export const WhatsAppLoginButton = () => {
     console.log('   • redirect_uri charCodes:', [...(redirectUri || '')].map((c: any) => (c as string).charCodeAt(0)));
     console.log('   • state:', stateId);
     console.log('   • scope: whatsapp_business_management,business_management,whatsapp_business_messaging');
+    console.log('🚨 CRITICAL: If Meta uses different redirect_uri, config_id may be overriding it!');
     console.log('🔍 SDK Status:');
     console.log('   • FB SDK ready:', fbSdkReady);
     console.log('   • window.FB exists:', !!window.FB);
