@@ -119,17 +119,9 @@ serve(async (req) => {
       }
     }
 
-    // Prefer client-provided redirect_uri if allowlisted; otherwise fall back to DB value
-    let chosenRedirectUri = redirect_uri;
-    if (clientRedirectUri) {
-      if (allowedRedirects.has(clientRedirectUri)) {
-        chosenRedirectUri = clientRedirectUri;
-      } else {
-        console.warn('Client redirect_uri not in allowlist. Falling back to DB value.');
-      }
-    }
-    
-    console.log('Chosen redirect_uri:', chosenRedirectUri);
+    // Use raw client redirect_uri as received (no normalization/processing)
+    const clientRedirectUriRaw = clientRedirectUri || redirect_uri;
+    console.log('Using clientRedirectUriRaw (no processing):', clientRedirectUriRaw);
     
     // ========== MAIN FLOW: EXCHANGE CODE FOR CUSTOMER TOKEN ==========
     console.log('🔍 STAGE: token_exchange_preparation');
@@ -197,16 +189,16 @@ serve(async (req) => {
 
     try {
       console.log('🔑 Exchanging code for customer token...');
-      console.log('Token POST redirect_uri:', chosenRedirectUri, 'encoded:', encodeURIComponent(chosenRedirectUri));
-      console.log('Token POST redirect_uri length:', chosenRedirectUri.length);
-      console.log('Token POST redirect_uri charCodes:', [...chosenRedirectUri].map((c) => c.charCodeAt(0)));
+      console.log('🔍 Using clientRedirectUriRaw for token exchange:', clientRedirectUriRaw);
+      console.log('   Length:', clientRedirectUriRaw.length);
+      console.log('   Bytes:', [...clientRedirectUriRaw].map((c) => c.charCodeAt(0)));
       
-      const tokenParams = new URLSearchParams({
-        client_id: app_id,
-        client_secret: metaAppSecret,
-        redirect_uri: chosenRedirectUri,
-        code: code
-      });
+      const tokenParams = new URLSearchParams();
+      tokenParams.append('client_id', app_id);
+      tokenParams.append('client_secret', metaAppSecret);
+      tokenParams.append('redirect_uri', clientRedirectUriRaw);
+      tokenParams.append('code', code);
+      
       console.log('Token POST body:', tokenParams.toString());
       
       const tokenResponse = await fetch('https://graph.facebook.com/v24.0/oauth/access_token', {

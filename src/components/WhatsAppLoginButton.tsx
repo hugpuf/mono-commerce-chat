@@ -283,6 +283,11 @@ export const WhatsAppLoginButton = () => {
                 setup_data: setupData
               };
               
+              // Log exact byte representation before sending
+              console.log('🔍 Final redirect_uri →', redirectUri, [...redirectUri].map(c => c.charCodeAt(0)));
+              console.log('   Length:', redirectUri.length);
+              console.log('   No trailing slash/braces?', !redirectUri.endsWith('/'), !redirectUri.includes('{'), !redirectUri.includes('}'));
+              
               console.log('📤 Invoking whatsapp-oauth-callback', {
                 redirectUri,
                 hasSetupData: !!setupData,
