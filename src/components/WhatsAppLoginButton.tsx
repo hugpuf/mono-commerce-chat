@@ -221,6 +221,8 @@ export const WhatsAppLoginButton = () => {
     console.log('   • response_type: code');
     console.log('   • override_default_response_type: true');
     console.log('   • redirect_uri:', redirectUri);
+    console.log('   • redirect_uri length:', (redirectUri || '').length);
+    console.log('   • redirect_uri charCodes:', [...(redirectUri || '')].map((c: any) => (c as string).charCodeAt(0)));
     console.log('   • state:', stateId);
     console.log('   • scope: whatsapp_business_management,business_management,whatsapp_business_messaging');
     console.log('🔍 SDK Status:');
@@ -277,13 +279,17 @@ export const WhatsAppLoginButton = () => {
                 code,
                 state,
                 redirect_uri: redirectUri,
+                workspace_id: workspaceId,
                 setup_data: setupData
               };
               
               console.log('📤 Calling whatsapp-oauth-callback with:');
-              console.log('   • code:', code.substring(0, 20) + '...');
+              console.log('   • code:', (code || '').substring(0, 20) + '...');
               console.log('   • state:', state);
               console.log('   • redirect_uri:', redirectUri);
+              console.log('   • redirect_uri length:', (redirectUri || '').length);
+              console.log('   • redirect_uri charCodes:', [...(redirectUri || '')].map((c: any) => (c as string).charCodeAt(0)));
+              console.log('   • has_workspace_id:', !!workspaceId);
               console.log('   • has_setup_data:', !!setupData);
               
               // Call backend to complete OAuth flow

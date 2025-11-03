@@ -73,6 +73,53 @@ serve(async (req) => {
     
     console.log('✅ Retrieved from database:', { redirect_uri, app_id, workspace_id: effectiveWorkspaceId });
     
+    // Allowlist valid redirect URIs
+    const allowedRedirects = new Set([
+      'https://preview--mono-commerce-chat.lovable.app/setup/whatsapp/callback',
+      'https://mono-commerce-chat.lovable.app/setup/whatsapp/callback'
+    ]);
+
+    // Normalization helper for comparison (strip fragments and trailing slashes)
+    const normalize = (u: string) => {
+      try {
+        const url = new URL(u);
+        const path = url.pathname.replace(/\/+$/, '');
+        return url.origin + path;
+      } catch (_e) {
+        return String(u).trim();
+      }
+    };
+
+    // Log raw strings, lengths and char codes to catch hidden differences
+    const logStr = (label: string, value: string | null | undefined) => {
+      const v = (value ?? '');
+      console.log(`${label}:`, v);
+      console.log(`${label} length:`, v.length);
+      console.log(`${label} charCodes:`, [...v].map((c) => c.charCodeAt(0)));
+    };
+
+    logStr('DB redirect_uri', redirect_uri);
+    logStr('Client redirect_uri', clientRedirectUri);
+
+    if (clientRedirectUri && redirect_uri && redirect_uri !== clientRedirectUri) {
+      console.warn('Redirect URI mismatch', { dbRedirectUri: redirect_uri, clientRedirectUri });
+      if (normalize(redirect_uri) !== normalize(clientRedirectUri)) {
+        console.warn('Normalized redirect mismatch', { db: normalize(redirect_uri), client: normalize(clientRedirectUri) });
+      }
+    }
+
+    // Prefer client-provided redirect_uri if allowlisted; otherwise fall back to DB value
+    let chosenRedirectUri = redirect_uri;
+    if (clientRedirectUri) {
+      if (allowedRedirects.has(clientRedirectUri)) {
+        chosenRedirectUri = clientRedirectUri;
+      } else {
+        console.warn('Client redirect_uri not in allowlist. Falling back to DB value.');
+      }
+    }
+
+    console.log('Chosen redirect_uri:', chosenRedirectUri);
+    
     // ========== MAIN FLOW: EXCHANGE CODE FOR CUSTOMER TOKEN ==========
     if (!code) {
       console.error('❌ No authorization code provided');
@@ -122,14 +169,17 @@ serve(async (req) => {
     }
 
     console.log('🔑 Exchanging code for customer token...');
-    const effectiveRedirectUri = clientRedirectUri || redirect_uri;
+    console.log('Token POST redirect_uri:', chosenRedirectUri, 'encoded:', encodeURIComponent(chosenRedirectUri));
+    console.log('Token POST redirect_uri length:', chosenRedirectUri.length);
+    console.log('Token POST redirect_uri charCodes:', [...chosenRedirectUri].map((c) => c.charCodeAt(0)));
     
     const tokenParams = new URLSearchParams({
       client_id: app_id,
       client_secret: metaAppSecret,
-      redirect_uri: effectiveRedirectUri,
+      redirect_uri: chosenRedirectUri,
       code: code
     });
+    console.log('Token POST body:', tokenParams.toString());
     
     const tokenResponse = await fetch('https://graph.facebook.com/v24.0/oauth/access_token', {
       method: 'POST',
