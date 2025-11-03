@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,7 @@ export const WhatsAppLoginButton = () => {
   const [appId, setAppId] = useState<string | null>(null);
   const [redirectUri, setRedirectUri] = useState<string | null>(null);
   const [setupData, setSetupData] = useState<any>(null);
+  const popupRef = useRef<Window | null>(null);
 
   useEffect(() => {
     const initializeConfig = async () => {
@@ -59,9 +60,8 @@ export const WhatsAppLoginButton = () => {
             setSetupData(capturedData);
             
             // Close popup if it exists
-            const popup = window.open('', 'whatsapp_embedded_signup');
-            if (popup) {
-              popup.close();
+            if (popupRef.current && !popupRef.current.closed) {
+              popupRef.current.close();
             }
             
             // Get workspace_id from sessionStorage
@@ -186,13 +186,13 @@ export const WhatsAppLoginButton = () => {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     // Open Embedded Signup in a popup
-    const popup = window.open(
+    popupRef.current = window.open(
       signupUrl.toString(),
       'whatsapp_embedded_signup',
       'width=700,height=900,popup=yes,scrollbars=yes'
     );
     
-    if (!popup) {
+    if (!popupRef.current) {
       toast({
         title: "Popup blocked",
         description: "Please allow popups for this site and try again.",
