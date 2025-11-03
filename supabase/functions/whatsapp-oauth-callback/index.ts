@@ -74,30 +74,54 @@ serve(async (req) => {
       );
     }
 
+    const redirect_uri = stateData.redirect_uri;
     const app_id = stateData.app_id || Deno.env.get('META_APP_ID')!;
     const effectiveWorkspaceId = stateData.workspace_id || workspace_id;
     
     console.log('✅ Retrieved from database:', { 
+      db_redirect_uri: redirect_uri, 
       app_id, 
       workspace_id: effectiveWorkspaceId 
     });
     
-    // CRITICAL: Use environment variable as single source of truth for token exchange
-    const CANONICAL_REDIRECT_URI = Deno.env.get('WHATSAPP_REDIRECT_URI');
-    
-    if (!CANONICAL_REDIRECT_URI) {
-      console.error('❌ WHATSAPP_REDIRECT_URI environment variable not configured');
-      return new Response(
-        JSON.stringify({ 
-          success: false,
-          stage: 'db_lookup', 
-          error: 'Server configuration error: redirect URI not set' 
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Allowlist valid redirect URIs
+    const allowedRedirects = new Set([
+      'https://preview--mono-commerce-chat.lovable.app/setup/whatsapp/callback',
+      'https://mono-commerce-chat.lovable.app/setup/whatsapp/callback'
+    ]);
+
+    // Normalization helper for comparison (strip fragments and trailing slashes)
+    const normalize = (u: string) => {
+      try {
+        const url = new URL(u);
+        const path = url.pathname.replace(/\/+$/, '');
+        return url.origin + path;
+      } catch (_e) {
+        return String(u).trim();
+      }
+    };
+
+    // Log raw strings, lengths and char codes to catch hidden differences
+    const logStr = (label: string, value: string | null | undefined) => {
+      const v = (value ?? '');
+      console.log(`${label}:`, v);
+      console.log(`${label} length:`, v.length);
+      console.log(`${label} charCodes:`, [...v].map((c) => c.charCodeAt(0)));
+    };
+
+    logStr('DB redirect_uri', redirect_uri);
+    logStr('Client redirect_uri', clientRedirectUri);
+
+    if (clientRedirectUri && redirect_uri && redirect_uri !== clientRedirectUri) {
+      console.warn('Redirect URI mismatch', { dbRedirectUri: redirect_uri, clientRedirectUri });
+      if (normalize(redirect_uri) !== normalize(clientRedirectUri)) {
+        console.warn('Normalized redirect mismatch', { db: normalize(redirect_uri), client: normalize(clientRedirectUri) });
+      }
     }
-    
-    console.log('✅ Using canonical redirect URI from environment:', CANONICAL_REDIRECT_URI);
+
+    // Use raw client redirect_uri as received (no normalization/processing)
+    const clientRedirectUriRaw = clientRedirectUri || redirect_uri;
+    console.log('Using clientRedirectUriRaw (no processing):', clientRedirectUriRaw);
     
     // ========== MAIN FLOW: EXCHANGE CODE FOR CUSTOMER TOKEN ==========
     console.log('🔍 STAGE: token_exchange_preparation');
@@ -165,14 +189,14 @@ serve(async (req) => {
 
     try {
       console.log('🔑 Exchanging code for customer token...');
-      console.log('🔍 Using CANONICAL_REDIRECT_URI for token exchange:', CANONICAL_REDIRECT_URI);
-      console.log('   Length:', CANONICAL_REDIRECT_URI.length);
-      console.log('   Bytes:', [...CANONICAL_REDIRECT_URI].map((c) => c.charCodeAt(0)));
+      console.log('🔍 Using clientRedirectUriRaw for token exchange:', clientRedirectUriRaw);
+      console.log('   Length:', clientRedirectUriRaw.length);
+      console.log('   Bytes:', [...clientRedirectUriRaw].map((c) => c.charCodeAt(0)));
       
       const tokenParams = new URLSearchParams();
       tokenParams.append('client_id', app_id);
       tokenParams.append('client_secret', metaAppSecret);
-      tokenParams.append('redirect_uri', CANONICAL_REDIRECT_URI);
+      tokenParams.append('redirect_uri', clientRedirectUriRaw);
       tokenParams.append('code', code);
       
       console.log('Token POST body:', tokenParams.toString());
