@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
@@ -8,12 +9,12 @@ import { Loader2 } from "lucide-react";
 export const WhatsAppLoginButton = () => {
   const { workspaceId } = useWorkspace();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
   const [appId, setAppId] = useState<string | null>(null);
   const [redirectUri, setRedirectUri] = useState<string | null>(null);
-  const [setupData, setSetupData] = useState<any>(null);
 
   useEffect(() => {
     const initializeConfig = async () => {
@@ -40,35 +41,92 @@ export const WhatsAppLoginButton = () => {
 
     initializeConfig();
 
-    // Add MessageEvent listener for Embedded Signup
-    const handleMessage = (event: MessageEvent) => {
+    // Add MessageEvent listener for Embedded Signup (postMessage mode)
+    const handleMessage = async (event: MessageEvent) => {
       // Only accept messages from Facebook
       if (event.origin !== "https://www.facebook.com" && 
           event.origin !== "https://web.facebook.com") {
         return;
       }
       
+      console.log('📨 Received postMessage from Facebook:', event.data);
+      
       try {
-        const data = JSON.parse(event.data);
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        
         if (data.type === 'WA_EMBEDDED_SIGNUP') {
-          console.log('📦 Received Embedded Signup event:', data);
+          console.log('📦 Embedded Signup event:', data);
           
           if (data.event === 'FINISH') {
-            const { phone_number_id, waba_id } = data.data;
-            console.log('✅ WABA Setup Complete:', { phone_number_id, waba_id });
-            const capturedData = data.data;
-            setSetupData(capturedData);
+            console.log('✅ Embedded Signup finished!', data.data);
             
-            // Store in sessionStorage for callback page to retrieve
-            sessionStorage.setItem('wa_setup_data', JSON.stringify(capturedData));
+            const { code, setup } = data.data;
+            const state = sessionStorage.getItem('whatsapp_oauth_state');
+            
+            if (!code || !setup) {
+              console.error('❌ Missing code or setup data from postMessage');
+              toast({
+                title: "Connection Failed",
+                description: "WhatsApp signup didn't provide required data.",
+                variant: "destructive",
+              });
+              setIsConnecting(false);
+              return;
+            }
+
+            try {
+              setIsConnecting(true);
+              
+              // Get redirect_uri from config
+              const { data: configData } = await supabase.functions.invoke('get-meta-config');
+              
+              // Call our edge function with the code and setup data
+              console.log('📤 Calling backend with postMessage data...');
+              const { data: responseData, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
+                body: {
+                  code,
+                  setup_data: setup,
+                  state,
+                  workspace_id: workspaceId,
+                  redirect_uri: configData?.redirectUri
+                }
+              });
+
+              if (error) throw error;
+
+              console.log('✅ WhatsApp connected successfully:', responseData);
+              toast({
+                title: "WhatsApp Connected",
+                description: "Your WhatsApp Business account is now connected.",
+              });
+              
+              // Navigate to success page
+              navigate('/setup/whatsapp/callback?success=true');
+              
+            } catch (error) {
+              console.error('❌ Error connecting WhatsApp:', error);
+              toast({
+                title: "Connection Failed",
+                description: error instanceof Error ? error.message : "Failed to connect WhatsApp",
+                variant: "destructive",
+              });
+              setIsConnecting(false);
+            }
           } else if (data.event === 'CANCEL') {
-            console.warn('⚠️ User cancelled Embedded Signup at:', data.data.current_step);
+            console.log('ℹ️ User cancelled WhatsApp signup');
+            setIsConnecting(false);
           } else if (data.event === 'ERROR') {
-            console.error('❌ Embedded Signup error:', data.data.error_message);
+            console.error('❌ Error in WhatsApp signup:', data.data);
+            toast({
+              title: "Connection Error",
+              description: "An error occurred during WhatsApp signup.",
+              variant: "destructive",
+            });
+            setIsConnecting(false);
           }
         }
-      } catch {
-        // Non-JSON message, ignore
+      } catch (err) {
+        console.error('Error parsing postMessage:', err);
       }
     };
 
@@ -77,7 +135,7 @@ export const WhatsAppLoginButton = () => {
     return () => {
       window.removeEventListener('message', handleMessage);
     };
-  }, []);
+  }, [workspaceId, toast, navigate]);
 
   const handleConnect = async () => {
     if (!configId || !appId || !redirectUri) {
@@ -104,6 +162,9 @@ export const WhatsAppLoginButton = () => {
     
     // Generate cryptographically random state (UUID only - no encoding)
     const stateId = crypto.randomUUID();
+    
+    // Store state in sessionStorage for postMessage handler
+    sessionStorage.setItem('whatsapp_oauth_state', stateId);
     
     // Store state, redirect_uri, app_id, and workspace_id in database
     try {
@@ -137,35 +198,35 @@ export const WhatsAppLoginButton = () => {
       return;
     }
     
-    console.log('🚀 Starting WhatsApp Embedded Signup flow (POPUP MODE)');
-    console.log('🔍 redirect_uri:', redirectUri);
+    console.log('🚀 Starting WhatsApp Embedded Signup flow (PURE POSTMESSAGE MODE)');
     console.log('🔍 state_id (UUID):', stateId);
     console.log('🔍 config_id:', configId);
     
-    // Build the WhatsApp Embedded Signup URL (CORRECT URL for ES flow)
-    const signupUrl = new URL('https://business.facebook.com/messaging/whatsapp/onboard/');
-    signupUrl.searchParams.set('app_id', appId);
+    // Build the WhatsApp Embedded Signup URL (OAuth dialog for postMessage)
+    const signupUrl = new URL('https://www.facebook.com/v24.0/dialog/oauth');
+    signupUrl.searchParams.set('client_id', appId);
     signupUrl.searchParams.set('config_id', configId);
-    signupUrl.searchParams.set('redirect_uri', redirectUri);
+    signupUrl.searchParams.set('response_type', 'code');
+    signupUrl.searchParams.set('override_default_response_type', 'true');
+    // CRITICAL: Do NOT include redirect_uri - this forces pure postMessage mode
     signupUrl.searchParams.set('state', stateId);
     
     // ========== CLIENT LAUNCH LOGGING ==========
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🚀 WHATSAPP EMBEDDED SIGNUP - POPUP MODE');
+    console.log('🚀 WHATSAPP EMBEDDED SIGNUP - PURE POSTMESSAGE');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🌐 Full Signup URL:', signupUrl.toString());
     console.log('📋 URL Parameters:');
-    console.log('   • app_id:', appId);
+    console.log('   • client_id (app_id):', appId);
     console.log('   • config_id:', configId);
-    console.log('   • redirect_uri:', redirectUri);
-    console.log('   • state:', stateId);
-    console.log('🔍 URL Validation:');
-    console.log('   • redirect_uri has trailing slash?', redirectUri.endsWith('/'));
-    console.log('   • redirect_uri length:', redirectUri.length);
-    console.log('   • redirect_uri protocol:', redirectUri.startsWith('https://') ? 'HTTPS ✓' : 'INVALID ✗');
-    console.log('   • config_id present?', configId ? 'YES ✓' : 'NO ✗');
-    console.log('   • Using correct ES URL?', 'YES ✓');
-    console.log('   • Mode: POPUP WINDOW ✓');
+    console.log('   • response_type:', 'code');
+    console.log('   • override_default_response_type:', 'true');
+    console.log('   • redirect_uri:', 'OMITTED (pure postMessage mode)');
+    console.log('   • state (UUID):', stateId);
+    console.log('🔍 Mode:');
+    console.log('   • Popup window with postMessage listener ✓');
+    console.log('   • No redirect_uri (prevents popup redirect) ✓');
+    console.log('   • Waiting for postMessage with code + setup_data ✓');
     console.log('⏰ Launch timestamp:', new Date().toISOString());
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
