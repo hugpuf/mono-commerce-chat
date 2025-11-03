@@ -51,41 +51,51 @@ export default function WhatsAppCallback() {
         
         let setupData = null;
         if (setupParam) {
-          console.log('✓ setup parameter present');
-          console.log('   • Raw value length:', setupParam.length);
-          console.log('   • Raw value snippet:', setupParam.substring(0, 200));
+          console.log('✅ SETUP PARAMETER RECEIVED');
+          console.log('📦 Raw setup string length:', setupParam.length);
+          console.log('📦 First 100 chars:', setupParam.substring(0, 100));
           
           // Try parsing without decoding first (URLSearchParams already decodes)
           try {
             setupData = JSON.parse(setupParam);
-            console.log('✅ Parse SUCCESS (direct JSON.parse):', setupData);
+            console.log('✅ Successfully parsed setup_data');
+            console.log('📦 Setup data keys:', Object.keys(setupData));
+            
+            // Extract key WABA information
+            const wabaId = setupData.waba_id || setupData.data?.waba_id;
+            const phoneId = setupData.phone_number_id || setupData.data?.phone_number_id;
+            const displayPhone = setupData.displayPhoneNumber || setupData.data?.displayPhoneNumber;
+            
+            console.log('📦 WABA ID:', wabaId || 'NOT FOUND');
+            console.log('📦 Phone ID:', phoneId || 'NOT FOUND');
+            console.log('📦 Display Phone:', displayPhone || 'NOT FOUND');
           } catch (e1) {
             console.warn('⚠️ Direct JSON.parse failed:', e1 instanceof Error ? e1.message : e1);
             
             // Fallback: try with explicit decoding
             try {
               setupData = JSON.parse(decodeURIComponent(setupParam));
-              console.log('✅ Parse SUCCESS (with decodeURIComponent):', setupData);
+              console.log('✅ Parse SUCCESS (with decodeURIComponent)');
+              console.log('📦 Setup data keys:', Object.keys(setupData));
             } catch (e2) {
               console.error('❌ Both parsing attempts failed');
               console.error('   • Error 1 (direct):', e1 instanceof Error ? e1.message : e1);
               console.error('   • Error 2 (decoded):', e2 instanceof Error ? e2.message : e2);
             }
           }
-          
-          if (setupData) {
-            console.log('📦 Parsed setup_data keys:', Object.keys(setupData));
-          }
         } else {
           console.error('❌ SETUP PARAMETER MISSING');
           console.log('');
           console.log('🔍 DIAGNOSTIC CHECKLIST:');
+          console.log('   □ Full URL:', window.location.href);
+          console.log('   □ All params:', Array.from(searchParams.entries()).map(([k, v]) => `${k}=${v.substring(0, 50)}`));
+          console.log('   □ Using correct endpoint? (whatsapp_business_embedded_signup)');
           console.log('   □ Is config_id correct in launch URL?');
-          console.log('   □ Did Meta show full Embedded Signup screens?');
+          console.log('   □ Did Meta show full Embedded Signup screens (business, phone)?');
           console.log('   □ Is test user added to App Roles in Meta Dashboard?');
           console.log('   □ Does redirect_uri exactly match Meta configuration?');
-          console.log('   □ Did user complete all ES steps (business, phone)?');
-          console.log('   □ Check browser console for blocked requests');
+          console.log('   □ Did user complete all ES steps without canceling?');
+          console.log('   □ Check browser console for blocked requests or CSP errors');
           console.log('');
           console.log('Expected: ?code=...&state=...&setup=<json>');
           console.log('Actual URL:', window.location.search);
