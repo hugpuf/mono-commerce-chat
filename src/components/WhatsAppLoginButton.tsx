@@ -65,13 +65,50 @@ export const WhatsAppLoginButton = () => {
           const data = JSON.parse(event.data);
           if (data.type === 'WA_EMBEDDED_SIGNUP') {
             console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            console.log('📨 SETUP DATA RECEIVED via postMessage');
+            console.log('📨 WA_EMBEDDED_SIGNUP EVENT via postMessage');
             console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            console.log('Setup data:', data);
-            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('Event type:', data.event);
+            console.log('Full data:', data);
             
-            // Store setup data in sessionStorage for callback page
-            sessionStorage.setItem('wa_setup_data', JSON.stringify(data));
+            // Handle different event types
+            if (data.event === 'FINISH' || data.event === 'FINISH_ONLY_WABA' || data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
+              // Successful completion
+              console.log('✅ Flow completed successfully');
+              console.log('   • Phone Number ID:', data.data?.phone_number_id);
+              console.log('   • WABA ID:', data.data?.waba_id);
+              console.log('   • Business ID:', data.data?.business_id);
+              console.log('   • Ad Accounts:', data.data?.ad_account_ids);
+              console.log('   • Pages:', data.data?.page_ids);
+              console.log('   • Datasets:', data.data?.dataset_ids);
+              
+              // Store for callback page
+              sessionStorage.setItem('wa_setup_data', JSON.stringify(data));
+              
+            } else if (data.event === 'CANCEL') {
+              // Flow abandoned or error reported
+              if (data.data?.error_id) {
+                console.warn('❌ User reported error');
+                console.warn('   • Error Message:', data.data.error_message);
+                console.warn('   • Error ID:', data.data.error_id);
+                console.warn('   • Session ID:', data.data.session_id);
+                console.warn('   • Timestamp:', data.data.timestamp);
+              } else {
+                console.warn('⚠️ Flow abandoned');
+                console.warn('   • Current Step:', data.data?.current_step);
+              }
+              
+              // Store for logging/debugging
+              sessionStorage.setItem('wa_flow_event', JSON.stringify(data));
+              
+              setIsConnecting(false);
+              toast({
+                title: "Connection Cancelled",
+                description: data.data?.error_message || "WhatsApp signup was cancelled.",
+                variant: "destructive",
+              });
+            }
+            
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
           }
         } catch {
           console.log('postMessage event (non-JSON):', event.data);

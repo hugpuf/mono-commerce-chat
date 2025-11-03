@@ -56,33 +56,82 @@ export default function WhatsAppCallback() {
         if (sessionSetup) {
           console.log('✅ Found setup data in sessionStorage (from postMessage)');
           try {
-            setupData = JSON.parse(sessionSetup);
-            console.log('   • Setup data:', setupData);
+            const eventData = JSON.parse(sessionSetup);
+            console.log('   • Event type:', eventData.event);
+            console.log('   • Event data:', eventData.data);
+            
+            // Extract the actual setup data based on Meta's structure
+            if (eventData.type === 'WA_EMBEDDED_SIGNUP') {
+              if (eventData.event === 'FINISH' || eventData.event === 'FINISH_ONLY_WABA' || eventData.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
+                setupData = {
+                  phone_number_id: eventData.data?.phone_number_id,
+                  waba_id: eventData.data?.waba_id,
+                  business_id: eventData.data?.business_id,
+                  ad_account_ids: eventData.data?.ad_account_ids,
+                  page_ids: eventData.data?.page_ids,
+                  dataset_ids: eventData.data?.dataset_ids,
+                  event: eventData.event
+                };
+                console.log('   • Parsed setup data:', setupData);
+              }
+            }
+            
             sessionStorage.removeItem('wa_setup_data'); // Clean up
           } catch (e) {
             console.error('❌ Failed to parse sessionStorage setup data:', e);
           }
         }
         
+        // Check for flow events (cancellation/errors)
+        const flowEvent = sessionStorage.getItem('wa_flow_event');
+        if (flowEvent) {
+          console.log('⚠️ Found flow event in sessionStorage');
+          try {
+            const eventData = JSON.parse(flowEvent);
+            console.log('   • Event:', eventData.event);
+            console.log('   • Data:', eventData.data);
+            sessionStorage.removeItem('wa_flow_event'); // Clean up
+            
+            // If it's a cancellation or error, don't proceed
+            if (eventData.event === 'CANCEL') {
+              throw new Error(eventData.data?.error_message || 'WhatsApp signup was cancelled');
+            }
+          } catch (e) {
+            console.error('❌ Flow event error:', e);
+          }
+        }
+        
         // Fallback: check URL param (legacy support)
         if (!setupData && setupParam) {
-          console.log('✓ setup parameter in URL');
+          console.log('✓ setup parameter in URL (legacy)');
           console.log('   • Raw value length:', setupParam.length);
-          console.log('   • Raw value snippet:', setupParam.substring(0, 200));
           
           try {
-            setupData = JSON.parse(setupParam);
-            console.log('✅ Parse SUCCESS (direct JSON.parse):', setupData);
+            const urlSetupData = JSON.parse(setupParam);
+            console.log('✅ Parse SUCCESS (direct JSON.parse)');
+            
+            // Check if it's already in Meta's structure or raw data
+            if (urlSetupData.type === 'WA_EMBEDDED_SIGNUP') {
+              setupData = {
+                phone_number_id: urlSetupData.data?.phone_number_id,
+                waba_id: urlSetupData.data?.waba_id,
+                business_id: urlSetupData.data?.business_id,
+                event: urlSetupData.event
+              };
+            } else {
+              // Legacy format - use as-is
+              setupData = urlSetupData;
+            }
+            console.log('   • Parsed setup data:', setupData);
           } catch (e1) {
             console.warn('⚠️ Direct JSON.parse failed:', e1 instanceof Error ? e1.message : e1);
             
             try {
-              setupData = JSON.parse(decodeURIComponent(setupParam));
-              console.log('✅ Parse SUCCESS (with decodeURIComponent):', setupData);
+              const urlSetupData = JSON.parse(decodeURIComponent(setupParam));
+              console.log('✅ Parse SUCCESS (with decodeURIComponent)');
+              setupData = urlSetupData;
             } catch (e2) {
               console.error('❌ Both parsing attempts failed');
-              console.error('   • Error 1 (direct):', e1 instanceof Error ? e1.message : e1);
-              console.error('   • Error 2 (decoded):', e2 instanceof Error ? e2.message : e2);
             }
           }
         }
@@ -90,14 +139,8 @@ export default function WhatsAppCallback() {
         if (setupData) {
           console.log('📦 Final setup_data keys:', Object.keys(setupData));
         } else {
-          console.warn('⚠️ No setup data found in sessionStorage or URL');
-          console.log('');
-          console.log('🔍 DIAGNOSTIC CHECKLIST:');
-          console.log('   □ Check postMessage event listener is active');
-          console.log('   □ Verify FB.login extras parameter includes setup: {}');
-          console.log('   □ Is config_id correct in launch?');
-          console.log('   □ Did Meta show full Embedded Signup screens?');
-          console.log('   □ Is test user added to App Roles in Meta Dashboard?');
+          console.warn('⚠️ No setup data found');
+          console.log('🔍 This may be expected if using code exchange without embedded signup data');
         }
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
