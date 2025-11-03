@@ -207,9 +207,6 @@ export const WhatsAppLoginButton = () => {
       setIsConnecting(false);
       return;
     }
-    
-    // Store state in sessionStorage for callback processing
-    sessionStorage.setItem('wa_oauth_state', stateId);
 
     // ========== FB.LOGIN LAUNCH ==========
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -230,7 +227,7 @@ export const WhatsAppLoginButton = () => {
     
     // Use FB.login with Embedded Signup (per Meta's official docs)
     window.FB.login(
-      async function(response: any) {
+      function(response: any) {
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('📥 FB.LOGIN RESPONSE RECEIVED');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -242,67 +239,10 @@ export const WhatsAppLoginButton = () => {
           console.log('✅ Authorization code received:', code);
           console.log('Auth Response:', response.authResponse);
           
-          // Get setup data and state from sessionStorage
-          const setupDataStr = sessionStorage.getItem('wa_setup_data');
-          const state = sessionStorage.getItem('wa_oauth_state');
+          // The FB.login will trigger a redirect to our callback URL with the code
+          // The setup data comes via postMessage (already handled by event listener)
+          // Facebook will redirect automatically - no manual navigation needed
           
-          if (!state) {
-            console.error('❌ No OAuth state found in sessionStorage');
-            toast({
-              title: "Error",
-              description: "Connection failed: Missing state parameter",
-              variant: "destructive",
-            });
-            setIsConnecting(false);
-            return;
-          }
-          
-          let setupData = null;
-          if (setupDataStr) {
-            try {
-              const parsedEvent = JSON.parse(setupDataStr);
-              setupData = parsedEvent.data;
-              console.log('📦 Setup data retrieved from sessionStorage:', setupData);
-            } catch (e) {
-              console.error('Failed to parse setup data:', e);
-            }
-          }
-          
-          try {
-            console.log('🔄 Calling whatsapp-oauth-callback edge function...');
-            
-            const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
-              body: {
-                code,
-                state,
-                redirect_uri: redirectUri,
-                setup_data: setupData,
-              },
-            });
-            
-            if (error) throw error;
-            
-            console.log('✅ WhatsApp connection successful:', data);
-            
-            // Clear session storage
-            sessionStorage.removeItem('wa_setup_data');
-            sessionStorage.removeItem('wa_oauth_state');
-            sessionStorage.removeItem('wa_flow_event');
-            
-            toast({
-              title: "Success",
-              description: "WhatsApp connected successfully!",
-            });
-            navigate('/');
-          } catch (error) {
-            console.error('❌ Failed to complete WhatsApp connection:', error);
-            toast({
-              title: "Error",
-              description: "Failed to complete WhatsApp connection",
-              variant: "destructive",
-            });
-            setIsConnecting(false);
-          }
         } else {
           console.warn('❌ User cancelled or authorization failed');
           console.log('Full response:', response);
