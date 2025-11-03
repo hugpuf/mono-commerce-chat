@@ -182,6 +182,11 @@ export const WhatsAppLoginButton = () => {
     // FORCE USE OF CONSTANT: Single source of truth for redirect_uri
     const effectiveRedirect = WHATSAPP_REDIRECT_URI;
     
+    // Detect in-app browsers for diagnostics
+    const ua = navigator.userAgent || '';
+    const isIAB = /FBAN|FBAV|FB_IAB|Instagram|Line|Twitter|WhatsApp|TikTok/i.test(ua) || (window !== window.top);
+    console.log('🧭 In-app browser detected?', isIAB);
+    
     console.log('🔐 REDIRECT URI ENFORCEMENT:');
     console.log('  - Backend provided:', redirectUri);
     console.log('  - Constant (FORCED):', effectiveRedirect);
@@ -403,6 +408,7 @@ export const WhatsAppLoginButton = () => {
         response_type: 'code',
         override_default_response_type: true,
         redirect_uri: effectiveRedirect,
+        fallback_redirect_uri: effectiveRedirect,
         state: stateId,
         extras: {
           setup: {}
