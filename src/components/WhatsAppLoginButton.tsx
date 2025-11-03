@@ -4,19 +4,28 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+declare global {
+  interface Window {
+    FB: any;
+    fbAsyncInit: () => void;
+  }
+}
 
 export const WhatsAppLoginButton = () => {
   const { workspaceId } = useWorkspace();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [fbSdkReady, setFbSdkReady] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
   const [appId, setAppId] = useState<string | null>(null);
   const [redirectUri, setRedirectUri] = useState<string | null>(null);
-  const [setupData, setSetupData] = useState<any>(null);
 
   useEffect(() => {
-    const initializeConfig = async () => {
+    const initializeSDK = async () => {
       // Get Meta config including redirect_uri from backend (single source of truth)
       const { data: configData } = await supabase.functions.invoke('get-meta-config');
       if (!configData?.appId || !configData?.configId || !configData?.redirectUri) {
@@ -34,49 +43,36 @@ export const WhatsAppLoginButton = () => {
         configId: configData.configId,
         redirectUri: configData.redirectUri
       });
+
+      // Initialize Facebook SDK
+      window.fbAsyncInit = function() {
+        window.FB.init({
+          appId: configData.appId,
+          cookie: true,
+          xfbml: true,
+          version: 'v24.0'
+        });
+        
+        console.log('✅ Facebook SDK initialized');
+        setFbSdkReady(true);
+      };
+
+      // Load SDK script if not already loaded
+      if (!document.getElementById('facebook-jssdk')) {
+        const script = document.createElement('script');
+        script.id = 'facebook-jssdk';
+        script.src = 'https://connect.facebook.net/en_US/sdk.js';
+        script.async = true;
+        script.defer = true;
+        document.body.appendChild(script);
+      } else if (window.FB) {
+        setFbSdkReady(true);
+      }
       
       setIsLoading(false);
     };
 
-    initializeConfig();
-
-    // Add MessageEvent listener for Embedded Signup
-    const handleMessage = (event: MessageEvent) => {
-      // Only accept messages from Facebook
-      if (event.origin !== "https://www.facebook.com" && 
-          event.origin !== "https://web.facebook.com") {
-        return;
-      }
-      
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'WA_EMBEDDED_SIGNUP') {
-          console.log('📦 Received Embedded Signup event:', data);
-          
-          if (data.event === 'FINISH') {
-            const { phone_number_id, waba_id } = data.data;
-            console.log('✅ WABA Setup Complete:', { phone_number_id, waba_id });
-            const capturedData = data.data;
-            setSetupData(capturedData);
-            
-            // Store in sessionStorage for callback page to retrieve
-            sessionStorage.setItem('wa_setup_data', JSON.stringify(capturedData));
-          } else if (data.event === 'CANCEL') {
-            console.warn('⚠️ User cancelled Embedded Signup at:', data.data.current_step);
-          } else if (data.event === 'ERROR') {
-            console.error('❌ Embedded Signup error:', data.data.error_message);
-          }
-        }
-      } catch {
-        // Non-JSON message, ignore
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    
-    return () => {
-      window.removeEventListener('message', handleMessage);
-    };
+    initializeSDK();
   }, []);
 
   const handleConnect = async () => {
@@ -95,6 +91,15 @@ export const WhatsAppLoginButton = () => {
       toast({
         title: "Error",
         description: "Workspace not found. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!fbSdkReady || !window.FB) {
+      toast({
+        title: "Error",
+        description: "Facebook SDK not loaded. Please refresh and try again.",
         variant: "destructive",
       });
       return;
@@ -136,88 +141,79 @@ export const WhatsAppLoginButton = () => {
       setIsConnecting(false);
       return;
     }
+
+    // ========== FB.LOGIN LAUNCH ==========
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🚀 LAUNCHING FB.LOGIN - WhatsApp Embedded Signup');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📋 Parameters:');
+    console.log('   • config_id:', configId);
+    console.log('   • response_type: code');
+    console.log('   • override_default_response_type: true');
+    console.log('   • redirect_uri:', redirectUri);
+    console.log('   • state:', stateId);
+    console.log('   • scope: whatsapp_business_management,business_management,whatsapp_business_messaging');
+    console.log('🔍 SDK Status:');
+    console.log('   • FB SDK ready:', fbSdkReady);
+    console.log('   • window.FB exists:', !!window.FB);
+    console.log('⏰ Launch timestamp:', new Date().toISOString());
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
-    // Check if Meta-hosted landing page is enabled
-    const useMetaHostedLanding = import.meta.env.VITE_USE_META_HOSTED_LANDING === 'true';
-    
-    let launchUrl: URL;
-    
-    if (useMetaHostedLanding) {
-      console.log('🚀 Using Meta-hosted landing page flow');
-      
-      // Build Meta-hosted landing page URL
-      launchUrl = new URL('https://business.facebook.com/messaging/whatsapp/onboard/');
-      launchUrl.searchParams.set('app_id', appId);
-      launchUrl.searchParams.set('config_id', configId);
-      
-      // Add extras parameter with feature flags
-      const extras = {
-        featureType: "whatsapp_business_app_onboarding",
-        sessionInfoVersion: "3",
-        version: "v3",
-        features: [{ name: "app_only_install" }]
-      };
-      launchUrl.searchParams.set('extras', JSON.stringify(extras));
-      
-      // Still include redirect_uri and state for callback compatibility
-      launchUrl.searchParams.set('redirect_uri', redirectUri);
-      launchUrl.searchParams.set('state', stateId);
-      
-      // ========== META-HOSTED LAUNCH LOGGING ==========
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🚀 META-HOSTED LANDING PAGE LAUNCH');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🌐 Full URL:', launchUrl.toString());
-      console.log('📋 URL Parameters:');
-      console.log('   • app_id:', appId);
-      console.log('   • config_id:', configId);
-      console.log('   • redirect_uri:', redirectUri);
-      console.log('   • state:', stateId);
-      console.log('   • extras:', JSON.stringify(extras, null, 2));
-      console.log('🔍 URL Validation:');
-      console.log('   • Domain: business.facebook.com ✓');
-      console.log('   • Path: /messaging/whatsapp/onboard/ ✓');
-      console.log('   • redirect_uri protocol:', redirectUri.startsWith('https://') ? 'HTTPS ✓' : 'INVALID ✗');
-      console.log('⏰ Launch timestamp:', new Date().toISOString());
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    } else {
-      console.log('🚀 Using standard OAuth dialog flow');
-      console.log('🔍 redirect_uri:', redirectUri);
-      console.log('🔍 state_id (UUID):', stateId);
-      console.log('🔍 config_id:', configId);
-      
-      // Build the OAuth dialog URL (let config_id control Embedded Signup)
-      launchUrl = new URL('https://www.facebook.com/v24.0/dialog/oauth');
-      launchUrl.searchParams.set('client_id', appId);
-      launchUrl.searchParams.set('redirect_uri', redirectUri);
-      launchUrl.searchParams.set('response_type', 'code');
-      launchUrl.searchParams.set('config_id', configId);
-      launchUrl.searchParams.set('state', stateId);
-      launchUrl.searchParams.set('scope', 'whatsapp_business_management,business_management,whatsapp_business_messaging');
-      
-      // ========== CLIENT LAUNCH LOGGING ==========
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🚀 OAUTH LAUNCH - Full Diagnostic');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🌐 Full OAuth URL:', launchUrl.toString());
-      console.log('📋 URL Parameters:');
-      console.log('   • client_id:', appId);
-      console.log('   • redirect_uri:', redirectUri);
-      console.log('   • config_id:', configId);
-      console.log('   • state:', stateId);
-      console.log('   • response_type: code');
-      console.log('   • scope: whatsapp_business_management,business_management,whatsapp_business_messaging');
-      console.log('🔍 URL Validation:');
-      console.log('   • redirect_uri has trailing slash?', redirectUri.endsWith('/'));
-      console.log('   • redirect_uri length:', redirectUri.length);
-      console.log('   • redirect_uri protocol:', redirectUri.startsWith('https://') ? 'HTTPS ✓' : 'INVALID ✗');
-      console.log('   • config_id present?', configId ? 'YES ✓' : 'NO ✗');
-      console.log('⏰ Launch timestamp:', new Date().toISOString());
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    }
-    
-    // Redirect to the appropriate URL
-    window.location.assign(launchUrl.toString());
+    // Use FB.login with Embedded Signup configuration
+    window.FB.login(
+      function(response: any) {
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('📥 FB.LOGIN RESPONSE RECEIVED');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('Response:', response);
+        console.log('Status:', response.status);
+        
+        if (response.status === 'connected') {
+          console.log('✅ User connected and authorized');
+          console.log('Auth Response:', response.authResponse);
+          
+          // Check if setup data is included
+          if (response.authResponse?.setup) {
+            console.log('✅ Setup data received:', response.authResponse.setup);
+          } else {
+            console.warn('⚠️ No setup data in authResponse');
+          }
+          
+          // The FB.login will trigger a redirect to our callback URL with code and setup params
+          // No need to manually navigate - Facebook handles this
+          
+        } else if (response.status === 'not_authorized') {
+          console.warn('⚠️ User logged into Facebook but did not authorize the app');
+          setIsConnecting(false);
+          toast({
+            title: "Authorization Required",
+            description: "You must authorize the app to connect WhatsApp.",
+            variant: "destructive",
+          });
+        } else {
+          console.warn('❌ User cancelled or not logged into Facebook');
+          setIsConnecting(false);
+          toast({
+            title: "Cancelled",
+            description: "WhatsApp connection was cancelled.",
+          });
+        }
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      },
+      {
+        config_id: configId,
+        response_type: 'code',
+        override_default_response_type: true,
+        redirect_uri: redirectUri,
+        state: stateId,
+        scope: 'whatsapp_business_management,business_management,whatsapp_business_messaging',
+        extras: {
+          setup: {},
+          feature: 'whatsapp_embedded_signup',
+          sessionInfoVersion: '3'
+        }
+      }
+    );
   };
 
   if (isLoading) {
