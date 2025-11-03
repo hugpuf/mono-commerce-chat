@@ -137,42 +137,87 @@ export const WhatsAppLoginButton = () => {
       return;
     }
     
-    console.log('🚀 Starting OAuth dialog flow');
-    console.log('🔍 redirect_uri:', redirectUri);
-    console.log('🔍 state_id (UUID):', stateId);
-    console.log('🔍 config_id:', configId);
+    // Check if Meta-hosted landing page is enabled
+    const useMetaHostedLanding = import.meta.env.VITE_USE_META_HOSTED_LANDING === 'true';
     
-    // Build the OAuth dialog URL (let config_id control Embedded Signup)
-    const dialogUrl = new URL('https://www.facebook.com/v24.0/dialog/oauth');
-    dialogUrl.searchParams.set('client_id', appId);
-    dialogUrl.searchParams.set('redirect_uri', redirectUri);
-    dialogUrl.searchParams.set('response_type', 'code');
-    dialogUrl.searchParams.set('config_id', configId);
-    dialogUrl.searchParams.set('state', stateId);
-    dialogUrl.searchParams.set('scope', 'whatsapp_business_management,business_management,whatsapp_business_messaging');
+    let launchUrl: URL;
     
-    // ========== CLIENT LAUNCH LOGGING ==========
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🚀 OAUTH LAUNCH - Full Diagnostic');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🌐 Full OAuth URL:', dialogUrl.toString());
-    console.log('📋 URL Parameters:');
-    console.log('   • client_id:', appId);
-    console.log('   • redirect_uri:', redirectUri);
-    console.log('   • config_id:', configId);
-    console.log('   • state:', stateId);
-    console.log('   • response_type: code');
-    console.log('   • scope: whatsapp_business_management,business_management,whatsapp_business_messaging');
-    console.log('🔍 URL Validation:');
-    console.log('   • redirect_uri has trailing slash?', redirectUri.endsWith('/'));
-    console.log('   • redirect_uri length:', redirectUri.length);
-    console.log('   • redirect_uri protocol:', redirectUri.startsWith('https://') ? 'HTTPS ✓' : 'INVALID ✗');
-    console.log('   • config_id present?', configId ? 'YES ✓' : 'NO ✗');
-    console.log('⏰ Launch timestamp:', new Date().toISOString());
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    if (useMetaHostedLanding) {
+      console.log('🚀 Using Meta-hosted landing page flow');
+      
+      // Build Meta-hosted landing page URL
+      launchUrl = new URL('https://business.facebook.com/messaging/whatsapp/onboard/');
+      launchUrl.searchParams.set('app_id', appId);
+      launchUrl.searchParams.set('config_id', configId);
+      
+      // Add extras parameter with feature flags
+      const extras = {
+        featureType: "whatsapp_business_app_onboarding",
+        sessionInfoVersion: "3",
+        version: "v3",
+        features: [{ name: "app_only_install" }]
+      };
+      launchUrl.searchParams.set('extras', JSON.stringify(extras));
+      
+      // Still include redirect_uri and state for callback compatibility
+      launchUrl.searchParams.set('redirect_uri', redirectUri);
+      launchUrl.searchParams.set('state', stateId);
+      
+      // ========== META-HOSTED LAUNCH LOGGING ==========
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🚀 META-HOSTED LANDING PAGE LAUNCH');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🌐 Full URL:', launchUrl.toString());
+      console.log('📋 URL Parameters:');
+      console.log('   • app_id:', appId);
+      console.log('   • config_id:', configId);
+      console.log('   • redirect_uri:', redirectUri);
+      console.log('   • state:', stateId);
+      console.log('   • extras:', JSON.stringify(extras, null, 2));
+      console.log('🔍 URL Validation:');
+      console.log('   • Domain: business.facebook.com ✓');
+      console.log('   • Path: /messaging/whatsapp/onboard/ ✓');
+      console.log('   • redirect_uri protocol:', redirectUri.startsWith('https://') ? 'HTTPS ✓' : 'INVALID ✗');
+      console.log('⏰ Launch timestamp:', new Date().toISOString());
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    } else {
+      console.log('🚀 Using standard OAuth dialog flow');
+      console.log('🔍 redirect_uri:', redirectUri);
+      console.log('🔍 state_id (UUID):', stateId);
+      console.log('🔍 config_id:', configId);
+      
+      // Build the OAuth dialog URL (let config_id control Embedded Signup)
+      launchUrl = new URL('https://www.facebook.com/v24.0/dialog/oauth');
+      launchUrl.searchParams.set('client_id', appId);
+      launchUrl.searchParams.set('redirect_uri', redirectUri);
+      launchUrl.searchParams.set('response_type', 'code');
+      launchUrl.searchParams.set('config_id', configId);
+      launchUrl.searchParams.set('state', stateId);
+      launchUrl.searchParams.set('scope', 'whatsapp_business_management,business_management,whatsapp_business_messaging');
+      
+      // ========== CLIENT LAUNCH LOGGING ==========
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🚀 OAUTH LAUNCH - Full Diagnostic');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🌐 Full OAuth URL:', launchUrl.toString());
+      console.log('📋 URL Parameters:');
+      console.log('   • client_id:', appId);
+      console.log('   • redirect_uri:', redirectUri);
+      console.log('   • config_id:', configId);
+      console.log('   • state:', stateId);
+      console.log('   • response_type: code');
+      console.log('   • scope: whatsapp_business_management,business_management,whatsapp_business_messaging');
+      console.log('🔍 URL Validation:');
+      console.log('   • redirect_uri has trailing slash?', redirectUri.endsWith('/'));
+      console.log('   • redirect_uri length:', redirectUri.length);
+      console.log('   • redirect_uri protocol:', redirectUri.startsWith('https://') ? 'HTTPS ✓' : 'INVALID ✗');
+      console.log('   • config_id present?', configId ? 'YES ✓' : 'NO ✗');
+      console.log('⏰ Launch timestamp:', new Date().toISOString());
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }
     
-    // Redirect to OAuth dialog (not popup, full redirect)
-    window.location.assign(dialogUrl.toString());
+    // Redirect to the appropriate URL
+    window.location.assign(launchUrl.toString());
   };
 
   if (isLoading) {
