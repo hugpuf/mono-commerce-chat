@@ -14,6 +14,7 @@ serve(async (req) => {
   try {
     const metaAppId = Deno.env.get('META_APP_ID');
     const metaConfigId = Deno.env.get('META_CONFIG_ID');
+    const redirectUri = Deno.env.get('WHATSAPP_REDIRECT_URI');
 
     if (!metaAppId || !metaConfigId) {
       console.error('Meta App credentials not configured');
@@ -28,12 +29,25 @@ serve(async (req) => {
       );
     }
 
-    // Frontend determines redirect_uri dynamically based on its origin
-    // We only return app configuration here
+    if (!redirectUri) {
+      console.error('WHATSAPP_REDIRECT_URI not configured');
+      return new Response(
+        JSON.stringify({ 
+          error: 'WHATSAPP_REDIRECT_URI environment variable not configured' 
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Backend is single source of truth for redirect_uri
     return new Response(
       JSON.stringify({ 
         appId: metaAppId,
-        configId: metaConfigId
+        configId: metaConfigId,
+        redirectUri: redirectUri
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

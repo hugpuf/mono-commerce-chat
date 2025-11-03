@@ -23,21 +23,18 @@ export default async function initiateWhatsAppOAuth() {
       throw new Error('Workspace ID not found. Please try again from the channel setup page.');
     }
 
-    // Get Meta config (appId and configId only)
+    // Get Meta config - backend is single source of truth for redirect_uri
     const { data: configData, error: configError } = await supabase.functions.invoke('get-meta-config');
-    if (configError || !configData?.appId || !configData?.configId) {
+    if (configError || !configData?.appId || !configData?.configId || !configData?.redirectUri) {
       throw new Error('Failed to load Meta configuration');
     }
 
-    const { appId, configId } = configData;
-    
-    // Use frontend constant as single source of truth for redirect_uri
-    const redirectUri = WHATSAPP_REDIRECT_URI;
+    const { appId, configId, redirectUri } = configData;
 
     console.log('✅ Configuration loaded');
     console.log('   • App ID:', appId);
     console.log('   • Config ID:', configId);
-    console.log('   • Redirect URI (from frontend):', redirectUri);
+    console.log('   • Redirect URI (from backend):', redirectUri);
     console.log('   • Workspace ID:', workspaceId);
 
     // Generate OAuth state
@@ -164,7 +161,9 @@ export default async function initiateWhatsAppOAuth() {
         fallback_redirect_uri: redirectUri,
         state: stateId,
         extras: {
-          setup: {}
+          setup: {},
+          feature: 'whatsapp_embedded_signup',
+          sessionInfoVersion: 2
         }
       }
     );
