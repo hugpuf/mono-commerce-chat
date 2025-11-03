@@ -20,6 +20,17 @@ export default function WhatsAppCallback() {
     
     hasRunRef.current = true;
     
+    const initiateAction = searchParams.get('action');
+    
+    // If action=initiate, trigger OAuth from this page
+    if (initiateAction === 'initiate') {
+      import('@/components/WhatsAppOAuthInitiator').then(module => {
+        const initiator = module.default;
+        initiator();
+      });
+      return;
+    }
+    
     const processCallback = async () => {
       try {
         // ========== CALLBACK PAGE ENTRY LOGGING ==========
