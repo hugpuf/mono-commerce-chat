@@ -335,8 +335,9 @@ export const WhatsAppLoginButton = () => {
                 });
                 
                 // Navigate to home page
+                console.log('🎯 Navigation after success - going to home dashboard');
                 setIsConnecting(false);
-                navigate('/setup/channel');
+                navigate('/');
               } catch (backendError: any) {
                 console.error('❌ Backend invocation failed:', {
                   message: backendError?.message,
