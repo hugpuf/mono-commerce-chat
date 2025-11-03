@@ -28,14 +28,12 @@ serve(async (req) => {
       );
     }
 
-    // Single source of truth for redirect_uri
-    const redirectUri = 'https://preview--mono-commerce-chat.lovable.app/setup/whatsapp/callback';
-
+    // Frontend determines redirect_uri dynamically based on its origin
+    // We only return app configuration here
     return new Response(
       JSON.stringify({ 
         appId: metaAppId,
-        configId: metaConfigId,
-        redirectUri: redirectUri
+        configId: metaConfigId
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

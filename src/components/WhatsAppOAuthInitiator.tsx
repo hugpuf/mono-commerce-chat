@@ -23,19 +23,21 @@ export default async function initiateWhatsAppOAuth() {
       throw new Error('Workspace ID not found. Please try again from the channel setup page.');
     }
 
-    // Get Meta config
+    // Get Meta config (appId and configId only)
     const { data: configData, error: configError } = await supabase.functions.invoke('get-meta-config');
     if (configError || !configData?.appId || !configData?.configId) {
       throw new Error('Failed to load Meta configuration');
     }
 
     const { appId, configId } = configData;
+    
+    // Use frontend constant as single source of truth for redirect_uri
     const redirectUri = WHATSAPP_REDIRECT_URI;
 
     console.log('✅ Configuration loaded');
     console.log('   • App ID:', appId);
     console.log('   • Config ID:', configId);
-    console.log('   • Redirect URI:', redirectUri);
+    console.log('   • Redirect URI (from frontend):', redirectUri);
     console.log('   • Workspace ID:', workspaceId);
 
     // Generate OAuth state
@@ -171,6 +173,6 @@ export default async function initiateWhatsAppOAuth() {
     console.error('❌ OAuth initiation failed:', error);
     alert(error instanceof Error ? error.message : 'Failed to start WhatsApp connection');
     sessionStorage.removeItem('wa_workspace_id');
-    window.location.href = '/setup/add-channel';
+    window.location.href = '/setup/channel';
   }
 }
