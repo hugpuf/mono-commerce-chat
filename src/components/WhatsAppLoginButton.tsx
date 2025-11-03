@@ -176,6 +176,9 @@ export const WhatsAppLoginButton = () => {
     // Generate cryptographically random state (UUID only - no encoding)
     const stateId = crypto.randomUUID();
     
+    // Store state in sessionStorage for retrieval in callback
+    sessionStorage.setItem('wa_oauth_state', stateId);
+    
     // Store state, redirect_uri, app_id, and workspace_id in database
     try {
       const { error: dbError } = await supabase
@@ -239,9 +242,92 @@ export const WhatsAppLoginButton = () => {
           console.log('✅ Authorization code received:', code);
           console.log('Auth Response:', response.authResponse);
           
-          // The FB.login will trigger a redirect to our callback URL with the code
-          // The setup data comes via postMessage (already handled by event listener)
-          // Facebook will redirect automatically - no manual navigation needed
+          // ========== PROCESS IN-PLACE: IMMEDIATE BACKEND CALL ==========
+          // Facebook SDK requires synchronous callback, but we can use IIFE for async work
+          (async () => {
+            try {
+              console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              console.log('🚀 EMBEDDED SIGNUP DIRECT PATH - Processing in-place');
+              console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              
+              // Retrieve setup data from sessionStorage
+              const setupDataStr = sessionStorage.getItem('wa_setup_data');
+              const state = sessionStorage.getItem('wa_oauth_state');
+              
+              if (!state) {
+                throw new Error('Missing OAuth state - session may have expired');
+              }
+              
+              // Parse setup data from postMessage event
+              let setupData = null;
+              if (setupDataStr) {
+                const parsedEvent = JSON.parse(setupDataStr);
+                setupData = parsedEvent.data; // Extract the data object
+                console.log('📦 Setup data retrieved from sessionStorage');
+                console.log('   • WABA ID:', setupData?.waba_id);
+                console.log('   • Phone Number ID:', setupData?.phone_number_id);
+                console.log('   • Business ID:', setupData?.business_id);
+              } else {
+                console.warn('⚠️ No setup data in sessionStorage - proceeding anyway');
+              }
+              
+              // Prepare payload for backend
+              const payload = {
+                code,
+                state,
+                redirect_uri: redirectUri,
+                setup_data: setupData
+              };
+              
+              console.log('📤 Calling whatsapp-oauth-callback with:');
+              console.log('   • code:', code.substring(0, 20) + '...');
+              console.log('   • state:', state);
+              console.log('   • redirect_uri:', redirectUri);
+              console.log('   • has_setup_data:', !!setupData);
+              
+              // Call backend to complete OAuth flow
+              const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
+                body: payload
+              });
+              
+              if (error) {
+                console.error('❌ Backend error:', error);
+                throw error;
+              }
+              
+              console.log('✅ Backend processing successful:', data);
+              
+              // Clear sessionStorage
+              sessionStorage.removeItem('wa_setup_data');
+              sessionStorage.removeItem('wa_oauth_state');
+              sessionStorage.removeItem('wa_flow_event');
+              
+              console.log('🧹 Cleared sessionStorage');
+              console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              
+              // Success! Show notification and navigate
+              toast({
+                title: "Success!",
+                description: "WhatsApp account connected successfully.",
+              });
+              
+              // Navigate to home page
+              navigate('/');
+              
+            } catch (error) {
+              console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              console.error('❌ Connection failed:', error);
+              console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              
+              setIsConnecting(false);
+              
+              toast({
+                title: "Connection Failed",
+                description: error instanceof Error ? error.message : "Failed to complete WhatsApp connection. Please try again.",
+                variant: "destructive",
+              });
+            }
+          })();
           
         } else {
           console.warn('❌ User cancelled or authorization failed');
