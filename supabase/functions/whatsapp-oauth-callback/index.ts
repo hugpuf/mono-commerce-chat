@@ -31,16 +31,14 @@ serve(async (req) => {
       );
     }
 
-    // ========== BACKEND RECEIPT LOGGING (SECRETS REDACTED) ==========
+    // ========== BACKEND RECEIPT LOGGING ==========
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('📨 BACKEND RECEIVED - OAuth Callback Data');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('📥 Request payload:');
-    console.log('   • workspace_id:', workspace_id ? workspace_id.substring(0, 8) + '...' : 'null');
+    console.log('   • workspace_id:', workspace_id);
     console.log('   • has_code:', !!code);
-    console.log('   • code_length:', code ? code.length : 0);
     console.log('   • has_state:', !!stateParam);
-    console.log('   • state_preview:', stateParam ? stateParam.substring(0, 8) + '...' : 'null');
     console.log('   • client_redirect_uri:', clientRedirectUri);
     console.log('   • has_setup_data:', !!setup_data);
     
@@ -52,6 +50,7 @@ serve(async (req) => {
     } else {
       console.log('   ❌ setup_data is NULL/UNDEFINED/EMPTY');
       console.log('   • Type:', typeof setup_data);
+      console.log('   • Value:', setup_data);
     }
     console.log('⏰ Backend timestamp:', new Date().toISOString());
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -84,11 +83,7 @@ serve(async (req) => {
     const app_id = stateData.app_id || Deno.env.get('META_APP_ID')!;
     const effectiveWorkspaceId = stateData.workspace_id || workspace_id;
     
-    console.log('✅ Retrieved from database:', { 
-      redirect_uri, 
-      app_id, 
-      workspace_id: effectiveWorkspaceId ? effectiveWorkspaceId.substring(0, 8) + '...' : 'null' 
-    });
+    console.log('✅ Retrieved from database:', { redirect_uri, app_id, workspace_id: effectiveWorkspaceId });
     
     // ========== EMBEDDED SIGNUP DIRECT FLOW ==========
     // If setup_data is present, process it directly without OAuth token exchange
@@ -292,9 +287,20 @@ serve(async (req) => {
       throw new Error('META_APP_SECRET environment variable is not set');
     }
 
+    // Log secret length for debugging (without exposing actual value)
+    console.log('🔐 Secret loaded, length:', metaAppSecret.length);
+
     console.log('🔄 Exchanging code for access token...');
     console.log('🔑 Using app_id:', app_id);
     console.log('🔗 Using redirect_uri:', redirect_uri);
+    
+    // Enhanced debugging - byte-by-byte URI comparison
+    console.log('🔍 REDIRECT_URI DEBUG:');
+    console.log('   Length:', redirect_uri.length);
+    console.log('   First 10 chars:', redirect_uri.substring(0, 10));
+    console.log('   Last 10 chars:', redirect_uri.substring(redirect_uri.length - 10));
+    console.log('   Has trailing slash?', redirect_uri.endsWith('/'));
+    console.log('   Has query params?', redirect_uri.includes('?'));
     
     // Prefer client-provided redirect_uri if available to ensure byte-for-byte match
     const effectiveRedirectUri = (typeof clientRedirectUri === 'string' && clientRedirectUri.length > 0)
@@ -302,23 +308,39 @@ serve(async (req) => {
       : redirect_uri;
     
     if (clientRedirectUri && clientRedirectUri !== redirect_uri) {
-      console.log('⚠️ redirect_uri mismatch: using client-provided value');
+      console.log('⚠️ redirect_uri mismatch detected between client and DB. Using client-provided value for token exchange.', {
+        db_redirect_uri: redirect_uri,
+        client_redirect_uri: clientRedirectUri
+      });
     }
     
-    // Build token exchange params (secrets redacted in logs)
+    // Build token exchange params - URLSearchParams will handle encoding consistently
     const tokenParams = new URLSearchParams({
       client_id: app_id,
       client_secret: metaAppSecret,
-      redirect_uri: effectiveRedirectUri,
+      redirect_uri: effectiveRedirectUri,  // Use the exact client-provided value when available
       code: code
     });
     
-    console.log('📤 TOKEN EXCHANGE (secrets redacted)');
-    console.log('   • client_id:', app_id);
-    console.log('   • redirect_uri:', effectiveRedirectUri);
-    console.log('   • code_length:', code.length);
+    console.log('🔍 OAUTH DEBUG DETAILS -----------------------------------');
+    console.log('Redirect URI from DB:', redirect_uri);
+    console.log('Redirect URI from callback query:', clientRedirectUri);
+    console.log('Final redirect_uri used in POST:', effectiveRedirectUri);
+    
+    // Calculate SHA256 hash
+    const uriEncoder = new TextEncoder();
+    const uriData = uriEncoder.encode(effectiveRedirectUri);
+    const uriHashBuffer = await crypto.subtle.digest('SHA-256', uriData);
+    const uriHashArray = Array.from(new Uint8Array(uriHashBuffer));
+    const uriHashHex = uriHashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    console.log('SHA256 (used in token exchange):', uriHashHex);
+    console.log('Encoded version:', encodeURIComponent(effectiveRedirectUri));
+    console.log('-----------------------------------------------------------');
+    
+    console.log('📤 TOKEN EXCHANGE BODY:', Object.fromEntries(tokenParams.entries()));
     
     const tokenUrl = 'https://graph.facebook.com/v24.0/oauth/access_token';
+    console.log('🌐 Token URL:', tokenUrl);
     
     // Use POST with body params (not GET with query params)
     const tokenResponse = await fetch(tokenUrl, {
