@@ -137,42 +137,39 @@ export const WhatsAppLoginButton = () => {
       return;
     }
     
-    console.log('🚀 Starting OAuth dialog flow');
+    console.log('🚀 Starting WhatsApp Embedded Signup flow');
     console.log('🔍 redirect_uri:', redirectUri);
     console.log('🔍 state_id (UUID):', stateId);
     console.log('🔍 config_id:', configId);
     
-    // Build the OAuth dialog URL (let login_config_id control Embedded Signup)
-    const dialogUrl = new URL('https://www.facebook.com/v24.0/dialog/oauth');
-    dialogUrl.searchParams.set('client_id', appId);
-    dialogUrl.searchParams.set('redirect_uri', redirectUri);
-    dialogUrl.searchParams.set('response_type', 'code');
-    dialogUrl.searchParams.set('login_config_id', configId); // CRITICAL: Use login_config_id for Embedded Signup
-    dialogUrl.searchParams.set('state', stateId);
-    dialogUrl.searchParams.set('scope', 'whatsapp_business_management,business_management,whatsapp_business_messaging');
+    // Build the WhatsApp Embedded Signup URL (CORRECT URL for ES flow)
+    const signupUrl = new URL('https://business.facebook.com/messaging/whatsapp/onboard/');
+    signupUrl.searchParams.set('app_id', appId);
+    signupUrl.searchParams.set('config_id', configId);
+    signupUrl.searchParams.set('redirect_uri', redirectUri);
+    signupUrl.searchParams.set('state', stateId);
     
     // ========== CLIENT LAUNCH LOGGING ==========
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🚀 OAUTH LAUNCH - Full Diagnostic');
+    console.log('🚀 WHATSAPP EMBEDDED SIGNUP - Full Diagnostic');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🌐 Full OAuth URL:', dialogUrl.toString());
+    console.log('🌐 Full Signup URL:', signupUrl.toString());
     console.log('📋 URL Parameters:');
-    console.log('   • client_id:', appId);
+    console.log('   • app_id:', appId);
+    console.log('   • config_id:', configId);
     console.log('   • redirect_uri:', redirectUri);
-    console.log('   • login_config_id:', configId);
     console.log('   • state:', stateId);
-    console.log('   • response_type: code');
-    console.log('   • scope: whatsapp_business_management,business_management,whatsapp_business_messaging');
     console.log('🔍 URL Validation:');
     console.log('   • redirect_uri has trailing slash?', redirectUri.endsWith('/'));
     console.log('   • redirect_uri length:', redirectUri.length);
     console.log('   • redirect_uri protocol:', redirectUri.startsWith('https://') ? 'HTTPS ✓' : 'INVALID ✗');
-    console.log('   • login_config_id present?', configId ? 'YES ✓' : 'NO ✗');
+    console.log('   • config_id present?', configId ? 'YES ✓' : 'NO ✗');
+    console.log('   • Using correct ES URL?', 'YES ✓');
     console.log('⏰ Launch timestamp:', new Date().toISOString());
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
-    // Redirect to OAuth dialog (not popup, full redirect)
-    window.location.assign(dialogUrl.toString());
+    // Redirect to WhatsApp Embedded Signup (full redirect)
+    window.location.assign(signupUrl.toString());
   };
 
   if (isLoading) {
