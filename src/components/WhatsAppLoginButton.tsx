@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { clearWorkspaceConnectionsCache } from "@/hooks/useWorkspaceConnections";
+import { WHATSAPP_REDIRECT_URI } from "@/lib/constants";
 
 declare global {
   interface Window {
@@ -178,6 +179,18 @@ export const WhatsAppLoginButton = () => {
 
     setIsConnecting(true);
     
+    // FORCE USE OF CONSTANT: Single source of truth for redirect_uri
+    const effectiveRedirect = WHATSAPP_REDIRECT_URI;
+    
+    console.log('🔐 REDIRECT URI ENFORCEMENT:');
+    console.log('  - Backend provided:', redirectUri);
+    console.log('  - Constant (FORCED):', effectiveRedirect);
+    if (redirectUri !== effectiveRedirect) {
+      console.warn('⚠️ MISMATCH: Backend and constant differ! Using constant.');
+    } else {
+      console.log('✅ Backend and constant match.');
+    }
+    
     // Generate cryptographically random state (UUID only - no encoding)
     const stateId = crypto.randomUUID();
     
@@ -190,7 +203,7 @@ export const WhatsAppLoginButton = () => {
         .from('oauth_states')
         .insert({
           state: stateId,
-          redirect_uri: redirectUri,
+          redirect_uri: effectiveRedirect,
           app_id: appId,
           workspace_id: workspaceId
         });
@@ -224,12 +237,11 @@ export const WhatsAppLoginButton = () => {
     console.log('   • config_id:', configId);
     console.log('   • response_type: code');
     console.log('   • override_default_response_type: true');
-    console.log('   • redirect_uri:', redirectUri);
-    console.log('   • redirect_uri length:', (redirectUri || '').length);
-    console.log('   • redirect_uri charCodes:', [...(redirectUri || '')].map((c: any) => (c as string).charCodeAt(0)));
+    console.log('   • redirect_uri (CONSTANT):', effectiveRedirect);
+    console.log('   • redirect_uri length:', effectiveRedirect.length);
+    console.log('   • redirect_uri charCodes:', [...effectiveRedirect].map(c => c.charCodeAt(0)));
     console.log('   • state:', stateId);
     console.log('   • scope: whatsapp_business_management,business_management,whatsapp_business_messaging');
-    console.log('🚨 CRITICAL: If Meta uses different redirect_uri, config_id may be overriding it!');
     console.log('🔍 SDK Status:');
     console.log('   • FB SDK ready:', fbSdkReady);
     console.log('   • window.FB exists:', !!window.FB);
@@ -279,22 +291,22 @@ export const WhatsAppLoginButton = () => {
                 console.warn('⚠️ No setup data in sessionStorage - proceeding anyway');
               }
               
-              // Prepare payload for backend
+              // Prepare payload for backend (using constant)
               const payload = {
                 code,
                 state,
-                redirect_uri: redirectUri,
+                redirect_uri: effectiveRedirect,
                 workspace_id: workspaceId,
                 setup_data: setupData
               };
               
               // Log exact byte representation before sending
-              console.log('🔍 Final redirect_uri →', redirectUri, [...redirectUri].map(c => c.charCodeAt(0)));
-              console.log('   Length:', redirectUri.length);
-              console.log('   No trailing slash/braces?', !redirectUri.endsWith('/'), !redirectUri.includes('{'), !redirectUri.includes('}'));
+              console.log('🔍 Final redirect_uri (CONSTANT) →', effectiveRedirect, [...effectiveRedirect].map(c => c.charCodeAt(0)));
+              console.log('   Length:', effectiveRedirect.length);
+              console.log('   No trailing slash/braces?', !effectiveRedirect.endsWith('/'), !effectiveRedirect.includes('{'), !effectiveRedirect.includes('}'));
               
               console.log('📤 Invoking whatsapp-oauth-callback', {
-                redirectUri,
+                redirectUri: effectiveRedirect,
                 hasSetupData: !!setupData,
                 state,
                 codePrefix: code?.slice(0, 8),
@@ -390,7 +402,8 @@ export const WhatsAppLoginButton = () => {
         config_id: configId,
         response_type: 'code',
         override_default_response_type: true,
-        redirect_uri: redirectUri,
+        redirect_uri: effectiveRedirect,
+        state: stateId,
         extras: {
           setup: {}
         }
