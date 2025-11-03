@@ -22,39 +22,19 @@ export default function WhatsAppCallback() {
     
     const processCallback = async () => {
       try {
-        // Get OAuth code from URL params
+        // Get OAuth code and setup from URL params
         const code = searchParams.get('code');
         const state = searchParams.get('state');
+        const setupParam = searchParams.get('setup');
         
-        // Try to get setup_data from multiple sources
+        // Parse setup_data from query parameter
         let setupData = null;
-        
-        // Source 1: sessionStorage (from MessageEvent listener)
-        const storedSetupData = sessionStorage.getItem('wa_setup_data');
-        if (storedSetupData) {
+        if (setupParam) {
           try {
-            setupData = JSON.parse(storedSetupData);
-            console.log('✅ Retrieved setup_data from sessionStorage:', setupData);
-            sessionStorage.removeItem('wa_setup_data'); // Clean up
+            setupData = JSON.parse(decodeURIComponent(setupParam));
+            console.log('✅ Retrieved setup_data from URL query parameter:', setupData);
           } catch (e) {
-            console.error('⚠️ Failed to parse stored setup data:', e);
-          }
-        }
-        
-        // Source 2: URL hash fragment (fallback)
-        if (!setupData) {
-          const hash = window.location.hash;
-          if (hash.includes('setup=')) {
-            try {
-              const setupMatch = hash.match(/setup=([^&]+)/);
-              if (setupMatch) {
-                const setupString = decodeURIComponent(setupMatch[1]);
-                setupData = JSON.parse(setupString);
-                console.log('✅ Parsed setup data from hash fragment:', setupData);
-              }
-            } catch (e) {
-              console.error('⚠️ Failed to parse setup data from hash:', e);
-            }
+            console.error('⚠️ Failed to parse setup data from query parameter:', e);
           }
         }
         

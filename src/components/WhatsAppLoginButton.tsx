@@ -153,45 +153,8 @@ export const WhatsAppLoginButton = () => {
     
     console.info('🌐 OAUTH DIALOG URL:', dialogUrl.toString());
     
-    // Open in popup window to receive MessageEvents and keep main page alive
-    const popup = window.open(
-      dialogUrl.toString(),
-      'wa-embed-popup',
-      'width=600,height=800,scrollbars=yes,resizable=yes'
-    );
-    
-    if (!popup) {
-      toast({
-        title: "Popup Blocked",
-        description: "Please allow popups for this site and try again.",
-        variant: "destructive",
-      });
-      setIsConnecting(false);
-      return;
-    }
-    
-    // Listen for success message from popup
-    const handlePopupMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'WA_CONNECT_SUCCESS') {
-        console.log('✅ Received success message from popup');
-        window.removeEventListener('message', handlePopupMessage);
-        setIsConnecting(false);
-        
-        // Refresh or redirect to show connected state
-        window.location.href = '/';
-      }
-    };
-    
-    window.addEventListener('message', handlePopupMessage);
-    
-    // Fallback: if popup closes without success message
-    const checkPopupClosed = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(checkPopupClosed);
-        window.removeEventListener('message', handlePopupMessage);
-        setIsConnecting(false);
-      }
-    }, 1000);
+    // Redirect to OAuth dialog (not popup, full redirect)
+    window.location.assign(dialogUrl.toString());
   };
 
   if (isLoading) {
