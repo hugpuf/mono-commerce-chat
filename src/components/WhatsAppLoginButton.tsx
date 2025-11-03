@@ -29,11 +29,19 @@ export const WhatsAppLoginButton = () => {
       setAppId(configData.appId);
       setRedirectUri(configData.redirectUri);
       
-      console.log('✅ Meta config loaded:', {
-        appId: configData.appId,
-        configId: configData.configId,
-        redirectUri: configData.redirectUri
-      });
+      // Log config check for diagnostics
+      if (import.meta.env.VITE_DEBUG_WA_ES === 'true') {
+        console.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.info('🔍 WA_ES_CONFIG_CHECK');
+        console.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.info('📋 Configuration loaded:');
+        console.info('   • appId:', configData.appId);
+        console.info('   • configId:', configData.configId);
+        console.info('   • redirectUriFromServer:', configData.redirectUri);
+        console.info('   • scopes: whatsapp_business_management,business_management,whatsapp_business_messaging');
+        console.info('⏰ Timestamp:', new Date().toISOString());
+        console.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      }
       
       setIsLoading(false);
     };

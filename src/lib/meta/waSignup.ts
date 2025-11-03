@@ -77,3 +77,26 @@ export function buildWaEmbeddedSignupUrl(config: WaEmbeddedSignupConfig): URL {
 
   return url;
 }
+
+/**
+ * Log startup configuration check (call once on component mount)
+ */
+export function logWaEmbeddedSignupConfig(config: {
+  appId: string;
+  configId: string;
+  redirectUri: string;
+  scopes?: string;
+}): void {
+  if (import.meta.env.VITE_DEBUG_WA_ES === 'true') {
+    console.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.info('🔍 WA_ES_CONFIG_CHECK');
+    console.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.info('📋 Configuration loaded:');
+    console.info('   • appId:', config.appId);
+    console.info('   • configId:', config.configId);
+    console.info('   • redirectUriFromServer:', config.redirectUri);
+    console.info('   • scopes:', config.scopes || DEFAULT_SCOPES);
+    console.info('⏰ Timestamp:', new Date().toISOString());
+    console.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  }
+}

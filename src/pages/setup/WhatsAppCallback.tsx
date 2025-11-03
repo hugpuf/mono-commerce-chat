@@ -22,85 +22,89 @@ export default function WhatsAppCallback() {
     
     const processCallback = async () => {
       try {
-        // ========== CALLBACK PAGE ENTRY LOGGING ==========
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('📥 CALLBACK PAGE LOADED - Raw URL Analysis');
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('🌐 Complete URL:', window.location.href);
-        console.log('📋 All Query Parameters:');
-        const allParams = new URLSearchParams(window.location.search);
-        allParams.forEach((value, key) => {
-          if (key === 'setup') {
-            console.log(`   • ${key}: [length=${value.length}] ${value.substring(0, 200)}${value.length > 200 ? '...' : ''}`);
-          } else {
-            console.log(`   • ${key}:`, value);
-          }
-        });
-        console.log('⏰ Callback timestamp:', new Date().toISOString());
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        // ========== CALLBACK PAGE ENTRY LOGGING (DEBUG MODE) ==========
+        if (import.meta.env.VITE_DEBUG_WA_ES === 'true') {
+          console.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.info('📥 CALLBACK PAGE LOADED');
+          console.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.info('🌐 CALLBACK URL:', window.location.href);
+          console.info('📋 CALLBACK PARAMS:');
+          const allParams = new URLSearchParams(window.location.search);
+          allParams.forEach((value, key) => {
+            if (key === 'setup') {
+              console.info(`   • ${key}: [length=${value.length}] ${value.substring(0, 200)}${value.length > 200 ? '...' : ''}`);
+            } else if (key === 'code') {
+              console.info(`   • ${key}: ***REDACTED*** (length=${value.length})`);
+            } else {
+              console.info(`   • ${key}:`, value);
+            }
+          });
+          console.info('⏰ Timestamp:', new Date().toISOString());
+          console.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        }
         
         // Get OAuth code and setup from URL params
         const code = searchParams.get('code');
         const state = searchParams.get('state');
         const setupParam = searchParams.get('setup');
         
-        // ========== SETUP PARSING LOGGING ==========
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('🔍 SETUP PARAMETER PARSING');
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        
+        // ========== SETUP PARSING WITH HARDENING ==========
         let setupData = null;
         if (setupParam) {
-          console.log('✅ SETUP PARAMETER RECEIVED');
-          console.log('📦 Raw setup string length:', setupParam.length);
-          console.log('📦 First 100 chars:', setupParam.substring(0, 100));
-          
           // Try parsing without decoding first (URLSearchParams already decodes)
           try {
             setupData = JSON.parse(setupParam);
-            console.log('✅ Successfully parsed setup_data');
-            console.log('📦 Setup data keys:', Object.keys(setupData));
             
-            // Extract key WABA information
-            const wabaId = setupData.waba_id || setupData.data?.waba_id;
-            const phoneId = setupData.phone_number_id || setupData.data?.phone_number_id;
-            const displayPhone = setupData.displayPhoneNumber || setupData.data?.displayPhoneNumber;
-            
-            console.log('📦 WABA ID:', wabaId || 'NOT FOUND');
-            console.log('📦 Phone ID:', phoneId || 'NOT FOUND');
-            console.log('📦 Display Phone:', displayPhone || 'NOT FOUND');
+            if (import.meta.env.VITE_DEBUG_WA_ES === 'true') {
+              console.info('✅ Setup data parsed successfully');
+              console.info('📦 Setup data keys:', Object.keys(setupData));
+              
+              const wabaId = setupData.waba_id || setupData.data?.waba_id;
+              const phoneId = setupData.phone_number_id || setupData.data?.phone_number_id;
+              const displayPhone = setupData.displayPhoneNumber || setupData.data?.displayPhoneNumber;
+              
+              console.info('📦 WABA ID:', wabaId || 'NOT FOUND');
+              console.info('📦 Phone ID:', phoneId || 'NOT FOUND');
+              console.info('📦 Display Phone:', displayPhone || 'NOT FOUND');
+            }
           } catch (e1) {
-            console.warn('⚠️ Direct JSON.parse failed:', e1 instanceof Error ? e1.message : e1);
-            
             // Fallback: try with explicit decoding
             try {
               setupData = JSON.parse(decodeURIComponent(setupParam));
-              console.log('✅ Parse SUCCESS (with decodeURIComponent)');
-              console.log('📦 Setup data keys:', Object.keys(setupData));
+              
+              if (import.meta.env.VITE_DEBUG_WA_ES === 'true') {
+                console.info('✅ Setup data parsed (with decodeURIComponent)');
+                console.info('📦 Setup data keys:', Object.keys(setupData));
+              }
             } catch (e2) {
-              console.error('❌ Both parsing attempts failed');
-              console.error('   • Error 1 (direct):', e1 instanceof Error ? e1.message : e1);
-              console.error('   • Error 2 (decoded):', e2 instanceof Error ? e2.message : e2);
+              console.error('❌ WA_ES: Failed to parse setup parameter');
+              console.error('Setup param length:', setupParam.length);
+              console.error('Parse error:', e2 instanceof Error ? e2.message : e2);
             }
           }
-        } else {
-          console.error('❌ SETUP PARAMETER MISSING');
-          console.log('');
-          console.log('🔍 DIAGNOSTIC CHECKLIST:');
-          console.log('   □ Full URL:', window.location.href);
-          console.log('   □ All params:', Array.from(searchParams.entries()).map(([k, v]) => `${k}=${v.substring(0, 50)}`));
-          console.log('   □ Using correct endpoint? (whatsapp_business_embedded_signup)');
-          console.log('   □ Is config_id correct in launch URL?');
-          console.log('   □ Did Meta show full Embedded Signup screens (business, phone)?');
-          console.log('   □ Is test user added to App Roles in Meta Dashboard?');
-          console.log('   □ Does redirect_uri exactly match Meta configuration?');
-          console.log('   □ Did user complete all ES steps without canceling?');
-          console.log('   □ Check browser console for blocked requests or CSP errors');
-          console.log('');
-          console.log('Expected: ?code=...&state=...&setup=<json>');
-          console.log('Actual URL:', window.location.search);
         }
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        // Structured error logging if setup is missing
+        if (!setupData) {
+          console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.error('❌ WA_ES_MISSING_SETUP');
+          console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.error('🔍 Current callback URL:', window.location.href);
+          console.error('📋 Received params:', Array.from(searchParams.entries()).map(([k, v]) => k === 'code' ? [k, '***REDACTED***'] : [k, v]));
+          console.error('');
+          console.error('🔍 DIAGNOSTIC CHECKLIST:');
+          console.error('   □ Using correct endpoint? (whatsapp_business_embedded_signup)');
+          console.error('   □ Is config_id correct in launch URL?');
+          console.error('   □ Did Meta show full Embedded Signup screens (business, phone)?');
+          console.error('   □ Is test user added to App Roles in Meta Dashboard?');
+          console.error('   □ Does redirect_uri exactly match Meta configuration?');
+          console.error('   □ Did user complete all ES steps (business + phone selection)?');
+          console.error('   □ Is the Embedded Signup Configuration "Published" in Meta Dashboard?');
+          console.error('');
+          console.error('Expected: ?code=...&state=...&setup=<json>');
+          console.error('Actual:', window.location.search);
+          console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        }
         
         console.log('🔍 Callback params summary:', { hasCode: !!code, hasState: !!state, hasSetupData: !!setupData });
         
