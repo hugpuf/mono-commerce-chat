@@ -64,16 +64,46 @@ export const WhatsAppLoginButton = () => {
               popup.close();
             }
             
+            // Get workspace_id from sessionStorage
+            const savedWorkspaceId = sessionStorage.getItem('wa_workspace_id');
+            
+            if (!savedWorkspaceId) {
+              toast({
+                title: "Error",
+                description: "Workspace ID not found. Please try again.",
+                variant: "destructive",
+              });
+              setIsConnecting(false);
+              return;
+            }
+            
             // Call backend with setup_data
-            toast({
-              title: "Success",
-              description: "WhatsApp connected successfully!",
-            });
-            
-            setIsConnecting(false);
-            
-            // Redirect to integrations page or refresh
-            window.location.href = '/settings/integrations';
+            supabase.functions
+              .invoke('whatsapp-embedded-signup', {
+                body: {
+                  setup_data: capturedData,
+                  workspace_id: savedWorkspaceId,
+                },
+              })
+              .then(({ data: responseData, error }) => {
+                if (error) {
+                  console.error('Backend error:', error);
+                  toast({
+                    title: "Connection failed",
+                    description: error.message || "Failed to complete WhatsApp connection",
+                    variant: "destructive",
+                  });
+                } else {
+                  console.log('Backend response:', responseData);
+                  toast({
+                    title: "Success!",
+                    description: "WhatsApp connected successfully",
+                  });
+                  window.location.href = '/settings/integrations';
+                }
+                setIsConnecting(false);
+                sessionStorage.removeItem('wa_workspace_id');
+              });
           } else if (data.event === 'CANCEL') {
             console.warn('⚠️ User cancelled Embedded Signup at:', data.data.current_step);
             setIsConnecting(false);

@@ -6,6 +6,9 @@ verify_jwt = true
 [functions.get-meta-config]
 verify_jwt = false
 
+[functions.whatsapp-embedded-signup]
+verify_jwt = true
+
 [functions.whatsapp-webhook]
 verify_jwt = false
 
