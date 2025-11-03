@@ -44,11 +44,11 @@ export const WhatsAppLoginButton = () => {
         redirectUri: configData.redirectUri
       });
 
-      // Initialize Facebook SDK
+      // Initialize Facebook SDK per Meta's official docs
       window.fbAsyncInit = function() {
         window.FB.init({
           appId: configData.appId,
-          cookie: true,
+          autoLogAppEvents: true,
           xfbml: true,
           version: 'v24.0'
         });
@@ -57,6 +57,29 @@ export const WhatsAppLoginButton = () => {
         setFbSdkReady(true);
       };
 
+      // Session logging message event listener (Meta's official implementation)
+      const handlePostMessage = (event: MessageEvent) => {
+        if (!event.origin.endsWith('facebook.com')) return;
+        
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'WA_EMBEDDED_SIGNUP') {
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('📨 SETUP DATA RECEIVED via postMessage');
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('Setup data:', data);
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            
+            // Store setup data in sessionStorage for callback page
+            sessionStorage.setItem('wa_setup_data', JSON.stringify(data));
+          }
+        } catch {
+          console.log('postMessage event (non-JSON):', event.data);
+        }
+      };
+
+      window.addEventListener('message', handlePostMessage);
+
       // Load SDK script if not already loaded
       if (!document.getElementById('facebook-jssdk')) {
         const script = document.createElement('script');
@@ -64,12 +87,18 @@ export const WhatsAppLoginButton = () => {
         script.src = 'https://connect.facebook.net/en_US/sdk.js';
         script.async = true;
         script.defer = true;
+        script.crossOrigin = 'anonymous';
         document.body.appendChild(script);
       } else if (window.FB) {
         setFbSdkReady(true);
       }
       
       setIsLoading(false);
+
+      // Cleanup
+      return () => {
+        window.removeEventListener('message', handlePostMessage);
+      };
     };
 
     initializeSDK();
@@ -159,7 +188,7 @@ export const WhatsAppLoginButton = () => {
     console.log('⏰ Launch timestamp:', new Date().toISOString());
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
-    // Use FB.login with Embedded Signup configuration
+    // Use FB.login with Embedded Signup (per Meta's official docs)
     window.FB.login(
       function(response: any) {
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -168,30 +197,18 @@ export const WhatsAppLoginButton = () => {
         console.log('Response:', response);
         console.log('Status:', response.status);
         
-        if (response.status === 'connected') {
-          console.log('✅ User connected and authorized');
+        if (response.authResponse) {
+          const code = response.authResponse.code;
+          console.log('✅ Authorization code received:', code);
           console.log('Auth Response:', response.authResponse);
           
-          // Check if setup data is included
-          if (response.authResponse?.setup) {
-            console.log('✅ Setup data received:', response.authResponse.setup);
-          } else {
-            console.warn('⚠️ No setup data in authResponse');
-          }
+          // The FB.login will trigger a redirect to our callback URL with the code
+          // The setup data comes via postMessage (already handled by event listener)
+          // Facebook will redirect automatically - no manual navigation needed
           
-          // The FB.login will trigger a redirect to our callback URL with code and setup params
-          // No need to manually navigate - Facebook handles this
-          
-        } else if (response.status === 'not_authorized') {
-          console.warn('⚠️ User logged into Facebook but did not authorize the app');
-          setIsConnecting(false);
-          toast({
-            title: "Authorization Required",
-            description: "You must authorize the app to connect WhatsApp.",
-            variant: "destructive",
-          });
         } else {
-          console.warn('❌ User cancelled or not logged into Facebook');
+          console.warn('❌ User cancelled or authorization failed');
+          console.log('Full response:', response);
           setIsConnecting(false);
           toast({
             title: "Cancelled",
@@ -204,13 +221,8 @@ export const WhatsAppLoginButton = () => {
         config_id: configId,
         response_type: 'code',
         override_default_response_type: true,
-        redirect_uri: redirectUri,
-        state: stateId,
-        scope: 'whatsapp_business_management,business_management,whatsapp_business_messaging',
         extras: {
-          setup: {},
-          feature: 'whatsapp_embedded_signup',
-          sessionInfoVersion: '3'
+          setup: {}
         }
       }
     );

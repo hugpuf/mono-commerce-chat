@@ -50,19 +50,32 @@ export default function WhatsAppCallback() {
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         let setupData = null;
-        if (setupParam) {
-          console.log('✓ setup parameter present');
+        
+        // First check sessionStorage (from postMessage event listener)
+        const sessionSetup = sessionStorage.getItem('wa_setup_data');
+        if (sessionSetup) {
+          console.log('✅ Found setup data in sessionStorage (from postMessage)');
+          try {
+            setupData = JSON.parse(sessionSetup);
+            console.log('   • Setup data:', setupData);
+            sessionStorage.removeItem('wa_setup_data'); // Clean up
+          } catch (e) {
+            console.error('❌ Failed to parse sessionStorage setup data:', e);
+          }
+        }
+        
+        // Fallback: check URL param (legacy support)
+        if (!setupData && setupParam) {
+          console.log('✓ setup parameter in URL');
           console.log('   • Raw value length:', setupParam.length);
           console.log('   • Raw value snippet:', setupParam.substring(0, 200));
           
-          // Try parsing without decoding first (URLSearchParams already decodes)
           try {
             setupData = JSON.parse(setupParam);
             console.log('✅ Parse SUCCESS (direct JSON.parse):', setupData);
           } catch (e1) {
             console.warn('⚠️ Direct JSON.parse failed:', e1 instanceof Error ? e1.message : e1);
             
-            // Fallback: try with explicit decoding
             try {
               setupData = JSON.parse(decodeURIComponent(setupParam));
               console.log('✅ Parse SUCCESS (with decodeURIComponent):', setupData);
@@ -72,23 +85,19 @@ export default function WhatsAppCallback() {
               console.error('   • Error 2 (decoded):', e2 instanceof Error ? e2.message : e2);
             }
           }
-          
-          if (setupData) {
-            console.log('📦 Parsed setup_data keys:', Object.keys(setupData));
-          }
+        }
+        
+        if (setupData) {
+          console.log('📦 Final setup_data keys:', Object.keys(setupData));
         } else {
-          console.error('❌ SETUP PARAMETER MISSING');
+          console.warn('⚠️ No setup data found in sessionStorage or URL');
           console.log('');
           console.log('🔍 DIAGNOSTIC CHECKLIST:');
-          console.log('   □ Is config_id correct in launch URL?');
+          console.log('   □ Check postMessage event listener is active');
+          console.log('   □ Verify FB.login extras parameter includes setup: {}');
+          console.log('   □ Is config_id correct in launch?');
           console.log('   □ Did Meta show full Embedded Signup screens?');
           console.log('   □ Is test user added to App Roles in Meta Dashboard?');
-          console.log('   □ Does redirect_uri exactly match Meta configuration?');
-          console.log('   □ Did user complete all ES steps (business, phone)?');
-          console.log('   □ Check browser console for blocked requests');
-          console.log('');
-          console.log('Expected: ?code=...&state=...&setup=<json>');
-          console.log('Actual URL:', window.location.search);
         }
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
