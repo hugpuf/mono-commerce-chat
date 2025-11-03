@@ -137,7 +137,7 @@ export const WhatsAppLoginButton = () => {
       return;
     }
     
-    console.log('🚀 Starting WhatsApp Embedded Signup flow');
+    console.log('🚀 Starting WhatsApp Embedded Signup flow (POPUP MODE)');
     console.log('🔍 redirect_uri:', redirectUri);
     console.log('🔍 state_id (UUID):', stateId);
     console.log('🔍 config_id:', configId);
@@ -151,7 +151,7 @@ export const WhatsAppLoginButton = () => {
     
     // ========== CLIENT LAUNCH LOGGING ==========
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🚀 WHATSAPP EMBEDDED SIGNUP - Full Diagnostic');
+    console.log('🚀 WHATSAPP EMBEDDED SIGNUP - POPUP MODE');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🌐 Full Signup URL:', signupUrl.toString());
     console.log('📋 URL Parameters:');
@@ -165,11 +165,37 @@ export const WhatsAppLoginButton = () => {
     console.log('   • redirect_uri protocol:', redirectUri.startsWith('https://') ? 'HTTPS ✓' : 'INVALID ✗');
     console.log('   • config_id present?', configId ? 'YES ✓' : 'NO ✗');
     console.log('   • Using correct ES URL?', 'YES ✓');
+    console.log('   • Mode: POPUP WINDOW ✓');
     console.log('⏰ Launch timestamp:', new Date().toISOString());
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
-    // Redirect to WhatsApp Embedded Signup (full redirect)
-    window.location.assign(signupUrl.toString());
+    // Open WhatsApp Embedded Signup in popup (keeps parent page alive for message listener)
+    const popup = window.open(
+      signupUrl.toString(),
+      'whatsapp_signup',
+      'width=600,height=800,popup=yes,scrollbars=yes'
+    );
+    
+    if (!popup) {
+      toast({
+        title: "Popup Blocked",
+        description: "Please allow popups for this site to connect WhatsApp.",
+        variant: "destructive",
+      });
+      setIsConnecting(false);
+      return;
+    }
+    
+    console.log('✅ Popup window opened successfully');
+    
+    // Keep connecting state while popup is open
+    const popupCheckInterval = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(popupCheckInterval);
+        setIsConnecting(false);
+        console.log('ℹ️ Popup window closed');
+      }
+    }, 500);
   };
 
   if (isLoading) {
