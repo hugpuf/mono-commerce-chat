@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { clearWorkspaceConnectionsCache } from "@/hooks/useWorkspaceConnections";
 
 declare global {
   interface Window {
@@ -302,7 +303,12 @@ export const WhatsAppLoginButton = () => {
               sessionStorage.removeItem('wa_oauth_state');
               sessionStorage.removeItem('wa_flow_event');
               
-              console.log('🧹 Cleared sessionStorage');
+              // Clear workspace connections cache
+              if (workspaceId) {
+                clearWorkspaceConnectionsCache(workspaceId);
+              }
+              
+              console.log('🧹 Cleared sessionStorage and cache');
               console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
               
               // Success! Show notification and navigate

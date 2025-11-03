@@ -1081,6 +1081,7 @@ export type Database = {
           address: string | null
           app_secret: string | null
           business_hours: Json | null
+          business_id: string | null
           business_name: string | null
           category: string | null
           created_at: string
@@ -1091,6 +1092,8 @@ export type Database = {
           phone_number: string
           phone_number_id: string
           status: string
+          token_expires_at: string | null
+          token_type: string | null
           updated_at: string
           waba_id: string
           webhook_status: string | null
@@ -1104,6 +1107,7 @@ export type Database = {
           address?: string | null
           app_secret?: string | null
           business_hours?: Json | null
+          business_id?: string | null
           business_name?: string | null
           category?: string | null
           created_at?: string
@@ -1114,6 +1118,8 @@ export type Database = {
           phone_number: string
           phone_number_id: string
           status?: string
+          token_expires_at?: string | null
+          token_type?: string | null
           updated_at?: string
           waba_id: string
           webhook_status?: string | null
@@ -1127,6 +1133,7 @@ export type Database = {
           address?: string | null
           app_secret?: string | null
           business_hours?: Json | null
+          business_id?: string | null
           business_name?: string | null
           category?: string | null
           created_at?: string
@@ -1137,6 +1144,8 @@ export type Database = {
           phone_number?: string
           phone_number_id?: string
           status?: string
+          token_expires_at?: string | null
+          token_type?: string | null
           updated_at?: string
           waba_id?: string
           webhook_status?: string | null
