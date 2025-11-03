@@ -94,8 +94,12 @@ export default function WhatsAppCallback() {
         
         console.log('🔍 Callback params summary:', { hasCode: !!code, hasState: !!state, hasSetupData: !!setupData });
         
-        if (!code) {
-          throw new Error('No authorization code received');
+        if (!code && !setupData) {
+          throw new Error('Neither code nor setup data received from WhatsApp');
+        }
+        
+        if (!code && setupData) {
+          console.log('⚠️ No code but setup_data present - using Embedded Signup direct flow');
         }
 
         // Parse workspace ID and redirect_uri from state parameter (fallback chain)

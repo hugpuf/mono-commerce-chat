@@ -84,11 +84,173 @@ serve(async (req) => {
     const effectiveWorkspaceId = stateData.workspace_id || workspace_id;
     
     console.log('✅ Retrieved from database:', { redirect_uri, app_id, workspace_id: effectiveWorkspaceId });
+    
+    // ========== EMBEDDED SIGNUP DIRECT FLOW ==========
+    // If setup_data is present, process it directly without OAuth token exchange
+    if (setup_data) {
+      console.log('🚀 EMBEDDED SIGNUP DIRECT PATH - Processing setup_data without OAuth exchange');
+      console.log('📦 Embedded Signup setup data received:', JSON.stringify(setup_data, null, 2));
+      
+      // Extract WABA data from setup_data
+      let waba_id: string;
+      let phone_number_id: string;
+      let displayPhoneNumber: string;
+      let verifiedName: string;
+      
+      // Shape 1: Standard Embedded Signup format
+      if (setup_data.whatsapp_business_account) {
+        const wabaData = setup_data.whatsapp_business_account;
+        waba_id = wabaData.id || wabaData.whatsapp_business_account_id;
+        
+        const phoneNumbers = wabaData.phone_numbers || [];
+        if (phoneNumbers.length === 0) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Embedded Signup incomplete: No phone number found. Please complete the phone number provisioning step in Meta\'s signup flow.' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
+        
+        const phoneNumber = phoneNumbers[0];
+        phone_number_id = phoneNumber.id;
+        displayPhoneNumber = phoneNumber.display_phone_number;
+        verifiedName = phoneNumber.verified_name || displayPhoneNumber;
+        
+        console.log('✅ WABA data from Embedded Signup (standard format):', { 
+          waba_id, 
+          phone_number_id, 
+          displayPhoneNumber, 
+          verifiedName
+        });
+      }
+      // Shape 2: Alternate format with direct IDs
+      else if (setup_data.waba_id || setup_data.whatsapp_business_account_id) {
+        waba_id = setup_data.waba_id || setup_data.whatsapp_business_account_id;
+        
+        if (setup_data.phone_numbers && setup_data.phone_numbers.length > 0) {
+          const phoneNumber = setup_data.phone_numbers[0];
+          phone_number_id = phoneNumber.id || phoneNumber.phone_number_id;
+          displayPhoneNumber = phoneNumber.display_phone_number;
+          verifiedName = phoneNumber.verified_name || displayPhoneNumber;
+        } else if (setup_data.phone_number_id) {
+          phone_number_id = setup_data.phone_number_id;
+          displayPhoneNumber = setup_data.display_phone_number || phone_number_id;
+          verifiedName = setup_data.verified_name || displayPhoneNumber;
+        } else {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Embedded Signup incomplete: No phone number ID found. Please complete the phone number provisioning step.' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
+        
+        console.log('✅ WABA data from Embedded Signup (alternate format):', { 
+          waba_id, 
+          phone_number_id, 
+          displayPhoneNumber, 
+          verifiedName
+        });
+      } else {
+        console.error('❌ Setup data present but missing WABA information:', setup_data);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid setup data: Missing WhatsApp Business Account information. Please restart the Embedded Signup flow and ensure you complete all steps including business and phone number selection.'
+          }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      // Use META_SYSTEM_USER_TOKEN for server-to-server access
+      const systemUserToken = Deno.env.get('META_SYSTEM_USER_TOKEN');
+      if (!systemUserToken) {
+        console.error('❌ META_SYSTEM_USER_TOKEN not configured');
+        return new Response(
+          JSON.stringify({ error: 'Server configuration error: System user token not configured' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      console.log('✅ Using system user token for persistent access');
+      
+      // Store the WhatsApp account
+      const { data, error } = await supabase
+        .from('whatsapp_accounts')
+        .upsert({
+          workspace_id: effectiveWorkspaceId,
+          waba_id: waba_id,
+          phone_number_id: phone_number_id,
+          phone_number: displayPhoneNumber,
+          display_name: verifiedName,
+          access_token: systemUserToken,
+          webhook_verify_token: crypto.randomUUID(),
+          status: 'active'
+        }, {
+          onConflict: 'phone_number_id'
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error storing WhatsApp account:', error);
+        throw error;
+      }
+
+      console.log('✅ WhatsApp account stored successfully', data);
+
+      // Subscribe webhooks
+      try {
+        console.log(`🔗 Subscribing webhooks to WABA ${waba_id}...`);
+        const webhookResponse = await fetch(
+          `https://graph.facebook.com/v24.0/${waba_id}/subscribed_apps`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${systemUserToken}` }
+          }
+        );
+
+        if (webhookResponse.ok) {
+          const webhookData = await webhookResponse.json();
+          console.log('✅ Webhook subscribed successfully:', webhookData);
+          
+          await supabase
+            .from('whatsapp_accounts')
+            .update({ webhook_status: 'active' })
+            .eq('id', data.id);
+        } else {
+          const errorData = await webhookResponse.json();
+          console.error('❌ Failed to subscribe webhook:', errorData);
+        }
+      } catch (webhookError) {
+        console.error('❌ Error subscribing webhook:', webhookError);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, account: data }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // ========== OAUTH CODE EXCHANGE FLOW ==========
+    // If no setup_data, proceed with traditional OAuth flow
+    console.log('🔍 No setup_data, proceeding with OAuth code exchange flow');
     console.log('🔍 Token exchange will use redirect_uri:', redirect_uri);
     
-    // Log setup data for debugging
-    if (setup_data) {
-      console.log('📦 Embedded Signup setup data received:', JSON.stringify(setup_data, null, 2));
+    if (!code) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization code' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // IDEMPOTENCY: Reserve the OAuth code (first request wins)
