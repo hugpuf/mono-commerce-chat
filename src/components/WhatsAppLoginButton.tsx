@@ -283,59 +283,82 @@ export const WhatsAppLoginButton = () => {
                 setup_data: setupData
               };
               
-              console.log('📤 Calling whatsapp-oauth-callback with:');
-              console.log('   • code:', (code || '').substring(0, 20) + '...');
-              console.log('   • state:', state);
-              console.log('   • redirect_uri:', redirectUri);
-              console.log('   • redirect_uri length:', (redirectUri || '').length);
-              console.log('   • redirect_uri charCodes:', [...(redirectUri || '')].map((c: any) => (c as string).charCodeAt(0)));
-              console.log('   • has_workspace_id:', !!workspaceId);
-              console.log('   • has_setup_data:', !!setupData);
+              console.log('📤 Invoking whatsapp-oauth-callback', {
+                redirectUri,
+                hasSetupData: !!setupData,
+                state,
+                codePrefix: code?.slice(0, 8),
+                workspaceId,
+                timestamp: new Date().toISOString()
+              });
               
               // Call backend to complete OAuth flow
-              const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
-                body: payload
-              });
-              
-              if (error) {
-                console.error('❌ Backend error:', error);
-                throw error;
+              try {
+                const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
+                  body: payload
+                });
+                
+                if (error) {
+                  console.error('❌ Backend error:', {
+                    message: error.message,
+                    status: (error as any).status,
+                    context: (error as any).context,
+                    details: error
+                  });
+                  throw error;
+                }
+                
+                console.log('✅ Backend processing successful:', data);
+                
+                // Clear sessionStorage
+                sessionStorage.removeItem('wa_setup_data');
+                sessionStorage.removeItem('wa_oauth_state');
+                sessionStorage.removeItem('wa_flow_event');
+                
+                // Clear workspace connections cache
+                if (workspaceId) {
+                  clearWorkspaceConnectionsCache(workspaceId);
+                }
+                
+                console.log('🧹 Cleared sessionStorage and cache');
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                
+                // Success! Show notification and navigate
+                toast({
+                  title: "Success!",
+                  description: "WhatsApp account connected successfully.",
+                });
+                
+                // Navigate to home page
+                setIsConnecting(false);
+                navigate('/setup/channel');
+              } catch (backendError: any) {
+                console.error('❌ Backend invocation failed:', {
+                  message: backendError?.message,
+                  status: backendError?.status,
+                  stage: backendError?.stage,
+                  stack: backendError?.stack
+                });
+                
+                setIsConnecting(false);
+                
+                // Show user-friendly error based on stage
+                const errorStage = backendError?.stage || 'unknown';
+                const errorMessage = backendError?.message || 'Failed to connect WhatsApp account';
+                
+                toast({
+                  title: "Connection Failed",
+                  description: `Error at ${errorStage}: ${errorMessage}`,
+                  variant: "destructive",
+                });
               }
               
-              console.log('✅ Backend processing successful:', data);
-              
-              // Clear sessionStorage
-              sessionStorage.removeItem('wa_setup_data');
-              sessionStorage.removeItem('wa_oauth_state');
-              sessionStorage.removeItem('wa_flow_event');
-              
-              // Clear workspace connections cache
-              if (workspaceId) {
-                clearWorkspaceConnectionsCache(workspaceId);
-              }
-              
-              console.log('🧹 Cleared sessionStorage and cache');
-              console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-              
-              // Success! Show notification and navigate
-              toast({
-                title: "Success!",
-                description: "WhatsApp account connected successfully.",
-              });
-              
-              // Navigate to home page
-              navigate('/');
-              
-            } catch (error) {
-              console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-              console.error('❌ Connection failed:', error);
-              console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-              
+            } catch (outerError: any) {
+              console.error('❌ Outer async error:', outerError);
               setIsConnecting(false);
-              
               toast({
                 title: "Connection Failed",
-                description: error instanceof Error ? error.message : "Failed to complete WhatsApp connection. Please try again.",
+                description: outerError?.message || "Failed to complete WhatsApp connection",
                 variant: "destructive",
               });
             }
