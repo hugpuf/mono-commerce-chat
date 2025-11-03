@@ -132,15 +132,26 @@ export default async function initiateWhatsAppOAuth() {
         console.log('📥 FB.LOGIN RESPONSE:', response);
         
         if (response.authResponse?.code) {
-          console.log('✅ Authorization code received');
-          // Reload the page to process the callback normally
-          // The code will be in the URL as a query parameter
-          window.location.reload();
+          console.log('✅ Authorization code received:', response.authResponse.code);
+          
+          // Get setup data from sessionStorage (stored by WA_EMBEDDED_SIGNUP event)
+          const setupDataStr = sessionStorage.getItem('wa_setup_data');
+          
+          // Navigate to callback page WITH the code and state, WITHOUT action=initiate
+          const callbackUrl = new URL(window.location.origin + '/setup/whatsapp/callback');
+          callbackUrl.searchParams.set('code', response.authResponse.code);
+          callbackUrl.searchParams.set('state', stateId);
+          if (setupDataStr) {
+            callbackUrl.searchParams.set('setup', setupDataStr);
+          }
+          
+          console.log('🔄 Navigating to callback with code:', callbackUrl.toString());
+          window.location.href = callbackUrl.toString();
         } else {
           console.warn('❌ No authorization code received');
           // Navigate back to channel setup
           sessionStorage.removeItem('wa_workspace_id');
-          window.location.href = '/setup/add-channel';
+          window.location.href = '/setup/channel';
         }
       },
       {
