@@ -22,23 +22,77 @@ export default function WhatsAppCallback() {
     
     const processCallback = async () => {
       try {
+        // ========== CALLBACK PAGE ENTRY LOGGING ==========
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('📥 CALLBACK PAGE LOADED - Raw URL Analysis');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('🌐 Complete URL:', window.location.href);
+        console.log('📋 All Query Parameters:');
+        const allParams = new URLSearchParams(window.location.search);
+        allParams.forEach((value, key) => {
+          if (key === 'setup') {
+            console.log(`   • ${key}: [length=${value.length}] ${value.substring(0, 200)}${value.length > 200 ? '...' : ''}`);
+          } else {
+            console.log(`   • ${key}:`, value);
+          }
+        });
+        console.log('⏰ Callback timestamp:', new Date().toISOString());
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
         // Get OAuth code and setup from URL params
         const code = searchParams.get('code');
         const state = searchParams.get('state');
         const setupParam = searchParams.get('setup');
         
-        // Parse setup_data from query parameter
+        // ========== SETUP PARSING LOGGING ==========
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('🔍 SETUP PARAMETER PARSING');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
         let setupData = null;
         if (setupParam) {
+          console.log('✓ setup parameter present');
+          console.log('   • Raw value length:', setupParam.length);
+          console.log('   • Raw value snippet:', setupParam.substring(0, 200));
+          
+          // Try parsing without decoding first (URLSearchParams already decodes)
           try {
-            setupData = JSON.parse(decodeURIComponent(setupParam));
-            console.log('✅ Retrieved setup_data from URL query parameter:', setupData);
-          } catch (e) {
-            console.error('⚠️ Failed to parse setup data from query parameter:', e);
+            setupData = JSON.parse(setupParam);
+            console.log('✅ Parse SUCCESS (direct JSON.parse):', setupData);
+          } catch (e1) {
+            console.warn('⚠️ Direct JSON.parse failed:', e1 instanceof Error ? e1.message : e1);
+            
+            // Fallback: try with explicit decoding
+            try {
+              setupData = JSON.parse(decodeURIComponent(setupParam));
+              console.log('✅ Parse SUCCESS (with decodeURIComponent):', setupData);
+            } catch (e2) {
+              console.error('❌ Both parsing attempts failed');
+              console.error('   • Error 1 (direct):', e1 instanceof Error ? e1.message : e1);
+              console.error('   • Error 2 (decoded):', e2 instanceof Error ? e2.message : e2);
+            }
           }
+          
+          if (setupData) {
+            console.log('📦 Parsed setup_data keys:', Object.keys(setupData));
+          }
+        } else {
+          console.error('❌ SETUP PARAMETER MISSING');
+          console.log('');
+          console.log('🔍 DIAGNOSTIC CHECKLIST:');
+          console.log('   □ Is config_id correct in launch URL?');
+          console.log('   □ Did Meta show full Embedded Signup screens?');
+          console.log('   □ Is test user added to App Roles in Meta Dashboard?');
+          console.log('   □ Does redirect_uri exactly match Meta configuration?');
+          console.log('   □ Did user complete all ES steps (business, phone)?');
+          console.log('   □ Check browser console for blocked requests');
+          console.log('');
+          console.log('Expected: ?code=...&state=...&setup=<json>');
+          console.log('Actual URL:', window.location.search);
         }
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
-        console.log('🔍 Callback params:', { hasCode: !!code, hasState: !!state, hasSetupData: !!setupData });
+        console.log('🔍 Callback params summary:', { hasCode: !!code, hasState: !!state, hasSetupData: !!setupData });
         
         if (!code) {
           throw new Error('No authorization code received');
@@ -82,11 +136,19 @@ export default function WhatsAppCallback() {
         console.log('📊 Workspace resolution:', { source: workspaceSource, id: effectiveWorkspaceId?.substring(0, 8) + '...' });
         setMessage('Connecting WhatsApp account...');
         
-        console.log('🚀 Invoking whatsapp-oauth-callback with:', {
-          has_code: !!code,
-          has_state: !!state,
-          has_workspace_id: !!effectiveWorkspaceId
-        });
+        // ========== PRE-BACKEND-CALL LOGGING ==========
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('🚀 INVOKING BACKEND - Data Being Sent');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('📤 Sending to whatsapp-oauth-callback:');
+        console.log('   • has_code:', !!code);
+        console.log('   • has_state:', !!state);
+        console.log('   • has_workspace_id:', !!effectiveWorkspaceId);
+        console.log('   • has_setup_data:', !!setupData);
+        if (setupData) {
+          console.log('   • setup_data keys:', Object.keys(setupData));
+        }
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         // Send code and setup data to edge function
         // Note: workspace_id is optional here, edge function will use value from oauth_states table

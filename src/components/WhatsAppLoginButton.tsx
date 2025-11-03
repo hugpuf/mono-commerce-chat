@@ -151,7 +151,25 @@ export const WhatsAppLoginButton = () => {
     dialogUrl.searchParams.set('state', stateId);
     dialogUrl.searchParams.set('scope', 'whatsapp_business_management,business_management,whatsapp_business_messaging');
     
-    console.info('🌐 OAUTH DIALOG URL:', dialogUrl.toString());
+    // ========== CLIENT LAUNCH LOGGING ==========
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🚀 OAUTH LAUNCH - Full Diagnostic');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🌐 Full OAuth URL:', dialogUrl.toString());
+    console.log('📋 URL Parameters:');
+    console.log('   • client_id:', appId);
+    console.log('   • redirect_uri:', redirectUri);
+    console.log('   • config_id:', configId);
+    console.log('   • state:', stateId);
+    console.log('   • response_type: code');
+    console.log('   • scope: whatsapp_business_management,business_management,whatsapp_business_messaging');
+    console.log('🔍 URL Validation:');
+    console.log('   • redirect_uri has trailing slash?', redirectUri.endsWith('/'));
+    console.log('   • redirect_uri length:', redirectUri.length);
+    console.log('   • redirect_uri protocol:', redirectUri.startsWith('https://') ? 'HTTPS ✓' : 'INVALID ✗');
+    console.log('   • config_id present?', configId ? 'YES ✓' : 'NO ✗');
+    console.log('⏰ Launch timestamp:', new Date().toISOString());
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     // Redirect to OAuth dialog (not popup, full redirect)
     window.location.assign(dialogUrl.toString());

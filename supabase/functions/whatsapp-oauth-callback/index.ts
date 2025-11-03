@@ -31,14 +31,29 @@ serve(async (req) => {
       );
     }
 
-    // State is now a simple UUID - no decoding needed
-    console.log('📨 Received WhatsApp OAuth callback', {
-      workspace_id, 
-      has_code: !!code,
-      has_state: !!stateParam,
-      client_redirect_uri: clientRedirectUri,
-      has_setup_data: !!setup_data && Object.keys(setup_data).length > 0
-    });
+    // ========== BACKEND RECEIPT LOGGING ==========
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📨 BACKEND RECEIVED - OAuth Callback Data');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📥 Request payload:');
+    console.log('   • workspace_id:', workspace_id);
+    console.log('   • has_code:', !!code);
+    console.log('   • has_state:', !!stateParam);
+    console.log('   • client_redirect_uri:', clientRedirectUri);
+    console.log('   • has_setup_data:', !!setup_data);
+    
+    if (setup_data) {
+      const setupStr = JSON.stringify(setup_data);
+      console.log('   • setup_data length:', setupStr.length);
+      console.log('   • setup_data keys:', Object.keys(setup_data));
+      console.log('   • setup_data snippet:', setupStr.substring(0, 200));
+    } else {
+      console.log('   ❌ setup_data is NULL/UNDEFINED/EMPTY');
+      console.log('   • Type:', typeof setup_data);
+      console.log('   • Value:', setup_data);
+    }
+    console.log('⏰ Backend timestamp:', new Date().toISOString());
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     // CRITICAL: Fetch the EXACT redirect_uri, app_id, and workspace_id from database
     console.log('🔍 Looking up OAuth state in database...');
