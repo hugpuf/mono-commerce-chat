@@ -39,7 +39,12 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    console.log('Starting bulk import for catalog:', catalogSourceId, 'workspace:', workspaceId);
+    const startTime = Date.now();
+    console.log('📥 Bulk import request received:', {
+      catalogSourceId,
+      workspaceId,
+      timestamp: new Date().toISOString()
+    });
 
     // Get catalog source with access token
     const { data: catalogSource, error: sourceError } = await supabaseClient
@@ -54,7 +59,12 @@ Deno.serve(async (req) => {
 
     const { shop_domain, access_token } = catalogSource;
 
-    console.log('Starting Shopify bulk import for', shop_domain);
+    console.log('🏪 Catalog source details:', {
+      id: catalogSourceId,
+      shop_domain,
+      source_type: 'shopify',
+      access_token_preview: access_token ? access_token.substring(0, 8) + '***' : 'MISSING'
+    });
 
     // Build GraphQL query with updated fields for API 2024-10
     let productsQuery = `
@@ -97,6 +107,13 @@ Deno.serve(async (req) => {
       }
     `;
 
+    console.log('📤 Initiating bulk operation:', {
+      shop_domain,
+      api_version: '2024-10',
+      query_length: productsQuery.length,
+      query_preview: productsQuery.substring(0, 100).replace(/\s+/g, ' ') + '...'
+    });
+
     // Initiate bulk operation
     const bulkResponse = await fetch(
       `https://${shop_domain}/admin/api/2024-10/graphql.json`,
@@ -130,13 +147,31 @@ Deno.serve(async (req) => {
 
     const bulkResult = await bulkResponse.json();
 
+    console.log('📊 Bulk operation response:', {
+      http_status: bulkResponse.status,
+      http_status_text: bulkResponse.statusText,
+      has_data: !!bulkResult.data,
+      has_errors: !!bulkResult.errors,
+      user_errors_count: bulkResult.data?.bulkOperationRunQuery?.userErrors?.length || 0
+    });
+
+    if (bulkResult.errors) {
+      console.error('❌ GraphQL errors on bulk op start:', JSON.stringify(bulkResult.errors, null, 2));
+    }
+
     if (bulkResult.data?.bulkOperationRunQuery?.userErrors?.length > 0) {
-      console.error('Bulk operation errors:', bulkResult.data.bulkOperationRunQuery.userErrors);
-      throw new Error('Failed to start bulk operation');
+      console.error('❌ User errors:', JSON.stringify(bulkResult.data.bulkOperationRunQuery.userErrors, null, 2));
+      throw new Error('Failed to start bulk operation: ' + JSON.stringify(bulkResult.data.bulkOperationRunQuery.userErrors));
     }
 
     const bulkOpId = bulkResult.data?.bulkOperationRunQuery?.bulkOperation?.id;
-    console.log('Bulk operation started:', bulkOpId);
+    const initialStatus = bulkResult.data?.bulkOperationRunQuery?.bulkOperation?.status;
+    
+    console.log('✅ Bulk operation initiated:', {
+      bulkOpId,
+      initial_status: initialStatus,
+      initial_object_count: bulkResult.data?.bulkOperationRunQuery?.bulkOperation?.objectCount || 0
+    });
 
     // Poll for completion (simplified - in production, use webhooks)
     let completed = false;
@@ -162,6 +197,11 @@ Deno.serve(async (req) => {
 
       await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
       attempts++;
+
+      console.log(`🔄 Polling attempt ${attempts}/${maxAttempts}:`, {
+        bulkOpId,
+        elapsed_seconds: attempts * 5
+      });
 
       const statusResponse = await fetch(
         `https://${shop_domain}/admin/api/2024-10/graphql.json`,
@@ -192,7 +232,24 @@ Deno.serve(async (req) => {
       const statusResult = await statusResponse.json();
       const bulkOp = statusResult.data?.node;
 
-      console.log(`Bulk operation status (attempt ${attempts}):`, bulkOp?.status);
+      console.log('📡 Status check response:', {
+        attempt: attempts,
+        http_status: statusResponse.status,
+        http_status_text: statusResponse.statusText,
+        operation_status: bulkOp?.status,
+        error_code: bulkOp?.errorCode || null,
+        object_count: bulkOp?.objectCount || 0,
+        has_download_url: !!bulkOp?.url
+      });
+
+      if (statusResult.errors) {
+        console.error('❌ GraphQL errors during polling:', JSON.stringify(statusResult.errors, null, 2));
+        console.error('🔍 Full status result:', JSON.stringify(statusResult, null, 2));
+      }
+
+      if (!bulkOp) {
+        console.error('⚠️ No bulk operation node in response:', JSON.stringify(statusResult, null, 2));
+      }
 
       if (bulkOp?.status === 'COMPLETED') {
         completed = true;
@@ -207,10 +264,15 @@ Deno.serve(async (req) => {
     }
 
     // Download and process JSONL
-    console.log('Downloading bulk operation results...');
+    console.log('📥 Downloading JSONL from:', downloadUrl);
     const dataResponse = await fetch(downloadUrl);
     const jsonlText = await dataResponse.text();
     const lines = jsonlText.trim().split('\n');
+    
+    console.log('📄 JSONL file stats:', {
+      size_bytes: jsonlText.length,
+      total_lines: lines.length
+    });
 
     const products: any[] = [];
     let currentProduct: any = null;
@@ -242,7 +304,12 @@ Deno.serve(async (req) => {
     }
     if (currentProduct) products.push(currentProduct);
 
-    console.log(`Processed ${products.length} products`);
+    console.log('📦 JSONL parsing complete:', {
+      products_found: products.length,
+      total_variants: products.reduce((sum: number, p: any) => sum + (p.variants?.length || 0), 0),
+      total_images: products.reduce((sum: number, p: any) => sum + (p.images?.length || 0), 0),
+      sample_product_ids: products.slice(0, 3).map((p: any) => p.id)
+    });
 
     // Insert products into database
     const productRecords = [];
@@ -254,6 +321,8 @@ Deno.serve(async (req) => {
       let inventoryByLocation: any = {};
 
       if (variantIds.length > 0) {
+        console.log(`📦 Fetching inventory for ${variantIds.length} variants of product:`, product.id);
+        
         // Fetch inventory levels for all variants
         for (const inventoryItemId of variantIds) {
           const invResponse = await fetch(
@@ -344,8 +413,17 @@ Deno.serve(async (req) => {
 
     // Batch upsert products
     const batchSize = 50;
+    const totalBatches = Math.ceil(productRecords.length / batchSize);
+    console.log(`💾 Starting database upsert: ${productRecords.length} records in ${totalBatches} batches`);
+    
     for (let i = 0; i < productRecords.length; i += batchSize) {
       const batch = productRecords.slice(i, i + batchSize);
+      const batchNumber = Math.floor(i / batchSize) + 1;
+      
+      console.log(`📝 Upserting batch ${batchNumber}/${totalBatches}:`, {
+        batch_size: batch.length,
+        sample_skus: batch.slice(0, 3).map((p: any) => p.sku || 'no-sku')
+      });
       
       const { error: upsertError } = await supabaseClient
         .from('products')
@@ -372,7 +450,16 @@ Deno.serve(async (req) => {
       })
       .eq('id', catalogSourceId);
 
-    console.log(`Successfully imported ${productRecords.length} product variants`);
+    const endTime = Date.now();
+    const durationSeconds = ((endTime - startTime) / 1000).toFixed(2);
+    
+    console.log('✅ Bulk import completed successfully:', {
+      total_products: products.length,
+      total_variants: productRecords.length,
+      duration_seconds: durationSeconds,
+      shop_domain,
+      catalogSourceId
+    });
 
     return new Response(
       JSON.stringify({
@@ -383,8 +470,16 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Bulk import error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error('❌ BULK IMPORT FAILED:', {
+      error: errorMessage,
+      stack: errorStack,
+      catalogSourceId,
+      workspaceId,
+      timestamp: new Date().toISOString()
+    });
     
     // Update catalog source with error status (using catalogSourceId from outer scope)
     if (catalogSourceId) {
