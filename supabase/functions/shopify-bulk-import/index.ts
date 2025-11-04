@@ -24,6 +24,8 @@ Deno.serve(async (req) => {
 
     const { catalogSourceId, workspaceId, collectionIds }: BulkImportRequest = await req.json();
 
+    console.log('Starting bulk import for catalog:', catalogSourceId, 'workspace:', workspaceId);
+
     // Get catalog source with access token
     const { data: catalogSource, error: sourceError } = await supabaseClient
       .from('catalog_sources')
@@ -346,6 +348,8 @@ Deno.serve(async (req) => {
         last_sync_at: new Date().toISOString(),
         status: 'synced',
         sync_status: 'success',
+        products_count: productRecords.length,
+        sync_error: null,
         cancellation_requested_at: null,
       })
       .eq('id', catalogSourceId);
@@ -363,6 +367,26 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Bulk import error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Update catalog source with error status
+    try {
+      const { catalogSourceId } = await req.json();
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      );
+      
+      await supabaseClient
+        .from('catalog_sources')
+        .update({
+          sync_status: 'failed',
+          sync_error: errorMessage,
+        })
+        .eq('id', catalogSourceId);
+    } catch (updateError) {
+      console.error('Failed to update error status:', updateError);
+    }
+    
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

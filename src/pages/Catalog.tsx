@@ -27,6 +27,35 @@ export default function Catalog() {
     }
   }, [workspaceId]);
 
+  // Real-time subscription for sync status updates
+  useEffect(() => {
+    if (!catalogSource?.id) return;
+    
+    const channel = supabase
+      .channel('catalog-sync-status')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'catalog_sources',
+          filter: `id=eq.${catalogSource.id}`
+        },
+        (payload) => {
+          const newStatus = payload.new.sync_status;
+          console.log('Sync status updated:', newStatus);
+          if (newStatus === 'success' || newStatus === 'failed') {
+            fetchCatalogData();
+          }
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [catalogSource?.id]);
+
   const fetchCatalogData = async () => {
     try {
       setLoading(true);
@@ -82,7 +111,10 @@ export default function Catalog() {
 
       // Call Shopify bulk import function
       const { error } = await supabase.functions.invoke("shopify-bulk-import", {
-        body: { catalogSourceId: catalogSource.id },
+        body: { 
+          catalogSourceId: catalogSource.id,
+          workspaceId: workspaceId 
+        },
       });
 
       if (error) throw error;
@@ -201,9 +233,26 @@ export default function Catalog() {
             {catalogSource?.sync_status === "syncing" && products.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-                <h3 className="text-lg font-semibold mb-2">Syncing your products</h3>
+                <h3 className="text-lg font-semibold mb-2">Syncing your products from Shopify</h3>
                 <p className="text-sm text-muted-foreground">
                   This may take a few minutes depending on the size of your catalog
+                </p>
+                {catalogSource?.products_count > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {catalogSource.products_count} products synced so far
+                  </p>
+                )}
+              </div>
+            ) : catalogSource?.sync_status === "failed" ? (
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                <div className="text-destructive mb-4">
+                  <svg className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Sync failed</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {catalogSource?.sync_error || "An error occurred while syncing your products"}
                 </p>
               </div>
             ) : (
