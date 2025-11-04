@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
-import { WHATSAPP_REDIRECT_URI } from '@/lib/constants';
+import { WHATSAPP_REDIRECT_URI_STORAGE_KEY } from '@/lib/constants';
 
 export default function WhatsAppCallback() {
   const [searchParams] = useSearchParams();
@@ -217,13 +217,27 @@ export default function WhatsAppCallback() {
         }
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
+        let storedRedirectUri: string | undefined = undefined;
+
+        try {
+          if (typeof window !== 'undefined') {
+            storedRedirectUri = sessionStorage.getItem(WHATSAPP_REDIRECT_URI_STORAGE_KEY) ?? undefined;
+          }
+        } catch (error) {
+          console.warn('Unable to read WhatsApp redirect URI from sessionStorage:', error);
+        }
+
+        if (!storedRedirectUri) {
+          console.warn('⚠️ No redirect URI found in sessionStorage - proceeding without client hint');
+        }
+
         // Send code and setup data to edge function
         // Note: workspace_id is optional here, edge function will use value from oauth_states table
         const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
           body: {
             code,
             state,
-            redirect_uri: WHATSAPP_REDIRECT_URI,
+            redirect_uri: storedRedirectUri,
             workspace_id: effectiveWorkspaceId,  // Optional, DB value takes precedence
             setup_data: setupData
           }
