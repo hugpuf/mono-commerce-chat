@@ -14,7 +14,7 @@ export function AppShell({ children }: AppShellProps) {
       <div className="flex flex-col flex-1 min-w-0 relative">
         <AppHeader />
         
-        <main className="flex-1 overflow-auto pt-0">
+        <main className="flex-1 overflow-auto pt-20">
           {children}
         </main>
       </div>
