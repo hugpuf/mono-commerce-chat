@@ -144,9 +144,14 @@ export default async function initiateWhatsAppOAuth() {
         
         if (response.authResponse?.code) {
           console.log('✅ Authorization code received');
-          // Reload the page to process the callback normally
-          // The code will be in the URL as a query parameter
-          window.location.reload();
+
+          const targetUrl = new URL(redirectUri);
+          targetUrl.searchParams.set('code', response.authResponse.code);
+          targetUrl.searchParams.set('state', response.authResponse.state ?? stateId);
+
+          console.log('🔁 Redirecting browser to callback URL without initiate flag');
+          window.location.href = targetUrl.toString();
+          return;
         } else {
           console.warn('❌ No authorization code received');
           // Navigate back to channel setup
