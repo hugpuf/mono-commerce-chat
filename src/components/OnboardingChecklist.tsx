@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, Circle, Package, CreditCard, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useState } from "react";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useWorkspaceConnections } from "@/hooks/useWorkspaceConnections";
 
 interface ChecklistItem {
   id: string;
@@ -24,51 +24,14 @@ interface ConnectionStatus {
 
 export function OnboardingChecklist() {
   const navigate = useNavigate();
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
-    catalog: false,
-    payment: false,
-    whatsapp: false,
-  });
-  const [loading, setLoading] = useState(true);
+  const { workspaceId } = useWorkspace();
+  const { data: connections, isLoading: loading } = useWorkspaceConnections(workspaceId);
 
-  useEffect(() => {
-    const fetchConnectionStatus = async () => {
-      try {
-        // Check catalog sources
-        const { data: catalogData } = await supabase
-          .from('catalog_sources')
-          .select('status')
-          .eq('status', 'active')
-          .maybeSingle();
-
-        // Check payment providers
-        const { data: paymentData } = await supabase
-          .from('payment_providers')
-          .select('charges_enabled, test_mode')
-          .eq('provider', 'stripe')
-          .maybeSingle();
-
-        // Check WhatsApp accounts
-        const { data: whatsappData } = await supabase
-          .from('whatsapp_accounts')
-          .select('phone_number_id, webhook_status')
-          .eq('status', 'active')
-          .maybeSingle();
-
-        setConnectionStatus({
-          catalog: !!catalogData,
-          payment: !!(paymentData?.charges_enabled && !paymentData?.test_mode),
-          whatsapp: !!(whatsappData?.phone_number_id && whatsappData?.webhook_status === 'active'),
-        });
-      } catch (error) {
-        console.error('Error fetching connection status:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchConnectionStatus();
-  }, []);
+  const connectionStatus = {
+    catalog: !!connections?.catalogSource,
+    payment: !!connections?.paymentProvider,
+    whatsapp: !!connections?.whatsappAccount,
+  };
 
   const checklistItems: ChecklistItem[] = [
     {

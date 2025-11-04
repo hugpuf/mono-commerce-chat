@@ -73,14 +73,13 @@ export const useWorkspaceConnections = (workspaceId: string | null) => {
           .eq('status', 'active')
           .maybeSingle(),
         
-        // WhatsApp - only consider it connected if it has required fields
+        // WhatsApp - only consider it connected if it has phone_number_id
         supabase
           .from('whatsapp_accounts')
           .select('*')
           .eq('workspace_id', workspaceId)
           .eq('status', 'active')
           .not('phone_number_id', 'is', null)
-          .not('access_token', 'is', null)
           .limit(1),
       ]);
 
