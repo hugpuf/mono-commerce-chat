@@ -99,7 +99,7 @@ export default function ConnectionSettings() {
   };
 
   const handleReconnect = () => {
-    window.location.href = '/setup/add-channel';
+    window.location.href = '/setup/channel';
   };
 
   if (loading) {

@@ -359,7 +359,7 @@ export default function Integrations() {
           )}
           {!whatsappAccount && (
             <Button
-              onClick={() => navigate("/setup/add-channel")}
+              onClick={() => navigate("/setup/channel")}
               className="mt-3"
             >
               <Plus className="w-4 h-4 mr-2" />

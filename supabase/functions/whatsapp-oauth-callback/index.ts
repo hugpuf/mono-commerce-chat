@@ -258,7 +258,7 @@ serve(async (req) => {
           webhook_verify_token: crypto.randomUUID(),
           status: 'active'
         }, {
-          onConflict: 'phone_number_id'
+          onConflict: 'workspace_id,phone_number_id'
         })
         .select()
         .single();

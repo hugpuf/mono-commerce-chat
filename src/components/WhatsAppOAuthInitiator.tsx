@@ -130,7 +130,7 @@ export default async function initiateWhatsAppOAuth() {
           console.warn('❌ No authorization code received');
           // Navigate back to channel setup
           sessionStorage.removeItem('wa_workspace_id');
-          window.location.href = '/setup/add-channel';
+          window.location.href = '/setup/channel';
         }
       },
       {
@@ -148,6 +148,6 @@ export default async function initiateWhatsAppOAuth() {
     console.error('❌ OAuth initiation failed:', error);
     alert(error instanceof Error ? error.message : 'Failed to start WhatsApp connection');
     sessionStorage.removeItem('wa_workspace_id');
-    window.location.href = '/setup/add-channel';
+    window.location.href = '/setup/channel';
   }
 }

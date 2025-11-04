@@ -263,7 +263,7 @@ export default function WhatsAppCallback() {
           setMessage(errorMessage);
           
           // Redirect back after delay
-          setTimeout(() => navigate('/setup/add-channel'), 3000);
+          setTimeout(() => navigate('/setup/channel'), 3000);
           return;
         }
 
