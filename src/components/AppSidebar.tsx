@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   ShoppingBag,
   CreditCard,
@@ -26,6 +26,7 @@ const mainNavItems = [
 
 export function AppSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { workspace, workspaceId } = useWorkspace();
   const { data: connections } = useWorkspaceConnections(workspaceId);
 
@@ -42,7 +43,7 @@ export function AppSidebar() {
   ] : [];
 
   const activeChannels = whatsappAccount ? [
-    { id: "whatsapp", name: "WhatsApp", icon: whatsappLogo, status: "connected" as const, active: true }
+    { id: "whatsapp", name: "WhatsApp", icon: whatsappLogo, status: "connected" as const, active: location.pathname === "/conversations" }
   ] : [];
 
   return (
@@ -91,6 +92,7 @@ export function AppSidebar() {
                   icon={catalog.icon}
                   connected={true}
                   status={catalog.status}
+                  active={location.pathname === "/catalog"}
                   onClick={() => navigate("/catalog")}
                 />
               ))
@@ -120,6 +122,7 @@ export function AppSidebar() {
                   icon={payment.icon}
                   connected={true}
                   status={payment.status}
+                  active={location.pathname === "/orders"}
                   onClick={() => navigate("/orders")}
                 />
               ))
