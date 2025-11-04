@@ -2,7 +2,6 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   ShoppingBag,
   CreditCard,
-  MessageCircle,
   FileText,
   Zap,
   ShoppingCart,
@@ -19,7 +18,6 @@ import whatsappLogo from '@/assets/whatsapp-logo.png';
 import stripeLogo from '@/assets/stripe-logo.png';
 
 const mainNavItems = [
-  { path: "/conversations", label: "Conversations", icon: MessageCircle },
   { path: "/templates", label: "Templates", icon: FileText },
   { path: "/automations", label: "Workflows", icon: Zap },
   { path: "/orders", label: "Orders", icon: ShoppingCart },
