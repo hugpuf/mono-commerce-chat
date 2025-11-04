@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import GlobalControls from "@/components/automations/GlobalControls";
+import { NewConversationDialog } from "@/components/conversations/NewConversationDialog";
 
 interface Conversation {
   id: string;
@@ -37,6 +38,7 @@ export default function Conversations() {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [newConversationOpen, setNewConversationOpen] = useState(false);
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
 
@@ -199,12 +201,18 @@ export default function Conversations() {
   if (conversations.length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-2">No conversations yet</p>
-          <p className="text-sm text-muted-foreground">
-            Connect a WhatsApp channel to start receiving messages
-          </p>
+        <div className="text-center space-y-4">
+          <p className="text-muted-foreground">No conversations yet</p>
+          <Button onClick={() => setNewConversationOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Start New Conversation
+          </Button>
         </div>
+        <NewConversationDialog
+          open={newConversationOpen}
+          onOpenChange={setNewConversationOpen}
+          onConversationCreated={(id) => setSelectedConversationId(id)}
+        />
       </div>
     );
   }
@@ -217,7 +225,17 @@ export default function Conversations() {
       <div className="flex flex-1 overflow-hidden">
         {/* Conversation List */}
         <div className="w-80 border-r border-border flex flex-col">
-        <div className="p-4 border-b border-border">
+        <div className="p-4 border-b border-border space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Conversations</h2>
+            <Button 
+              size="sm" 
+              onClick={() => setNewConversationOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              New
+            </Button>
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search conversations..." className="pl-9" />
@@ -380,6 +398,12 @@ export default function Conversations() {
         </div>
       )}
       </div>
+      
+      <NewConversationDialog
+        open={newConversationOpen}
+        onOpenChange={setNewConversationOpen}
+        onConversationCreated={(id) => setSelectedConversationId(id)}
+      />
     </div>
   );
 }
