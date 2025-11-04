@@ -1,9 +1,15 @@
 import { useState, useEffect } from "react";
-import { Search, Send, Paperclip, Plus } from "lucide-react";
+import { Search, Send, Paperclip, Plus, MoreVertical, Package, CreditCard, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -317,17 +323,27 @@ export default function Conversations() {
                 {selectedConversation.customer_phone}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                Create Order
-              </Button>
-              <Button variant="outline" size="sm">
-                Send Pay Link
-              </Button>
-              <Button variant="outline" size="sm">
-                Insert SKU
-              </Button>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem>
+                  <Package className="h-4 w-4 mr-2" />
+                  Create Order
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Send Pay Link
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Tag className="h-4 w-4 mr-2" />
+                  Insert SKU
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Messages */}
@@ -392,17 +408,6 @@ export default function Conversations() {
                 disabled={!message.trim() || isSending}
               >
                 <Send className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <Button variant="ghost" size="sm" className="h-7 text-xs">
-                Insert Product
-              </Button>
-              <Button variant="ghost" size="sm" className="h-7 text-xs">
-                Template
-              </Button>
-              <Button variant="ghost" size="sm" className="h-7 text-xs">
-                Attach Invoice
               </Button>
             </div>
           </div>
