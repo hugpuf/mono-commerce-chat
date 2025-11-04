@@ -11,6 +11,8 @@ import { formatDistanceToNow } from "date-fns";
 import GlobalControls from "@/components/automations/GlobalControls";
 import { NewConversationDialog } from "@/components/conversations/NewConversationDialog";
 
+// WhatsApp Conversations Page
+
 interface Conversation {
   id: string;
   customer_name: string;
