@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
-import { WHATSAPP_REDIRECT_URI } from '@/lib/constants';
+import { WHATSAPP_REDIRECT_URI_STORAGE_KEY } from '@/lib/constants';
 
 export default function WhatsAppCallback() {
   const [searchParams] = useSearchParams();
@@ -21,14 +21,28 @@ export default function WhatsAppCallback() {
     hasRunRef.current = true;
     
     const initiateAction = searchParams.get('action');
-    
-    // If action=initiate, trigger OAuth from this page
-    if (initiateAction === 'initiate') {
+    const hasAuthCode = searchParams.has('code');
+    const hasStateParam = searchParams.has('state');
+    const hasSetupParam = searchParams.has('setup');
+
+    // If action=initiate and we do not yet have any callback parameters, trigger OAuth from this page
+    if (initiateAction === 'initiate' && !hasAuthCode && !hasStateParam && !hasSetupParam) {
       import('@/components/WhatsAppOAuthInitiator').then(module => {
         const initiator = module.default;
         initiator();
       });
       return;
+    }
+
+    // If we arrive with callback parameters but the ?action=initiate flag is still present, clean it up to avoid re-triggering
+    if (initiateAction === 'initiate' && (hasAuthCode || hasStateParam || hasSetupParam)) {
+      try {
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.delete('action');
+        window.history.replaceState(null, '', currentUrl.toString());
+      } catch (error) {
+        console.warn('Failed to clean WhatsApp callback URL parameters:', error);
+      }
     }
     
     const processCallback = async () => {
@@ -217,13 +231,27 @@ export default function WhatsAppCallback() {
         }
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
+        let storedRedirectUri: string | undefined = undefined;
+
+        try {
+          if (typeof window !== 'undefined') {
+            storedRedirectUri = sessionStorage.getItem(WHATSAPP_REDIRECT_URI_STORAGE_KEY) ?? undefined;
+          }
+        } catch (error) {
+          console.warn('Unable to read WhatsApp redirect URI from sessionStorage:', error);
+        }
+
+        if (!storedRedirectUri) {
+          console.warn('⚠️ No redirect URI found in sessionStorage - proceeding without client hint');
+        }
+
         // Send code and setup data to edge function
         // Note: workspace_id is optional here, edge function will use value from oauth_states table
         const { data, error } = await supabase.functions.invoke('whatsapp-oauth-callback', {
           body: {
             code,
             state,
-            redirect_uri: WHATSAPP_REDIRECT_URI,
+            redirect_uri: storedRedirectUri,
             workspace_id: effectiveWorkspaceId,  // Optional, DB value takes precedence
             setup_data: setupData
           }

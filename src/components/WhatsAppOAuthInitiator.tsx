@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { WHATSAPP_REDIRECT_URI } from "@/lib/constants";
+import { WHATSAPP_REDIRECT_URI_STORAGE_KEY } from "@/lib/constants";
 
 declare global {
   interface Window {
@@ -29,8 +29,19 @@ export default async function initiateWhatsAppOAuth() {
       throw new Error('Failed to load Meta configuration');
     }
 
-    const { appId, configId } = configData;
-    const redirectUri = WHATSAPP_REDIRECT_URI;
+    const { appId, configId, redirectUri } = configData;
+
+    if (!redirectUri) {
+      throw new Error('Redirect URI not configured. Please contact support.');
+    }
+
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(WHATSAPP_REDIRECT_URI_STORAGE_KEY, redirectUri);
+      }
+    } catch (error) {
+      console.warn('Unable to persist WhatsApp redirect URI in sessionStorage:', error);
+    }
 
     console.log('✅ Configuration loaded');
     console.log('   • App ID:', appId);
@@ -133,9 +144,14 @@ export default async function initiateWhatsAppOAuth() {
         
         if (response.authResponse?.code) {
           console.log('✅ Authorization code received');
-          // Reload the page to process the callback normally
-          // The code will be in the URL as a query parameter
-          window.location.reload();
+
+          const targetUrl = new URL(redirectUri);
+          targetUrl.searchParams.set('code', response.authResponse.code);
+          targetUrl.searchParams.set('state', response.authResponse.state ?? stateId);
+
+          console.log('🔁 Redirecting browser to callback URL without initiate flag');
+          window.location.href = targetUrl.toString();
+          return;
         } else {
           console.warn('❌ No authorization code received');
           // Navigate back to channel setup
