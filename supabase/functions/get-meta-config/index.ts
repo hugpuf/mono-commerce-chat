@@ -16,10 +16,10 @@ serve(async (req) => {
     const metaConfigId = Deno.env.get('META_CONFIG_ID');
 
     if (!metaAppId || !metaConfigId) {
-      console.error('Meta App credentials not configured');
+      console.error('Meta App configuration incomplete');
       return new Response(
-        JSON.stringify({ 
-          error: 'Meta App credentials not configured. Please add META_APP_ID and META_CONFIG_ID secrets.' 
+        JSON.stringify({
+          error: 'Meta App credentials not configured. Please add META_APP_ID and META_CONFIG_ID secrets.'
         }),
         {
           status: 500,
@@ -28,14 +28,10 @@ serve(async (req) => {
       );
     }
 
-    // Single source of truth for redirect_uri
-    const redirectUri = 'https://preview--mono-commerce-chat.lovable.app/setup/whatsapp/callback';
-
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         appId: metaAppId,
-        configId: metaConfigId,
-        redirectUri: redirectUri
+        configId: metaConfigId
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

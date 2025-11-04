@@ -1,5 +1,4 @@
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { WHATSAPP_REDIRECT_URI } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 
@@ -104,8 +103,6 @@ export const useWhatsAppOAuth = () => {
         config_id: configId,
         response_type: 'code',
         override_default_response_type: true,
-        redirect_uri: WHATSAPP_REDIRECT_URI,
-        fallback_redirect_uri: WHATSAPP_REDIRECT_URI,
         extras: {
           setup: {},
           featureType: '',

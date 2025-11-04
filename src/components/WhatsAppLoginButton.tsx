@@ -5,8 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { clearWorkspaceConnectionsCache } from "@/hooks/useWorkspaceConnections";
-import { WHATSAPP_REDIRECT_URI } from "@/lib/constants";
 
 declare global {
   interface Window {
@@ -24,13 +22,12 @@ export const WhatsAppLoginButton = () => {
   const [fbSdkReady, setFbSdkReady] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
   const [appId, setAppId] = useState<string | null>(null);
-  const [redirectUri, setRedirectUri] = useState<string | null>(null);
 
   useEffect(() => {
     const initializeSDK = async () => {
-      // Get Meta config including redirect_uri from backend (single source of truth)
+      // Get Meta configuration (App ID + Embedded Signup config) from the backend
       const { data: configData } = await supabase.functions.invoke('get-meta-config');
-      if (!configData?.appId || !configData?.configId || !configData?.redirectUri) {
+      if (!configData?.appId || !configData?.configId) {
         console.error('Failed to get Meta config');
         setIsLoading(false);
         return;
@@ -38,17 +35,11 @@ export const WhatsAppLoginButton = () => {
 
       setConfigId(configData.configId);
       setAppId(configData.appId);
-      setRedirectUri(configData.redirectUri);
-      
+
       console.log('✅ Meta config loaded:', {
         appId: configData.appId,
-        configId: configData.configId,
-        redirectUri: configData.redirectUri
+        configId: configData.configId
       });
-      console.log('🔍 REDIRECT URI CHECK:');
-      console.log('  - Raw value from backend:', configData.redirectUri);
-      console.log('  - Length:', configData.redirectUri?.length);
-      console.log('  - Bytes:', [...(configData.redirectUri || '')].map(c => c.charCodeAt(0)));
 
       // Initialize Facebook SDK per Meta's official docs
       window.fbAsyncInit = function() {
@@ -148,7 +139,7 @@ export const WhatsAppLoginButton = () => {
   }, []);
 
   const handleConnect = async () => {
-    if (!configId || !appId || !redirectUri) {
+    if (!configId || !appId) {
       console.error('Config incomplete');
       toast({
         title: "Error",
@@ -175,9 +166,8 @@ export const WhatsAppLoginButton = () => {
     // Store workspace ID for the initiator
     sessionStorage.setItem('wa_workspace_id', workspaceId);
     
-    // Navigate to callback page with initiate action
-    // This ensures FB.login() is called from /setup/whatsapp/callback,
-    // making the invoking page URL match the redirect_uri
+    // Navigate to callback page with initiate action so FB.login() is launched
+    // from the canonical callback route managed in Meta's dashboard
     navigate('/setup/whatsapp/callback?action=initiate');
   };
 
@@ -189,7 +179,7 @@ export const WhatsAppLoginButton = () => {
     );
   }
 
-  if (!configId || !redirectUri) {
+  if (!configId || !appId) {
     return (
       <div className="text-sm text-destructive">
         Configuration error. Please contact support.
