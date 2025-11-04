@@ -56,7 +56,7 @@ export default function Integrations() {
         .from("whatsapp_accounts")
         .select("*")
         .eq("workspace_id", workspaceId)
-        .eq("status", "active")
+        .neq("status", "disconnected")
         .limit(1);
       
       const whatsapp = whatsappData?.[0] || null;
@@ -181,7 +181,7 @@ export default function Integrations() {
           
           const { error: whatsappError } = await supabase
             .from("whatsapp_accounts")
-            .update({ status: "inactive" })
+            .update({ status: "disconnected" })
             .eq("id", whatsappAccount.id);
 
           if (whatsappError) throw whatsappError;
