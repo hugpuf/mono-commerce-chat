@@ -200,20 +200,33 @@ export default function Conversations() {
 
   if (conversations.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center space-y-4">
-          <p className="text-muted-foreground">No conversations yet</p>
-          <Button onClick={() => setNewConversationOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Start New Conversation
-          </Button>
+      <>
+        <GlobalControls />
+        <div className="flex h-full items-center justify-center">
+          <div className="text-center space-y-6 max-w-md">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">No conversations yet</h3>
+              <p className="text-sm text-muted-foreground">
+                Send a message to start a conversation, or receive messages from customers on WhatsApp
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <Button onClick={() => setNewConversationOpen(true)} size="lg">
+                <Plus className="h-4 w-4 mr-2" />
+                Start New Conversation
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                To receive messages, send a WhatsApp to: <span className="font-mono">+797978836739875</span>
+              </p>
+            </div>
+          </div>
+          <NewConversationDialog
+            open={newConversationOpen}
+            onOpenChange={setNewConversationOpen}
+            onConversationCreated={(id) => setSelectedConversationId(id)}
+          />
         </div>
-        <NewConversationDialog
-          open={newConversationOpen}
-          onOpenChange={setNewConversationOpen}
-          onConversationCreated={(id) => setSelectedConversationId(id)}
-        />
-      </div>
+      </>
     );
   }
 
