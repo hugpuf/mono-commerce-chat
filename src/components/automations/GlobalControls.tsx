@@ -19,36 +19,36 @@ export default function GlobalControls({ onPreview }: { onPreview?: () => void }
   ];
 
   return (
-    <div className="border-b border-border bg-background">
-      <div className="px-8 py-6 space-y-6">
+    <div className="border-b border-border bg-background/50">
+      <div className="px-6 py-3 space-y-3">
         {/* Mode Selection */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium">Workflow Mode</Label>
+            <Label className="text-xs font-medium text-muted-foreground">Workflow Mode</Label>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setExpanded(!expanded)}
-              className="gap-2"
+              className="h-7 gap-1 text-xs"
             >
-              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               {expanded ? 'Collapse' : 'Expand'}
             </Button>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             {modes.map(mode => (
               <button
                 key={mode.value}
                 onClick={() => updateSettings({ mode: mode.value })}
                 className={cn(
-                  'px-4 py-3 border rounded-md text-left transition-colors',
+                  'px-3 py-2 border rounded text-left transition-colors',
                   settings.mode === mode.value
                     ? 'border-foreground bg-foreground/5'
-                    : 'border-border hover:border-foreground/50'
+                    : 'border-border hover:border-foreground/30'
                 )}
               >
-                <div className="font-medium text-sm">{mode.label}</div>
-                <div className="text-xs text-muted-foreground mt-1">{mode.description}</div>
+                <div className="font-medium text-xs">{mode.label}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">{mode.description}</div>
               </button>
             ))}
           </div>
@@ -56,10 +56,10 @@ export default function GlobalControls({ onPreview }: { onPreview?: () => void }
 
         {/* Confidence Threshold - Only shown in HITL and Auto modes */}
         {settings.mode !== 'manual' && (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label className="text-sm">Confidence Threshold</Label>
-              <span className="text-sm font-mono text-muted-foreground">
+              <Label className="text-xs text-muted-foreground">Confidence Threshold</Label>
+              <span className="text-xs font-mono text-muted-foreground">
                 {settings.confidenceThreshold}%
               </span>
             </div>
@@ -69,9 +69,9 @@ export default function GlobalControls({ onPreview }: { onPreview?: () => void }
               min={0}
               max={100}
               step={5}
-              className="py-2"
+              className="py-1"
             />
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-[10px] text-muted-foreground">
               {settings.mode === 'hitl' 
                 ? 'Actions below this threshold require your approval'
                 : 'Only execute actions when AI confidence exceeds this threshold'}
