@@ -16,13 +16,28 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Parse request body once to avoid "Body already consumed" error
+  let parsed: BulkImportRequest;
   try {
+    parsed = await req.json();
+  } catch {
+    return new Response(
+      JSON.stringify({ error: 'Invalid request body' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const { catalogSourceId, workspaceId, collectionIds } = parsed;
+
+  try {
+    if (!catalogSourceId || !workspaceId) {
+      throw new Error('Missing catalogSourceId or workspaceId');
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
-
-    const { catalogSourceId, workspaceId, collectionIds }: BulkImportRequest = await req.json();
 
     console.log('Starting bulk import for catalog:', catalogSourceId, 'workspace:', workspaceId);
 
@@ -41,7 +56,7 @@ Deno.serve(async (req) => {
 
     console.log('Starting Shopify bulk import for', shop_domain);
 
-    // Build GraphQL query
+    // Build GraphQL query with updated fields for API 2024-10
     let productsQuery = `
       {
         products(first: 250) {
@@ -56,7 +71,7 @@ Deno.serve(async (req) => {
               tags
               descriptionHtml
               options { name values }
-              images(first: 50) { edges { node { originalSrc altText } } }
+              images(first: 50) { edges { node { url altText } } }
               variants(first: 250) {
                 edges {
                   node {
@@ -66,10 +81,13 @@ Deno.serve(async (req) => {
                     price
                     compareAtPrice
                     barcode
-                    weight
-                    weightUnit
-                    inventoryItem { id }
                     inventoryQuantity
+                    inventoryItem {
+                      id
+                      measurement {
+                        weight { value unit }
+                      }
+                    }
                   }
                 }
               }
@@ -207,8 +225,8 @@ Deno.serve(async (req) => {
             if (!currentProduct.variants) currentProduct.variants = [];
             currentProduct.variants.push(obj);
           }
-        } else if (obj.originalSrc) {
-          // Image
+        } else if (obj.url) {
+          // Image (using 'url' instead of deprecated 'originalSrc')
           if (currentProduct) {
             if (!currentProduct.images) currentProduct.images = [];
             currentProduct.images.push(obj);
@@ -300,9 +318,9 @@ Deno.serve(async (req) => {
           price: parseFloat(variant.price) || 0,
           compare_at_price: variant.compareAtPrice ? parseFloat(variant.compareAtPrice) : null,
           stock: variant.inventoryQuantity || 0,
-          image_url: product.images?.[0]?.originalSrc,
+          image_url: product.images?.[0]?.url,
           image_gallery: product.images?.map((img: any) => ({
-            url: img.originalSrc,
+            url: img.url,
             alt: img.altText,
           })),
           handle: product.handle,
@@ -312,8 +330,8 @@ Deno.serve(async (req) => {
           status: product.status === 'ACTIVE' ? 'active' : 'draft',
           metadata: {
             barcode: variant.barcode,
-            weight: variant.weight,
-            weight_unit: variant.weightUnit,
+            weight: variant.inventoryItem?.measurement?.weight?.value ?? null,
+            weight_unit: variant.inventoryItem?.measurement?.weight?.unit ?? null,
             options: product.options,
           },
           inventory_by_location: inventoryByLocation,
@@ -368,23 +386,24 @@ Deno.serve(async (req) => {
     console.error('Bulk import error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
-    // Update catalog source with error status
-    try {
-      const { catalogSourceId } = await req.json();
-      const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      );
-      
-      await supabaseClient
-        .from('catalog_sources')
-        .update({
-          sync_status: 'failed',
-          sync_error: errorMessage,
-        })
-        .eq('id', catalogSourceId);
-    } catch (updateError) {
-      console.error('Failed to update error status:', updateError);
+    // Update catalog source with error status (using catalogSourceId from outer scope)
+    if (catalogSourceId) {
+      try {
+        const supabaseClient = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        );
+        
+        await supabaseClient
+          .from('catalog_sources')
+          .update({
+            sync_status: 'failed',
+            sync_error: errorMessage,
+          })
+          .eq('id', catalogSourceId);
+      } catch (updateError) {
+        console.error('Failed to update error status:', updateError);
+      }
     }
     
     return new Response(
