@@ -1,6 +1,7 @@
 /**
- * WhatsApp OAuth redirect URI
- * CRITICAL: This must be byte-for-byte identical between OAuth start and callback
- * to prevent "authorization code has been used" errors.
+ * Storage keys used during the WhatsApp OAuth flow.
+ *
+ * These keys are shared across the login button, initiator and callback page
+ * to persist critical information (e.g. redirect URI) between redirects.
  */
-export const WHATSAPP_REDIRECT_URI = `${window.location.origin}/setup/whatsapp/callback`;
+export const WHATSAPP_REDIRECT_URI_STORAGE_KEY = 'wa_redirect_uri';

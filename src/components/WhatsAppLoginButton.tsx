@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { clearWorkspaceConnectionsCache } from "@/hooks/useWorkspaceConnections";
-import { WHATSAPP_REDIRECT_URI } from "@/lib/constants";
+import { WHATSAPP_REDIRECT_URI_STORAGE_KEY } from "@/lib/constants";
 
 declare global {
   interface Window {
@@ -39,6 +39,14 @@ export const WhatsAppLoginButton = () => {
       setConfigId(configData.configId);
       setAppId(configData.appId);
       setRedirectUri(configData.redirectUri);
+
+      try {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(WHATSAPP_REDIRECT_URI_STORAGE_KEY, configData.redirectUri);
+        }
+      } catch (error) {
+        console.warn('Unable to persist WhatsApp redirect URI in sessionStorage:', error);
+      }
       
       console.log('✅ Meta config loaded:', {
         appId: configData.appId,

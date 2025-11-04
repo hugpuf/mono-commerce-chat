@@ -74,21 +74,42 @@ serve(async (req) => {
       );
     }
 
-    const redirect_uri = stateData.redirect_uri;
+    const redirectUriFromState = stateData.redirect_uri;
     const app_id = stateData.app_id || Deno.env.get('META_APP_ID')!;
     const effectiveWorkspaceId = stateData.workspace_id || workspace_id;
-    
-    console.log('✅ Retrieved from database:', { 
-      db_redirect_uri: redirect_uri, 
-      app_id, 
-      workspace_id: effectiveWorkspaceId 
+
+    const redirectEnv = Deno.env.get('WHATSAPP_REDIRECT_URI') || '';
+    const configuredRedirects = redirectEnv
+      .split(',')
+      .map((uri) => uri.trim())
+      .filter((uri) => uri.length > 0);
+
+    if (configuredRedirects.length === 0) {
+      console.error('❌ WHATSAPP_REDIRECT_URI not configured on the backend');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          stage: 'configuration',
+          error: 'WHATSAPP_REDIRECT_URI not configured on the backend'
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (configuredRedirects.length > 1) {
+      console.warn('Multiple redirect URIs configured. Using the first value for token exchange.', configuredRedirects);
+    }
+
+    const redirectUriForMeta = (redirectUriFromState && configuredRedirects.includes(redirectUriFromState))
+      ? redirectUriFromState
+      : configuredRedirects[0];
+
+    console.log('✅ Retrieved from database:', {
+      db_redirect_uri: redirectUriFromState,
+      app_id,
+      workspace_id: effectiveWorkspaceId,
+      resolved_redirect_uri: redirectUriForMeta
     });
-    
-    // Allowlist valid redirect URIs
-    const allowedRedirects = new Set([
-      'https://preview--mono-commerce-chat.lovable.app/setup/whatsapp/callback',
-      'https://mono-commerce-chat.lovable.app/setup/whatsapp/callback'
-    ]);
 
     // Normalization helper for comparison (strip fragments and trailing slashes)
     const normalize = (u: string) => {
@@ -109,19 +130,30 @@ serve(async (req) => {
       console.log(`${label} charCodes:`, [...v].map((c) => c.charCodeAt(0)));
     };
 
-    logStr('DB redirect_uri', redirect_uri);
+    logStr('DB redirect_uri', redirectUriFromState);
     logStr('Client redirect_uri', clientRedirectUri);
 
-    if (clientRedirectUri && redirect_uri && redirect_uri !== clientRedirectUri) {
-      console.warn('Redirect URI mismatch', { dbRedirectUri: redirect_uri, clientRedirectUri });
-      if (normalize(redirect_uri) !== normalize(clientRedirectUri)) {
-        console.warn('Normalized redirect mismatch', { db: normalize(redirect_uri), client: normalize(clientRedirectUri) });
+    if (redirectUriFromState && !configuredRedirects.includes(redirectUriFromState)) {
+      console.warn('State redirect URI is not part of configured allowlist', {
+        stateRedirectUri: redirectUriFromState,
+        configuredRedirects,
+      });
+    }
+
+    if (clientRedirectUri && redirectUriForMeta && redirectUriForMeta !== clientRedirectUri) {
+      console.warn('Redirect URI mismatch between client payload and server canonical value', {
+        canonicalRedirectUri: redirectUriForMeta,
+        clientRedirectUri,
+      });
+      if (normalize(redirectUriForMeta) !== normalize(clientRedirectUri)) {
+        console.warn('Normalized redirect mismatch', {
+          canonical: normalize(redirectUriForMeta),
+          client: normalize(clientRedirectUri)
+        });
       }
     }
 
-    // Use raw client redirect_uri as received (no normalization/processing)
-    const clientRedirectUriRaw = clientRedirectUri || redirect_uri;
-    console.log('Using clientRedirectUriRaw (no processing):', clientRedirectUriRaw);
+    console.log('Using server-managed redirect URI for token exchange:', redirectUriForMeta);
     
     // ========== MAIN FLOW: EXCHANGE CODE FOR CUSTOMER TOKEN ==========
     console.log('🔍 STAGE: token_exchange_preparation');
@@ -189,14 +221,14 @@ serve(async (req) => {
 
     try {
       console.log('🔑 Exchanging code for customer token...');
-      console.log('🔍 Using clientRedirectUriRaw for token exchange:', clientRedirectUriRaw);
-      console.log('   Length:', clientRedirectUriRaw.length);
-      console.log('   Bytes:', [...clientRedirectUriRaw].map((c) => c.charCodeAt(0)));
-      
+      console.log('🔍 Using server redirect URI for token exchange:', redirectUriForMeta);
+      console.log('   Length:', redirectUriForMeta.length);
+      console.log('   Bytes:', [...redirectUriForMeta].map((c) => c.charCodeAt(0)));
+
       const tokenParams = new URLSearchParams();
       tokenParams.append('client_id', app_id);
       tokenParams.append('client_secret', metaAppSecret);
-      tokenParams.append('redirect_uri', clientRedirectUriRaw);
+      tokenParams.append('redirect_uri', redirectUriForMeta);
       tokenParams.append('code', code);
       
       console.log('Token POST body:', tokenParams.toString());

@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { WHATSAPP_REDIRECT_URI } from "@/lib/constants";
+import { WHATSAPP_REDIRECT_URI_STORAGE_KEY } from "@/lib/constants";
 
 declare global {
   interface Window {
@@ -29,8 +29,19 @@ export default async function initiateWhatsAppOAuth() {
       throw new Error('Failed to load Meta configuration');
     }
 
-    const { appId, configId } = configData;
-    const redirectUri = WHATSAPP_REDIRECT_URI;
+    const { appId, configId, redirectUri } = configData;
+
+    if (!redirectUri) {
+      throw new Error('Redirect URI not configured. Please contact support.');
+    }
+
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(WHATSAPP_REDIRECT_URI_STORAGE_KEY, redirectUri);
+      }
+    } catch (error) {
+      console.warn('Unable to persist WhatsApp redirect URI in sessionStorage:', error);
+    }
 
     console.log('✅ Configuration loaded');
     console.log('   • App ID:', appId);
