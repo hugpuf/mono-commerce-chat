@@ -16,13 +16,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { 
-      code, 
+    const payload = await req.json();
+
+    const {
+      code,
       workspace_id,
       state: stateParam,
-      redirect_uri: clientRedirectUri,
       setup_data
-    } = await req.json();
+    } = payload;
 
     // ========== BACKEND RECEIPT LOGGING ==========
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -30,7 +31,6 @@ serve(async (req) => {
       has_code: !!code,
       has_setup_data: !!setup_data,
       workspace_id,
-      client_redirect_uri: clientRedirectUri,
       timestamp: new Date().toISOString()
     });
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -54,11 +54,11 @@ serve(async (req) => {
       );
     }
     
-    // CRITICAL: Fetch the EXACT redirect_uri, app_id, and workspace_id from database
+    // CRITICAL: Fetch the Meta app ID and workspace scope from database
     console.log('🔍 STAGE: db_lookup');
     const { data: stateData, error: stateError } = await supabase
       .from('oauth_states')
-      .select('redirect_uri, app_id, workspace_id')
+      .select('app_id, workspace_id')
       .eq('state', stateParam)
       .maybeSingle();
     
@@ -74,86 +74,14 @@ serve(async (req) => {
       );
     }
 
-    const redirectUriFromState = stateData.redirect_uri;
     const app_id = stateData.app_id || Deno.env.get('META_APP_ID')!;
     const effectiveWorkspaceId = stateData.workspace_id || workspace_id;
 
-    const redirectEnv = Deno.env.get('WHATSAPP_REDIRECT_URI') || '';
-    const configuredRedirects = redirectEnv
-      .split(',')
-      .map((uri) => uri.trim())
-      .filter((uri) => uri.length > 0);
-
-    if (configuredRedirects.length === 0) {
-      console.error('❌ WHATSAPP_REDIRECT_URI not configured on the backend');
-      return new Response(
-        JSON.stringify({
-          success: false,
-          stage: 'configuration',
-          error: 'WHATSAPP_REDIRECT_URI not configured on the backend'
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (configuredRedirects.length > 1) {
-      console.warn('Multiple redirect URIs configured. Using the first value for token exchange.', configuredRedirects);
-    }
-
-    const redirectUriForMeta = (redirectUriFromState && configuredRedirects.includes(redirectUriFromState))
-      ? redirectUriFromState
-      : configuredRedirects[0];
-
     console.log('✅ Retrieved from database:', {
-      db_redirect_uri: redirectUriFromState,
       app_id,
-      workspace_id: effectiveWorkspaceId,
-      resolved_redirect_uri: redirectUriForMeta
+      workspace_id: effectiveWorkspaceId
     });
-
-    // Normalization helper for comparison (strip fragments and trailing slashes)
-    const normalize = (u: string) => {
-      try {
-        const url = new URL(u);
-        const path = url.pathname.replace(/\/+$/, '');
-        return url.origin + path;
-      } catch (_e) {
-        return String(u).trim();
-      }
-    };
-
-    // Log raw strings, lengths and char codes to catch hidden differences
-    const logStr = (label: string, value: string | null | undefined) => {
-      const v = (value ?? '');
-      console.log(`${label}:`, v);
-      console.log(`${label} length:`, v.length);
-      console.log(`${label} charCodes:`, [...v].map((c) => c.charCodeAt(0)));
-    };
-
-    logStr('DB redirect_uri', redirectUriFromState);
-    logStr('Client redirect_uri', clientRedirectUri);
-
-    if (redirectUriFromState && !configuredRedirects.includes(redirectUriFromState)) {
-      console.warn('State redirect URI is not part of configured allowlist', {
-        stateRedirectUri: redirectUriFromState,
-        configuredRedirects,
-      });
-    }
-
-    if (clientRedirectUri && redirectUriForMeta && redirectUriForMeta !== clientRedirectUri) {
-      console.warn('Redirect URI mismatch between client payload and server canonical value', {
-        canonicalRedirectUri: redirectUriForMeta,
-        clientRedirectUri,
-      });
-      if (normalize(redirectUriForMeta) !== normalize(clientRedirectUri)) {
-        console.warn('Normalized redirect mismatch', {
-          canonical: normalize(redirectUriForMeta),
-          client: normalize(clientRedirectUri)
-        });
-      }
-    }
-
-    console.log('Using server-managed redirect URI for token exchange:', redirectUriForMeta);
+    console.log('Using Meta managed redirect configuration; no redirect_uri parameter will be sent during token exchange.');
     
     // ========== MAIN FLOW: EXCHANGE CODE FOR CUSTOMER TOKEN ==========
     console.log('🔍 STAGE: token_exchange_preparation');
@@ -221,14 +149,11 @@ serve(async (req) => {
 
     try {
       console.log('🔑 Exchanging code for customer token...');
-      console.log('🔍 Using server redirect URI for token exchange:', redirectUriForMeta);
-      console.log('   Length:', redirectUriForMeta.length);
-      console.log('   Bytes:', [...redirectUriForMeta].map((c) => c.charCodeAt(0)));
+      console.log('🔍 Relying on Meta configured redirect target (no redirect_uri parameter sent).');
 
       const tokenParams = new URLSearchParams();
       tokenParams.append('client_id', app_id);
       tokenParams.append('client_secret', metaAppSecret);
-      tokenParams.append('redirect_uri', redirectUriForMeta);
       tokenParams.append('code', code);
       
       console.log('Token POST body:', tokenParams.toString());

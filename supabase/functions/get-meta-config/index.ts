@@ -14,13 +14,12 @@ serve(async (req) => {
   try {
     const metaAppId = Deno.env.get('META_APP_ID');
     const metaConfigId = Deno.env.get('META_CONFIG_ID');
-    const redirectUriEnv = Deno.env.get('WHATSAPP_REDIRECT_URI');
 
-    if (!metaAppId || !metaConfigId || !redirectUriEnv) {
+    if (!metaAppId || !metaConfigId) {
       console.error('Meta App configuration incomplete');
       return new Response(
         JSON.stringify({
-          error: 'Meta App credentials not configured. Please add META_APP_ID, META_CONFIG_ID and WHATSAPP_REDIRECT_URI secrets.'
+          error: 'Meta App credentials not configured. Please add META_APP_ID and META_CONFIG_ID secrets.'
         }),
         {
           status: 500,
@@ -28,36 +27,11 @@ serve(async (req) => {
         }
       );
     }
-
-    const redirectUris = redirectUriEnv
-      .split(',')
-      .map((uri) => uri.trim())
-      .filter((uri) => uri.length > 0);
-
-    if (redirectUris.length === 0) {
-      console.error('WHATSAPP_REDIRECT_URI secret is empty');
-      return new Response(
-        JSON.stringify({
-          error: 'WHATSAPP_REDIRECT_URI secret is empty. Please configure a redirect URI.'
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    if (redirectUris.length > 1) {
-      console.warn('Multiple redirect URIs provided. Using the first value for embedded signup.', redirectUris);
-    }
-
-    const redirectUri = redirectUris[0];
 
     return new Response(
       JSON.stringify({
         appId: metaAppId,
-        configId: metaConfigId,
-        redirectUri: redirectUri
+        configId: metaConfigId
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

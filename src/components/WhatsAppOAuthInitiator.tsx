@@ -1,5 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { WHATSAPP_REDIRECT_URI_STORAGE_KEY } from "@/lib/constants";
 
 declare global {
   interface Window {
@@ -13,7 +12,7 @@ export default async function initiateWhatsAppOAuth() {
   console.log('🚀 OAUTH INITIATION FROM CALLBACK PAGE');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('🌐 Current URL:', window.location.href);
-  console.log('📍 Invoking page matches redirect_uri:', window.location.pathname === '/setup/whatsapp/callback');
+  console.log('📍 Invoking page matches Meta configured callback route:', window.location.pathname === '/setup/whatsapp/callback');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
   try {
@@ -23,52 +22,27 @@ export default async function initiateWhatsAppOAuth() {
       throw new Error('Workspace ID not found. Please try again from the channel setup page.');
     }
 
-    // Get Meta config
-    const { data: configData, error: configError } = await supabase.functions.invoke('get-meta-config');
-    if (configError || !configData?.appId || !configData?.configId) {
-      throw new Error('Failed to load Meta configuration');
+    // Request server to create OAuth state and return configuration
+    const { data: startData, error: startError } = await supabase.functions.invoke('start-whatsapp-oauth', {
+      body: { workspace_id: workspaceId }
+    });
+
+    if (startError || !startData?.state || !startData?.appId || !startData?.configId) {
+      throw new Error('Failed to initialize WhatsApp OAuth. Please try again.');
     }
 
-    const { appId, configId, redirectUri } = configData;
-
-    if (!redirectUri) {
-      throw new Error('Redirect URI not configured. Please contact support.');
-    }
+    const { state: stateId, appId, configId } = startData;
 
     try {
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem(WHATSAPP_REDIRECT_URI_STORAGE_KEY, redirectUri);
-      }
+      sessionStorage.setItem('wa_oauth_state', stateId);
     } catch (error) {
-      console.warn('Unable to persist WhatsApp redirect URI in sessionStorage:', error);
+      console.warn('Unable to persist WhatsApp OAuth state in sessionStorage:', error);
     }
 
     console.log('✅ Configuration loaded');
     console.log('   • App ID:', appId);
     console.log('   • Config ID:', configId);
-    console.log('   • Redirect URI:', redirectUri);
     console.log('   • Workspace ID:', workspaceId);
-
-    // Generate OAuth state
-    const stateId = crypto.randomUUID();
-    sessionStorage.setItem('wa_oauth_state', stateId);
-
-    // Store state in database
-    const { error: dbError } = await supabase
-      .from('oauth_states')
-      .insert({
-        state: stateId,
-        redirect_uri: redirectUri,
-        app_id: appId,
-        workspace_id: workspaceId
-      });
-
-    if (dbError) {
-      console.error('Failed to store OAuth state:', dbError);
-      throw new Error('Failed to prepare OAuth flow');
-    }
-
-    console.log('✅ OAuth state stored in database');
 
     // Initialize Facebook SDK
     await new Promise<void>((resolve, reject) => {
@@ -131,7 +105,6 @@ export default async function initiateWhatsAppOAuth() {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('📋 Parameters:');
     console.log('   • config_id:', configId);
-    console.log('   • redirect_uri:', redirectUri);
     console.log('   • state:', stateId);
     console.log('   • Invoking page:', window.location.pathname);
     console.log('   • Match?', window.location.pathname === '/setup/whatsapp/callback');
@@ -141,11 +114,12 @@ export default async function initiateWhatsAppOAuth() {
     window.FB.login(
       function(response: any) {
         console.log('📥 FB.LOGIN RESPONSE:', response);
-        
+
         if (response.authResponse?.code) {
           console.log('✅ Authorization code received');
 
-          const targetUrl = new URL(redirectUri);
+          const targetUrl = new URL(window.location.href);
+          targetUrl.searchParams.delete('action');
           targetUrl.searchParams.set('code', response.authResponse.code);
           targetUrl.searchParams.set('state', response.authResponse.state ?? stateId);
 
@@ -163,8 +137,6 @@ export default async function initiateWhatsAppOAuth() {
         config_id: configId,
         response_type: 'code',
         override_default_response_type: true,
-        redirect_uri: redirectUri,
-        fallback_redirect_uri: redirectUri,
         state: stateId,
         extras: {
           setup: {}

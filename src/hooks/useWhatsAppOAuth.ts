@@ -1,5 +1,4 @@
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { WHATSAPP_REDIRECT_URI_STORAGE_KEY } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 
@@ -80,19 +79,6 @@ export const useWhatsAppOAuth = () => {
     }
 
     const configId = configData.configId;
-    const redirectUri = configData.redirectUri;
-
-    if (!redirectUri) {
-      throw new Error("Redirect URI not configured. Please contact support.");
-    }
-
-    try {
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem(WHATSAPP_REDIRECT_URI_STORAGE_KEY, redirectUri);
-      }
-    } catch (error) {
-      console.warn('Unable to persist WhatsApp redirect URI in sessionStorage:', error);
-    }
 
     // Encode workspace in state for callback
     const state = btoa(JSON.stringify({ ws: workspaceId }));
@@ -117,8 +103,6 @@ export const useWhatsAppOAuth = () => {
         config_id: configId,
         response_type: 'code',
         override_default_response_type: true,
-        redirect_uri: redirectUri,
-        fallback_redirect_uri: redirectUri,
         extras: {
           setup: {},
           featureType: '',
