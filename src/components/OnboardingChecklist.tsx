@@ -51,14 +51,14 @@ export function OnboardingChecklist() {
         // Check WhatsApp accounts
         const { data: whatsappData } = await supabase
           .from('whatsapp_accounts')
-          .select('phone_number_id, webhook_status, business_name')
+          .select('phone_number_id, webhook_status')
           .eq('status', 'active')
           .maybeSingle();
 
         setConnectionStatus({
           catalog: !!catalogData,
           payment: !!(paymentData?.charges_enabled && !paymentData?.test_mode),
-          whatsapp: !!(whatsappData?.phone_number_id && whatsappData?.webhook_status === 'verified' && whatsappData?.business_name),
+          whatsapp: !!(whatsappData?.phone_number_id && whatsappData?.webhook_status === 'active'),
         });
       } catch (error) {
         console.error('Error fetching connection status:', error);
