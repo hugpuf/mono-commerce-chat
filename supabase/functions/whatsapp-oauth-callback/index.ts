@@ -241,6 +241,35 @@ serve(async (req) => {
 
       console.log('✅ WABA data extracted:', { waba_id, phone_number_id, displayPhoneNumber, business_id });
 
+      // Step 2.5: Fetch actual phone number from Graph API if we only have the ID
+      console.log('🔍 STAGE: phone_number_fetch');
+      if (displayPhoneNumber === phone_number_id || !displayPhoneNumber.startsWith('+')) {
+        console.log('📞 Fetching actual phone number from Meta Graph API...');
+        try {
+          const phoneDetailsResponse = await fetch(
+            `https://graph.facebook.com/v24.0/${phone_number_id}?fields=display_phone_number,verified_name`,
+            {
+              method: 'GET',
+              headers: { 'Authorization': `Bearer ${accessToken}` }
+            }
+          );
+
+          if (phoneDetailsResponse.ok) {
+            const phoneDetails = await phoneDetailsResponse.json();
+            displayPhoneNumber = phoneDetails.display_phone_number || displayPhoneNumber;
+            verifiedName = phoneDetails.verified_name || verifiedName;
+            console.log('✅ Phone details retrieved:', { displayPhoneNumber, verifiedName });
+          } else {
+            const errorData = await phoneDetailsResponse.json();
+            console.warn('⚠️ Could not fetch phone details from Graph API:', errorData);
+            console.log('Using fallback phone number:', displayPhoneNumber);
+          }
+        } catch (phoneError) {
+          console.warn('⚠️ Error fetching phone details:', phoneError);
+          console.log('Using fallback phone number:', displayPhoneNumber);
+        }
+      }
+
       // Step 3: Store WhatsApp account with CUSTOMER TOKEN
       console.log('🔍 STAGE: db_upsert');
       console.log('💾 Storing WhatsApp account...');

@@ -181,7 +181,11 @@ export default function Integrations() {
           
           const { error: whatsappError } = await supabase
             .from("whatsapp_accounts")
-            .update({ status: "disconnected" })
+            .update({ 
+              status: "disconnected",
+              access_token: null,
+              webhook_status: 'inactive'
+            })
             .eq("id", whatsappAccount.id);
 
           if (whatsappError) throw whatsappError;
