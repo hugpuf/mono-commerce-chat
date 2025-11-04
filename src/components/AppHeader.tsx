@@ -3,7 +3,7 @@ import logo from "@/assets/logo.png";
 
 export function AppHeader() {
   return (
-    <header className="absolute top-8 right-12 z-50">
+    <header className="fixed top-6 right-6 z-50 p-4">
       <Link to="/" className="block p-3 rounded-full hover:bg-accent/50 transition-colors">
         <img 
           src={logo} 
