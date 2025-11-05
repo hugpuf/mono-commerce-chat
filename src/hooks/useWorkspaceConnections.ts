@@ -73,17 +73,18 @@ export const useWorkspaceConnections = (workspaceId: string | null) => {
           .eq('status', 'active')
           .maybeSingle(),
         
-        // WhatsApp - only consider it connected if it has phone_number_id
+        // WhatsApp - most recent non-disconnected with phone_number_id
         supabase
           .from('whatsapp_accounts')
           .select('*')
           .eq('workspace_id', workspaceId)
-          .eq('status', 'active')
+          .neq('status', 'disconnected')
           .not('phone_number_id', 'is', null)
-          .limit(1),
+          .order('updated_at', { ascending: false })
+          .maybeSingle(),
       ]);
 
-      const whatsapp = whatsappResult.data?.[0] || null;
+      const whatsapp = whatsappResult.data || null;
 
       return {
         catalogSource: catalogResult.data || null,

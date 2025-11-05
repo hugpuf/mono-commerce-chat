@@ -51,10 +51,11 @@ export default function GeneralSettings() {
       .from('whatsapp_accounts')
       .select('*')
       .eq('workspace_id', workspace.id)
-      .eq('status', 'active')
-      .limit(1);
+      .neq('status', 'disconnected')
+      .order('updated_at', { ascending: false })
+      .maybeSingle();
     
-    setWhatsappAccount(data?.[0] || null);
+    setWhatsappAccount(data || null);
   };
 
   const handleSave = async () => {

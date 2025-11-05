@@ -61,8 +61,9 @@ export function NewConversationDialog({
         .from("whatsapp_accounts")
         .select("id")
         .eq("workspace_id", workspaceId)
-        .eq("status", "active")
-        .single();
+        .neq("status", "disconnected")
+        .order("updated_at", { ascending: false })
+        .maybeSingle();
 
       if (whatsappError || !whatsappAccount) {
         throw new Error("No active WhatsApp account found");

@@ -43,14 +43,14 @@ export default function ConnectionSettings() {
     if (!workspace?.id) return;
 
     try {
-      // Fetch WhatsApp account
-      const { data: accountDataArr, error: accountError } = await supabase
+      // Fetch WhatsApp account (most recent non-disconnected)
+      const { data: accountData, error: accountError } = await supabase
         .from('whatsapp_accounts')
         .select('*')
         .eq('workspace_id', workspace.id)
-        .limit(1);
-      
-      const accountData = accountDataArr?.[0] || null;
+        .neq('status', 'disconnected')
+        .order('updated_at', { ascending: false })
+        .maybeSingle();
 
       if (accountError) throw accountError;
       setAccount(accountData);
