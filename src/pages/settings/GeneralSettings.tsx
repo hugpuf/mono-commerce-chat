@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -8,16 +9,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Loader2, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Loader2, RefreshCw, CheckCircle2, LogOut } from 'lucide-react';
 import { LogoUpload } from '@/components/settings/LogoUpload';
 import { CategorySelect } from '@/components/settings/CategorySelect';
 import { BusinessHoursPicker } from '@/components/settings/BusinessHoursPicker';
 import { DataDeletionCard } from '@/components/settings/DataDeletionCard';
 
 export default function GeneralSettings() {
+  const navigate = useNavigate();
   const { workspace, refetch } = useWorkspace();
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [companyName, setCompanyName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [businessDescription, setBusinessDescription] = useState('');
@@ -110,6 +113,21 @@ export default function GeneralSettings() {
       toast.error('Failed to sync to WhatsApp');
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      toast.success('Signed out successfully');
+      navigate('/auth');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast.error('Failed to sign out');
+      setSigningOut(false);
     }
   };
 
@@ -310,6 +328,35 @@ export default function GeneralSettings() {
         workspaceId={workspace?.id || ''}
         workspaceName={workspace?.name || workspace?.company_name || 'Your Workspace'}
       />
+
+      {/* Account Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Account</CardTitle>
+          <CardDescription>
+            Manage your account session
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button 
+            variant="outline" 
+            onClick={handleSignOut}
+            disabled={signingOut}
+          >
+            {signingOut ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Signing out...
+              </>
+            ) : (
+              <>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
