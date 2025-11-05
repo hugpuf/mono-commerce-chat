@@ -51,15 +51,14 @@ export default function Integrations() {
         .eq("status", "active")
         .maybeSingle();
 
-      // Fetch WhatsApp account
-      const { data: whatsappData } = await supabase
+      // Fetch WhatsApp account (most recent active connection)
+      const { data: whatsapp } = await supabase
         .from("whatsapp_accounts")
         .select("*")
         .eq("workspace_id", workspaceId)
         .neq("status", "disconnected")
-        .limit(1);
-      
-      const whatsapp = whatsappData?.[0] || null;
+        .order("updated_at", { ascending: false })
+        .maybeSingle();
 
       setCatalogSource(catalog);
       setPaymentProvider(payment);
