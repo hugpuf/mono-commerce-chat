@@ -18,36 +18,89 @@ serve(async (req) => {
 
     const { conversation_id, content } = await req.json();
 
-    console.log('Sending WhatsApp message:', { conversation_id, content });
+    console.log('🧩 DEBUG START - send-whatsapp-message');
+    console.log('conversation_id:', conversation_id);
+    console.log('content length:', content?.length);
 
-    // Get conversation and WhatsApp account details
+    // Get conversation details to extract workspace_id
+    console.log('🔎 Fetching conversation...');
     const { data: conversation, error: convError } = await supabase
       .from('conversations')
-      .select(`
-        id,
-        customer_phone,
-        whatsapp_account_id,
-        whatsapp_accounts (
-          phone_number_id,
-          phone_number,
-          access_token
-        )
-      `)
+      .select('id, customer_phone, workspace_id')
       .eq('id', conversation_id)
       .single();
 
     if (convError || !conversation) {
-      console.error('Conversation not found:', convError);
+      console.error('❌ Conversation not found:', convError);
       throw new Error('Conversation not found');
     }
 
-    const whatsappAccount = conversation.whatsapp_accounts as any;
+    console.log('✅ Conversation found:', {
+      id: conversation.id,
+      workspace_id: conversation.workspace_id,
+      customer_phone: conversation.customer_phone
+    });
+
+    // Fetch the MOST RECENT ACTIVE WhatsApp account for this workspace
+    console.log('🔎 Fetching most recent active WhatsApp account for workspace...');
+    const { data: whatsappAccount, error: waError } = await supabase
+      .from('whatsapp_accounts')
+      .select('*')
+      .eq('workspace_id', conversation.workspace_id)
+      .neq('status', 'disconnected')
+      .order('updated_at', { ascending: false })
+      .maybeSingle();
+
+    console.log('🔎 DB query result:', { 
+      found: !!whatsappAccount, 
+      error: waError,
+      account_id: whatsappAccount?.id 
+    });
+
+    console.log('📦 WhatsApp account loaded:', {
+      exists: !!whatsappAccount,
+      has_access_token: !!whatsappAccount?.access_token,
+      has_phone_number_id: !!whatsappAccount?.phone_number_id,
+      status: whatsappAccount?.status,
+      phone_number: whatsappAccount?.phone_number
+    });
+
+    // Comprehensive validation
+    const missingFields: string[] = [];
+    
+    if (!whatsappAccount) {
+      console.error('❌ No active WhatsApp account found for this workspace');
+      throw new Error('❌ No active WhatsApp account found for this workspace. Please reconnect WhatsApp in Settings > Integrations.');
+    }
     
     if (!whatsappAccount.access_token) {
-      throw new Error('WhatsApp account not properly configured');
+      missingFields.push('access_token');
+      console.error('❌ Missing access_token');
+      throw new Error('❌ Missing access_token - please reconnect WhatsApp in Settings > Integrations');
+    }
+    
+    if (!whatsappAccount.phone_number_id) {
+      missingFields.push('phone_number_id');
+      console.error('❌ Missing phone_number_id');
+      throw new Error('❌ Missing phone_number_id - please reconnect WhatsApp in Settings > Integrations');
+    }
+    
+    if (whatsappAccount.status === 'disconnected') {
+      console.error(`❌ WhatsApp account is disconnected: ${whatsappAccount.status}`);
+      throw new Error('❌ WhatsApp account is disconnected - please reconnect in Settings > Integrations');
     }
 
+    console.log('✅ WhatsApp account validated successfully');
+    console.log('🔧 SUMMARY: All required fields present');
+
     // Send message via Meta Graph API
+    console.log('📤 Sending message to Meta Graph API...');
+    console.log('📤 Payload:', {
+      phone_number_id: whatsappAccount.phone_number_id,
+      to: conversation.customer_phone,
+      content_preview: content?.substring(0, 50) + (content?.length > 50 ? '...' : '')
+    });
+
     const metaResponse = await fetch(
       `https://graph.facebook.com/v24.0/${whatsappAccount.phone_number_id}/messages`,
       {
@@ -68,13 +121,25 @@ serve(async (req) => {
     );
 
     if (!metaResponse.ok) {
-      const errorData = await metaResponse.json();
-      console.error('Meta API error:', errorData);
-      throw new Error(`Failed to send message: ${errorData.error?.message || 'Unknown error'}`);
+      const errorText = await metaResponse.text();
+      console.error('❗ Meta API Response Error:', {
+        status: metaResponse.status,
+        statusText: metaResponse.statusText,
+        body: errorText
+      });
+      
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        errorData = { error: { message: errorText } };
+      }
+      
+      throw new Error(`Failed to send message: ${errorData.error?.message || errorText || 'Unknown error'}`);
     }
 
     const metaData = await metaResponse.json();
-    console.log('Message sent successfully:', metaData);
+    console.log('✅ Message sent successfully:', metaData);
 
     // Store the sent message in database
     const { data: message, error: messageError } = await supabase
