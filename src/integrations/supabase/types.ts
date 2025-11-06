@@ -1386,6 +1386,27 @@ export type Database = {
     Functions: {
       cleanup_old_oauth_codes: { Args: never; Returns: undefined }
       cleanup_old_oauth_states: { Args: never; Returns: undefined }
+      exact_search_products: {
+        Args: {
+          category_filter?: string
+          max_price_filter?: number
+          result_limit?: number
+          search_query: string
+          workspace_uuid: string
+        }
+        Returns: {
+          description: string
+          id: string
+          image_url: string
+          match_score: number
+          match_type: string
+          price: number
+          sku: string
+          stock: number
+          title: string
+          variant_options: Json
+        }[]
+      }
       expire_reservations: { Args: never; Returns: undefined }
       generate_order_number: { Args: never; Returns: string }
       log_audit_event: {

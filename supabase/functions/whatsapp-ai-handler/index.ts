@@ -287,7 +287,10 @@ Remember: You can search products, manage cart, create checkout links, and check
 
 // Tool execution functions
 async function executeSearchProducts(supabase: any, workspaceId: string, args: any) {
-  const { data, error } = await supabase.rpc('search_products', {
+  console.log('🔍 Executing exact_search_products with query:', args.query);
+  
+  // Use exact matching function for deterministic results
+  const { data, error } = await supabase.rpc('exact_search_products', {
     workspace_uuid: workspaceId,
     search_query: args.query,
     category_filter: args.category || null,
@@ -299,6 +302,14 @@ async function executeSearchProducts(supabase: any, workspaceId: string, args: a
     console.error('Search products error:', error);
     return { error: "Failed to search products", products: [] };
   }
+
+  // Log match diagnostics for validation
+  console.log('✅ Search results:', data?.map((p: any) => ({
+    sku: p.sku,
+    title: p.title,
+    match_type: p.match_type,
+    match_score: p.match_score
+  })));
 
   return { products: data || [] };
 }
