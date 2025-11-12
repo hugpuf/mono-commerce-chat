@@ -7,6 +7,7 @@ import { AppShell } from "./components/AppShell";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Conversations from "./pages/Conversations";
+import ConversationsDemo from "./pages/ConversationsDemo";
 import Templates from "./pages/Templates";
 import Automations from "./pages/Automations";
 import Orders from "./pages/Orders";
@@ -74,6 +75,16 @@ const App = () => (
               element={
                 <AppShell>
                   <Analytics />
+                </AppShell>
+              }
+            />
+            <Route
+              path="/conversations-demo"
+              element={
+                <AppShell>
+                  <AutomationsProvider>
+                    <ConversationsDemo />
+                  </AutomationsProvider>
                 </AppShell>
               }
             />
