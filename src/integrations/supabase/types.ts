@@ -230,9 +230,11 @@ export type Database = {
           id: string
           last_interaction_type: string | null
           last_message_at: string | null
+          last_message_preview: string | null
           opt_in_date: string | null
           opt_in_status: string | null
           status: string
+          unread_count: number | null
           updated_at: string
           whatsapp_account_id: string
           workspace_id: string
@@ -249,9 +251,11 @@ export type Database = {
           id?: string
           last_interaction_type?: string | null
           last_message_at?: string | null
+          last_message_preview?: string | null
           opt_in_date?: string | null
           opt_in_status?: string | null
           status?: string
+          unread_count?: number | null
           updated_at?: string
           whatsapp_account_id: string
           workspace_id: string
@@ -268,9 +272,11 @@ export type Database = {
           id?: string
           last_interaction_type?: string | null
           last_message_at?: string | null
+          last_message_preview?: string | null
           opt_in_date?: string | null
           opt_in_status?: string | null
           status?: string
+          unread_count?: number | null
           updated_at?: string
           whatsapp_account_id?: string
           workspace_id?: string
@@ -564,12 +570,14 @@ export type Database = {
           content: string
           conversation_id: string
           created_at: string
+          delivered_at: string | null
           direction: string
           error_message: string | null
           from_number: string
           id: string
           message_type: string
           metadata: Json | null
+          read_at: string | null
           status: string
           to_number: string
           updated_at: string
@@ -579,12 +587,14 @@ export type Database = {
           content: string
           conversation_id: string
           created_at?: string
+          delivered_at?: string | null
           direction: string
           error_message?: string | null
           from_number: string
           id?: string
           message_type?: string
           metadata?: Json | null
+          read_at?: string | null
           status?: string
           to_number: string
           updated_at?: string
@@ -594,12 +604,14 @@ export type Database = {
           content?: string
           conversation_id?: string
           created_at?: string
+          delivered_at?: string | null
           direction?: string
           error_message?: string | null
           from_number?: string
           id?: string
           message_type?: string
           metadata?: Json | null
+          read_at?: string | null
           status?: string
           to_number?: string
           updated_at?: string
