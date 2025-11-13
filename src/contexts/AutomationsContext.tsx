@@ -258,8 +258,8 @@ export function AutomationsProvider({ children }: { children: React.ReactNode })
           .eq('workspace_id', profile.workspace_id)
           .single() as any;
 
-        if (aiSettings && aiSettings.data) {
-          const settingsData = aiSettings.data;
+        if (aiSettings) {
+          const settingsData = aiSettings;
           setSettings({
             mode: settingsData.mode as AutomationMode,
             confidenceThreshold: Number(settingsData.confidence_threshold) * 100,
@@ -274,7 +274,7 @@ export function AutomationsProvider({ children }: { children: React.ReactNode })
               compliance: settingsData.compliance_notes || defaultSettings.guardrails.compliance,
             },
           });
-        } else if (!aiSettings || !aiSettings.data) {
+        } else {
           // Create default settings in database
           await (supabase.from('workspace_ai_settings' as any).insert({
             workspace_id: profile.workspace_id,
