@@ -358,6 +358,18 @@ export default function Conversations() {
         {/* Conversation List */}
         <div className="w-80 border-r border-border flex flex-col">
         <div className="p-4 border-b border-border space-y-3">
+          <div className="flex items-center justify-center mb-4">
+            <SegmentedControl
+              options={[
+                { value: "manual", label: "Manual", icon: <User className="h-4 w-4" /> },
+                { value: "hitl", label: "HITL", icon: <Wrench className="h-4 w-4" /> },
+                { value: "total_ai", label: "Total AI", icon: <Sparkles className="h-4 w-4" /> },
+              ]}
+              value={conversationMode}
+              onChange={(value) => setConversationMode(value as "manual" | "hitl" | "total_ai")}
+            />
+          </div>
+          
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">Conversations</h2>
             <Button 
@@ -452,17 +464,7 @@ export default function Conversations() {
               </p>
             </div>
             
-            <div className="flex items-center gap-4">
-              <SegmentedControl
-                options={[
-                  { value: "manual", label: "Manual", icon: <User className="h-4 w-4" /> },
-                  { value: "hitl", label: "HITL", icon: <Wrench className="h-4 w-4" /> },
-                  { value: "total_ai", label: "Total AI", icon: <Sparkles className="h-4 w-4" /> },
-                ]}
-                value={conversationMode}
-                onChange={(value) => setConversationMode(value as "manual" | "hitl" | "total_ai")}
-              />
-              
+            <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">
