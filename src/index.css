@@ -32,8 +32,8 @@ All colors MUST be HSL.
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 40%;
 
-    /* Accent - vibrant green for active/selected states */
-    --accent: 142 76% 36%;
+    /* Accent - modern neon green (Apple/contemporary style) */
+    --accent: 145 80% 55%;
     --accent-foreground: 0 0% 100%;
 
     /* Destructive - minimal red for errors */

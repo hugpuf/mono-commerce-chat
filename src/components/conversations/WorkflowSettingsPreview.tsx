@@ -83,7 +83,7 @@ export function WorkflowSettingsPreview() {
                     "flex items-center gap-2 px-4 py-2 rounded-lg transition-all",
                     "border border-border hover:border-accent/50",
                     "disabled:opacity-50 disabled:cursor-not-allowed",
-                    isActive && "bg-accent/10 border-accent text-accent font-medium"
+                    isActive && "border-accent border-2"
                   )}
                 >
                   <Icon className={cn(
@@ -91,8 +91,8 @@ export function WorkflowSettingsPreview() {
                     isActive ? "text-accent" : "text-muted-foreground"
                   )} />
                   <span className={cn(
-                    "text-sm transition-colors",
-                    isActive ? "text-accent" : "text-muted-foreground"
+                    "text-sm font-medium transition-colors",
+                    isActive ? "text-foreground" : "text-muted-foreground"
                   )}>
                     {mode.label}
                   </span>
