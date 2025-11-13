@@ -373,20 +373,25 @@ export default function Conversations() {
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border p-2">
             {conversations.map((conv) => (
               <button
                 key={conv.id}
                 onClick={() => setSelectedConversationId(conv.id)}
                 className={cn(
-                  "w-full p-4 text-left transition-all rounded-lg mx-2",
+                  "w-full p-4 text-left transition-all rounded-lg",
                   selectedConversationId === conv.id 
                     ? "ring-2 ring-foreground ring-offset-2 ring-offset-background" 
                     : "hover:bg-muted"
                 )}
               >
                 <div className="flex items-start gap-3">
-                  <Avatar className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                  <Avatar className={cn(
+                    "h-10 w-10 rounded-full flex items-center justify-center transition-colors",
+                    selectedConversationId === conv.id 
+                      ? "bg-accent text-accent-foreground" 
+                      : "bg-muted"
+                  )}>
                     <span className="text-sm font-medium">
                       {conv.customer_name
                         ?.split(" ")
