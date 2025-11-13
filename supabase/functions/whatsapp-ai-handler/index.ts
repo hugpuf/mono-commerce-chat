@@ -334,7 +334,7 @@ Remember: You can search products, manage cart, create checkout links, and check
           action_type: 'send_message',
           action_payload: { 
             type: 'send_message', 
-            content: finalResponse,
+            message: finalResponse,  // Changed from 'content' to 'message' to match UI
             message_type: 'text'
           },
           ai_reasoning: `Generated response with ${confidence}% confidence (below ${confidenceThreshold * 100}% threshold)`,
@@ -351,16 +351,18 @@ Remember: You can search products, manage cart, create checkout links, and check
       
       console.log('✅ Approval created:', approval.id);
       
-      // Log the action
-      await supabaseClient.from('ai_action_log').insert({
+      // Log the action (non-blocking)
+      supabaseClient.from('ai_action_log').insert({
         conversation_id: conversationId,
         workspace_id: workspaceId,
         action_type: 'send_message',
-        action_payload: { content: finalResponse },
+        action_payload: { message: finalResponse },
         confidence_score: confidence / 100,
         mode: mode,
         execution_method: 'approval_required',
         result: 'pending_approval'
+      }).then(({ error }) => {
+        if (error) console.error('❌ Failed to log action:', error);
       });
       
       return new Response(JSON.stringify({ 
@@ -391,16 +393,18 @@ Remember: You can search products, manage cart, create checkout links, and check
       
       console.log('✅ Message sent via WhatsApp');
       
-      // Log the action
-      await supabaseClient.from('ai_action_log').insert({
+      // Log the action (non-blocking)
+      supabaseClient.from('ai_action_log').insert({
         conversation_id: conversationId,
         workspace_id: workspaceId,
         action_type: 'send_message',
-        action_payload: { content: finalResponse },
+        action_payload: { message: finalResponse },
         confidence_score: confidence / 100,
         mode: mode,
         execution_method: 'auto_send',
         result: 'success'
+      }).then(({ error }) => {
+        if (error) console.error('❌ Failed to log action:', error);
       });
       
       return new Response(JSON.stringify({ 
