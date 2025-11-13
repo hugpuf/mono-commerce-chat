@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { User, Wand2, Zap, Settings2 } from 'lucide-react';
+import { User, Wrench, Sparkles, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { useAutomations, type AutomationMode } from '@/contexts/AutomationsContext';
-import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { WorkflowSettingsDialog } from './WorkflowSettingsDialog';
 
@@ -13,31 +13,17 @@ export function WorkflowSettingsPreview() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { toast } = useToast();
 
-  const modes: { 
-    value: AutomationMode; 
-    label: string; 
-    icon: typeof User;
-    description: string;
-  }[] = [
-    { 
-      value: 'manual', 
-      label: 'Manual', 
-      icon: User,
-      description: 'Review every action'
-    },
-    { 
-      value: 'hitl', 
-      label: 'HITL', 
-      icon: Wand2,
-      description: 'Approve low-confidence actions'
-    },
-    { 
-      value: 'auto', 
-      label: 'Total AI', 
-      icon: Zap,
-      description: 'Full automation'
-    },
+  const segmentedOptions = [
+    { value: 'manual', label: 'Manual', icon: <User className="h-4 w-4" /> },
+    { value: 'hitl', label: 'HITL', icon: <Wrench className="h-4 w-4" /> },
+    { value: 'auto', label: 'Total AI', icon: <Sparkles className="h-4 w-4" /> },
   ];
+
+  const modeDescriptions = {
+    manual: 'Review every action',
+    hitl: 'Approve low-confidence actions',
+    auto: 'Full automation'
+  };
 
   const handleModeChange = async (newMode: AutomationMode) => {
     if (newMode === settings.mode || updating) return;
@@ -47,9 +33,10 @@ export function WorkflowSettingsPreview() {
     try {
       await updateSettings({ mode: newMode });
       
+      const modeLabel = segmentedOptions.find(m => m.value === newMode)?.label;
       toast({
         title: "Mode updated",
-        description: `Switched to ${modes.find(m => m.value === newMode)?.label} mode`,
+        description: `Switched to ${modeLabel} mode`,
       });
     } catch (error) {
       toast({
@@ -62,48 +49,26 @@ export function WorkflowSettingsPreview() {
     }
   };
 
-  const activeMode = modes.find(m => m.value === settings.mode);
+  const activeDescription = modeDescriptions[settings.mode];
 
   return (
     <>
       <div className="border-b border-border bg-background px-6 py-3">
         <div className="flex items-center justify-between gap-6">
           {/* Mode Selector */}
-          <div className="flex items-center gap-2">
-            {modes.map((mode) => {
-              const Icon = mode.icon;
-              const isActive = settings.mode === mode.value;
-              
-              return (
-                <button
-                  key={mode.value}
-                  onClick={() => handleModeChange(mode.value)}
-                  disabled={updating}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg transition-all",
-                    "disabled:opacity-50 disabled:cursor-not-allowed",
-                    isActive 
-                      ? "bg-accent text-accent-foreground shadow-sm" 
-                      : "bg-background border border-border hover:bg-muted/50"
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className="text-sm font-medium">
-                    {mode.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <SegmentedControl
+            options={segmentedOptions}
+            value={settings.mode}
+            onChange={(value) => handleModeChange(value as AutomationMode)}
+            className="flex-shrink-0"
+          />
 
           {/* Status Info */}
           <div className="flex items-center gap-4">
             {/* Active Mode Description */}
-            {activeMode && (
-              <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
-                <span>{activeMode.description}</span>
-              </div>
-            )}
+            <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
+              <span>{activeDescription}</span>
+            </div>
 
             {/* Confidence Threshold Badge (only for HITL and Auto) */}
             {(settings.mode === 'hitl' || settings.mode === 'auto') && (
