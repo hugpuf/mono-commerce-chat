@@ -1,5 +1,8 @@
 project_id = "wsckktenxumwmzixbdtv"
 
+[functions.approve-ai-action]
+verify_jwt = true
+
 [functions.cancel-sync]
 verify_jwt = true
 

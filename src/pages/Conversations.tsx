@@ -18,6 +18,7 @@ import { NewConversationDialog } from "@/components/conversations/NewConversatio
 import { WorkflowSettingsDialog } from "@/components/conversations/WorkflowSettingsDialog";
 import { MessageGroup } from "@/components/conversations/MessageGroup";
 import { AutoResizeTextarea } from "@/components/conversations/AutoResizeTextarea";
+import { PendingApprovalCard } from "@/components/conversations/PendingApprovalCard";
 import { cn } from "@/lib/utils";
 
 // WhatsApp Conversations Page
@@ -60,6 +61,7 @@ export default function Conversations() {
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -473,6 +475,21 @@ export default function Conversations() {
               ref={messagesContainerRef}
             >
               <div className="space-y-6 max-w-3xl mx-auto">
+                {/* Pending Approvals */}
+                {pendingApprovals.length > 0 && (
+                  <div className="space-y-3 mb-6">
+                    {pendingApprovals.map((approval) => (
+                      <PendingApprovalCard
+                        key={approval.id}
+                        approval={approval}
+                        onApprovalComplete={() => {
+                          setPendingApprovals((prev) => prev.filter((a) => a.id !== approval.id));
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+
                 {groupMessages(messages).map((group, groupIndex) => (
                   <div key={groupIndex}>
                     <div className="flex justify-center mb-4">
