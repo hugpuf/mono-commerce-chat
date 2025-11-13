@@ -162,7 +162,7 @@ serve(async (req) => {
           to_number: metadata?.display_phone_number || '',
           content: messageContent,
           message_type: messageType,
-          status: 'received',
+          status: 'delivered',
           whatsapp_message_id: message.id,
           metadata: messageMetadata,
         });
