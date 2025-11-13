@@ -81,19 +81,14 @@ export function WorkflowSettingsPreview() {
                   disabled={updating}
                   className={cn(
                     "flex items-center gap-2 px-4 py-2 rounded-lg transition-all",
-                    "border border-border hover:border-accent/50",
                     "disabled:opacity-50 disabled:cursor-not-allowed",
-                    isActive && "border-accent border-2"
+                    isActive 
+                      ? "bg-accent text-accent-foreground shadow-sm" 
+                      : "bg-background border border-border hover:bg-muted/50"
                   )}
                 >
-                  <Icon className={cn(
-                    "h-4 w-4 transition-colors",
-                    isActive ? "text-accent" : "text-muted-foreground"
-                  )} />
-                  <span className={cn(
-                    "text-sm font-medium transition-colors",
-                    isActive ? "text-foreground" : "text-muted-foreground"
-                  )}>
+                  <Icon className="h-4 w-4" />
+                  <span className="text-sm font-medium">
                     {mode.label}
                   </span>
                 </button>
