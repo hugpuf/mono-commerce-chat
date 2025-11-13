@@ -23,7 +23,6 @@ const mainNavItems = [
   { path: "/automations", label: "Workflows", icon: Zap },
   { path: "/orders", label: "Orders", icon: ShoppingCart },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
-  { path: "/conversations-demo", label: "Conversations Demo", icon: MessageSquare },
 ];
 
 export function AppSidebar() {
