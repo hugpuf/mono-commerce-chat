@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Wrench, Sparkles, Settings2 } from 'lucide-react';
+import { User, Wrench, Wand2, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SegmentedControl } from '@/components/ui/segmented-control';
@@ -16,7 +16,7 @@ export function WorkflowSettingsPreview() {
   const segmentedOptions = [
     { value: 'manual', label: 'Manual', icon: <User className="h-4 w-4" /> },
     { value: 'hitl', label: 'HITL', icon: <Wrench className="h-4 w-4" /> },
-    { value: 'auto', label: 'Total AI', icon: <Sparkles className="h-4 w-4" /> },
+    { value: 'auto', label: 'AI', icon: <Wand2 className="h-4 w-4" /> },
   ];
 
   const modeDescriptions = {
