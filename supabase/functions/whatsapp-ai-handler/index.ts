@@ -298,12 +298,119 @@ Remember: You can search products, manage cart, create checkout links, and check
       }
     }
 
-    return new Response(JSON.stringify({ 
-      response: finalResponse,
-      tool_calls_executed: toolCalls?.length || 0
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // Calculate confidence score
+    console.log('📊 Calculating confidence score...');
+    let confidence = 75; // Baseline
+    
+    // Heuristic-based confidence scoring (future: use second LLM call)
+    if (finalResponse.includes("I'm not sure") || 
+        finalResponse.includes("might") || 
+        finalResponse.includes("possibly") ||
+        finalResponse.includes("maybe")) {
+      confidence = 60; // Uncertainty penalty
+    } else if (finalResponse.length > 200) {
+      confidence = 85; // Detailed response bonus
+    }
+    
+    // Boost confidence if tools were successfully used
+    if (toolCalls && toolCalls.length > 0) {
+      confidence = Math.min(90, confidence + 10);
+    }
+    
+    console.log(`📊 Confidence: ${confidence}%`);
+    
+    // HITL Decision Logic
+    const requiresApproval = mode === 'hitl' && confidence < (confidenceThreshold * 100);
+    
+    if (requiresApproval) {
+      // Create pending approval
+      console.log('⏸️  Creating pending approval (low confidence)');
+      
+      const { data: approval, error: approvalError } = await supabaseClient
+        .from('ai_pending_approvals')
+        .insert({
+          conversation_id: conversationId,
+          workspace_id: workspaceId,
+          action_type: 'send_message',
+          action_payload: { 
+            type: 'send_message', 
+            content: finalResponse,
+            message_type: 'text'
+          },
+          ai_reasoning: `Generated response with ${confidence}% confidence (below ${confidenceThreshold * 100}% threshold)`,
+          confidence_score: confidence / 100,
+          status: 'pending'
+        })
+        .select()
+        .single();
+      
+      if (approvalError) {
+        console.error('❌ Failed to create approval:', approvalError);
+        throw approvalError;
+      }
+      
+      console.log('✅ Approval created:', approval.id);
+      
+      // Log the action
+      await supabaseClient.from('ai_action_log').insert({
+        conversation_id: conversationId,
+        workspace_id: workspaceId,
+        action_type: 'send_message',
+        action_payload: { content: finalResponse },
+        confidence_score: confidence / 100,
+        mode: mode,
+        execution_method: 'approval_required',
+        result: 'pending_approval'
+      });
+      
+      return new Response(JSON.stringify({ 
+        requiresApproval: true,
+        confidence,
+        message: finalResponse,
+        approvalId: approval.id
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+      
+    } else {
+      // Auto-send message
+      console.log('✅ Auto-sending (high confidence or auto mode)');
+      
+      // Send via WhatsApp (this also stores the message)
+      const { data: sendResult, error: whatsappError } = await supabaseClient.functions.invoke('send-whatsapp-message', {
+        body: {
+          conversation_id: conversationId,
+          content: finalResponse
+        }
+      });
+      
+      if (whatsappError) {
+        console.error('❌ WhatsApp send failed:', whatsappError);
+        throw whatsappError;
+      }
+      
+      console.log('✅ Message sent via WhatsApp');
+      
+      // Log the action
+      await supabaseClient.from('ai_action_log').insert({
+        conversation_id: conversationId,
+        workspace_id: workspaceId,
+        action_type: 'send_message',
+        action_payload: { content: finalResponse },
+        confidence_score: confidence / 100,
+        mode: mode,
+        execution_method: 'auto_send',
+        result: 'success'
+      });
+      
+      return new Response(JSON.stringify({ 
+        success: true,
+        confidence,
+        requiresApproval: false
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
   } catch (error) {
     console.error('Error in AI handler:', error);
