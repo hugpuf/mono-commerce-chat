@@ -379,10 +379,10 @@ export default function Conversations() {
                 key={conv.id}
                 onClick={() => setSelectedConversationId(conv.id)}
                 className={cn(
-                  "w-full p-4 text-left transition-colors border-l-2",
+                  "w-full p-4 text-left transition-all rounded-lg mx-2",
                   selectedConversationId === conv.id 
-                    ? "border-accent bg-accent/5" 
-                    : "border-transparent hover:bg-muted"
+                    ? "ring-2 ring-foreground ring-offset-2 ring-offset-background" 
+                    : "hover:bg-muted"
                 )}
               >
                 <div className="flex items-start gap-3">
