@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Send, Paperclip, Plus, MoreVertical, Package, CreditCard, Tag, ArrowDown, User, Wrench, Sparkles } from "lucide-react";
+import { Search, Send, Paperclip, Plus, MoreVertical, Package, CreditCard, Tag, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -19,7 +19,6 @@ import { WorkflowSettingsPreview } from "@/components/conversations/WorkflowSett
 import { MessageGroup } from "@/components/conversations/MessageGroup";
 import { AutoResizeTextarea } from "@/components/conversations/AutoResizeTextarea";
 import { PendingApprovalCard } from "@/components/conversations/PendingApprovalCard";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn } from "@/lib/utils";
 
 // WhatsApp Conversations Page
@@ -62,7 +61,6 @@ export default function Conversations() {
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
-  const [conversationMode, setConversationMode] = useState<"manual" | "hitl" | "total_ai">("manual");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -358,18 +356,6 @@ export default function Conversations() {
         {/* Conversation List */}
         <div className="w-80 border-r border-border flex flex-col">
         <div className="p-4 border-b border-border space-y-3">
-          <div className="flex items-center justify-center mb-4">
-            <SegmentedControl
-              options={[
-                { value: "manual", label: "Manual", icon: <User className="h-4 w-4" /> },
-                { value: "hitl", label: "HITL", icon: <Wrench className="h-4 w-4" /> },
-                { value: "total_ai", label: "Total AI", icon: <Sparkles className="h-4 w-4" /> },
-              ]}
-              value={conversationMode}
-              onChange={(value) => setConversationMode(value as "manual" | "hitl" | "total_ai")}
-            />
-          </div>
-          
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">Conversations</h2>
             <Button 
