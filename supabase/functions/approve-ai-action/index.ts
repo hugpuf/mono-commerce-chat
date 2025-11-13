@@ -69,9 +69,8 @@ serve(async (req) => {
           if (conversation) {
             await serviceClient.functions.invoke('send-whatsapp-message', {
               body: {
-                to: conversation.customer_phone,
-                message: action_payload.message,
-                whatsappAccountId: conversation.whatsapp_account_id
+                conversation_id: conversation_id,
+                content: action_payload.message,
               }
             });
           }
