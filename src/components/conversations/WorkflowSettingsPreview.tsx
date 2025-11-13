@@ -72,8 +72,8 @@ export function WorkflowSettingsPreview() {
 
           {/* Right Group: Threshold Badge + Settings */}
           <div className="flex items-center gap-3">
-            {/* Confidence Threshold Badge (only for HITL and Auto) */}
-            {(settings.mode === 'hitl' || settings.mode === 'auto') && (
+            {/* Confidence Threshold Badge (only for HITL) */}
+            {settings.mode === 'hitl' && (
               <Badge variant="secondary" className="font-mono text-xs">
                 {settings.confidenceThreshold}% threshold
               </Badge>
