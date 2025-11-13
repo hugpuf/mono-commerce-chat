@@ -253,29 +253,30 @@ export function AutomationsProvider({ children }: { children: React.ReactNode })
 
         // Load AI settings from database
         const { data: aiSettings } = await supabase
-          .from('workspace_ai_settings')
+          .from('workspace_ai_settings' as any)
           .select('*')
           .eq('workspace_id', profile.workspace_id)
-          .single();
+          .single() as any;
 
-        if (aiSettings) {
+        if (aiSettings && aiSettings.data) {
+          const settingsData = aiSettings.data;
           setSettings({
-            mode: aiSettings.mode as AutomationMode,
-            confidenceThreshold: Number(aiSettings.confidence_threshold) * 100,
+            mode: settingsData.mode as AutomationMode,
+            confidenceThreshold: Number(settingsData.confidence_threshold) * 100,
             shadowMode: false,
-            aiVoice: aiSettings.ai_voice || defaultSettings.aiVoice,
+            aiVoice: settingsData.ai_voice || defaultSettings.aiVoice,
             guardrails: {
-              tone: aiSettings.ai_voice || defaultSettings.guardrails.tone,
-              doList: aiSettings.dos ? aiSettings.dos.split('\n').filter(Boolean) : defaultSettings.guardrails.doList,
-              dontList: aiSettings.donts ? aiSettings.donts.split('\n').filter(Boolean) : defaultSettings.guardrails.dontList,
-              escalationRules: aiSettings.escalation_rules || defaultSettings.guardrails.escalationRules,
-              quietHours: aiSettings.quiet_hours ? JSON.stringify(aiSettings.quiet_hours) : defaultSettings.guardrails.quietHours,
-              compliance: aiSettings.compliance_notes || defaultSettings.guardrails.compliance,
+              tone: settingsData.ai_voice || defaultSettings.guardrails.tone,
+              doList: settingsData.dos ? settingsData.dos.split('\n').filter(Boolean) : defaultSettings.guardrails.doList,
+              dontList: settingsData.donts ? settingsData.donts.split('\n').filter(Boolean) : defaultSettings.guardrails.dontList,
+              escalationRules: settingsData.escalation_rules || defaultSettings.guardrails.escalationRules,
+              quietHours: settingsData.quiet_hours ? JSON.stringify(settingsData.quiet_hours) : defaultSettings.guardrails.quietHours,
+              compliance: settingsData.compliance_notes || defaultSettings.guardrails.compliance,
             },
           });
-        } else {
+        } else if (!aiSettings || !aiSettings.data) {
           // Create default settings in database
-          await supabase.from('workspace_ai_settings').insert({
+          await (supabase.from('workspace_ai_settings' as any).insert({
             workspace_id: profile.workspace_id,
             mode: defaultSettings.mode,
             confidence_threshold: defaultSettings.confidenceThreshold / 100,
@@ -285,7 +286,7 @@ export function AutomationsProvider({ children }: { children: React.ReactNode })
             escalation_rules: defaultSettings.guardrails.escalationRules,
             quiet_hours: [],
             compliance_notes: defaultSettings.guardrails.compliance,
-          });
+          }) as any);
         }
       }
     };
@@ -299,8 +300,8 @@ export function AutomationsProvider({ children }: { children: React.ReactNode })
       
       // Save to database if workspace ID is available
       if (workspaceId) {
-        supabase
-          .from('workspace_ai_settings')
+        (supabase
+          .from('workspace_ai_settings' as any)
           .upsert({
             workspace_id: workspaceId,
             mode: updated.mode,
@@ -311,8 +312,8 @@ export function AutomationsProvider({ children }: { children: React.ReactNode })
             escalation_rules: updated.guardrails.escalationRules,
             quiet_hours: [],
             compliance_notes: updated.guardrails.compliance,
-          })
-          .then(({ error }) => {
+          }) as any)
+          .then(({ error }: any) => {
             if (error) console.error('Failed to save settings:', error);
           });
       }
