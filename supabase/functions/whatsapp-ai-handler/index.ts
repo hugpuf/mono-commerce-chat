@@ -33,6 +33,18 @@ serve(async (req) => {
 
     console.log('🔧 AI Settings:', { mode, confidenceThreshold });
 
+    // MANUAL MODE: COMPLETELY PASSIVE - AI does not run
+    if (mode === 'manual') {
+      console.log('⏸️  Manual mode active - no AI response generated');
+      return new Response(
+        JSON.stringify({ 
+          message: "Manual mode active - no AI response generated",
+          mode: 'manual'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
     // Fetch conversation history
     const { data: messages } = await supabaseClient
       .from('messages')
