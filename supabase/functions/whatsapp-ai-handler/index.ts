@@ -21,6 +21,18 @@ serve(async (req) => {
 
     console.log('🤖 AI Handler - Processing message:', { conversationId, workspaceId });
 
+    // Fetch AI settings for workspace
+    const { data: aiSettings } = await supabaseClient
+      .from('workspace_ai_settings')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .single();
+
+    const mode = aiSettings?.mode || 'manual';
+    const confidenceThreshold = aiSettings?.confidence_threshold || 0.7;
+
+    console.log('🔧 AI Settings:', { mode, confidenceThreshold });
+
     // Fetch conversation history
     const { data: messages } = await supabaseClient
       .from('messages')
@@ -149,9 +161,15 @@ serve(async (req) => {
       }
     ];
 
-    // System prompt
-    const systemPrompt = `You are a helpful shopping assistant for ${workspace?.company_name || workspace?.name}.
-
+    // Build system prompt from settings
+    const systemPromptParts = [
+      `You are a helpful shopping assistant for ${workspace?.company_name || workspace?.name}.`,
+      aiSettings?.ai_voice ? `Brand Voice: ${aiSettings.ai_voice}` : '',
+      aiSettings?.dos ? `Do: ${aiSettings.dos}` : '',
+      aiSettings?.donts ? `Don't: ${aiSettings.donts}` : '',
+      aiSettings?.escalation_rules ? `Escalate when: ${aiSettings.escalation_rules}` : '',
+      aiSettings?.compliance_notes ? `Compliance: ${aiSettings.compliance_notes}` : '',
+      `
 Your role:
 - Help customers find products
 - Answer questions about products, prices, and availability
@@ -168,7 +186,9 @@ Guidelines:
 - If a product is out of stock, suggest alternatives
 - Use emojis occasionally to be friendly: 🛍️ 📦 ✨
 
-Remember: You can search products, manage cart, create checkout links, and check orders.`;
+Remember: You can search products, manage cart, create checkout links, and check orders.
+      `.trim()
+    ].filter(Boolean).join('\n\n');
 
     // Call Lovable AI
     console.log('🤖 Calling Lovable AI...');
@@ -181,7 +201,7 @@ Remember: You can search products, manage cart, create checkout links, and check
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: systemPromptParts },
           ...conversationHistory,
           { role: "user", content: customerMessage }
         ],
@@ -248,7 +268,7 @@ Remember: You can search products, manage cart, create checkout links, and check
           body: JSON.stringify({
             model: "google/gemini-2.5-flash",
             messages: [
-              { role: "system", content: systemPrompt },
+              { role: "system", content: systemPromptParts },
               ...conversationHistory,
               { role: "user", content: customerMessage },
               aiData.choices[0].message,

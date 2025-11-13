@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export type AutomationMode = 'manual' | 'hitl' | 'auto';
 
@@ -230,26 +231,94 @@ const suggestedAutomations: AutomationFlow[] = [
 const AutomationsContext = createContext<AutomationsContextType | undefined>(undefined);
 
 export function AutomationsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<GlobalAutomationSettings>(() => {
-    const saved = localStorage.getItem('automationSettings');
-    return saved ? JSON.parse(saved) : defaultSettings;
-  });
+  const [settings, setSettings] = useState<GlobalAutomationSettings>(defaultSettings);
+  const [automations, setAutomations] = useState<AutomationFlow[]>(suggestedAutomations);
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 
-  const [automations, setAutomations] = useState<AutomationFlow[]>(() => {
-    const saved = localStorage.getItem('automations');
-    return saved ? JSON.parse(saved) : suggestedAutomations;
-  });
-
+  // Load workspace ID and settings from Supabase
   useEffect(() => {
-    localStorage.setItem('automationSettings', JSON.stringify(settings));
-  }, [settings]);
+    const loadSettings = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-  useEffect(() => {
-    localStorage.setItem('automations', JSON.stringify(automations));
-  }, [automations]);
+      // Get workspace ID
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('workspace_id')
+        .eq('user_id', user.id)
+        .single();
 
-  const updateSettings = (newSettings: Partial<GlobalAutomationSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
+      if (profile?.workspace_id) {
+        setWorkspaceId(profile.workspace_id);
+
+        // Load AI settings from database
+        const { data: aiSettings } = await supabase
+          .from('workspace_ai_settings')
+          .select('*')
+          .eq('workspace_id', profile.workspace_id)
+          .single();
+
+        if (aiSettings) {
+          setSettings({
+            mode: aiSettings.mode as AutomationMode,
+            confidenceThreshold: Number(aiSettings.confidence_threshold) * 100,
+            shadowMode: false,
+            aiVoice: aiSettings.ai_voice || defaultSettings.aiVoice,
+            guardrails: {
+              tone: aiSettings.ai_voice || defaultSettings.guardrails.tone,
+              doList: aiSettings.dos ? aiSettings.dos.split('\n').filter(Boolean) : defaultSettings.guardrails.doList,
+              dontList: aiSettings.donts ? aiSettings.donts.split('\n').filter(Boolean) : defaultSettings.guardrails.dontList,
+              escalationRules: aiSettings.escalation_rules || defaultSettings.guardrails.escalationRules,
+              quietHours: aiSettings.quiet_hours ? JSON.stringify(aiSettings.quiet_hours) : defaultSettings.guardrails.quietHours,
+              compliance: aiSettings.compliance_notes || defaultSettings.guardrails.compliance,
+            },
+          });
+        } else {
+          // Create default settings in database
+          await supabase.from('workspace_ai_settings').insert({
+            workspace_id: profile.workspace_id,
+            mode: defaultSettings.mode,
+            confidence_threshold: defaultSettings.confidenceThreshold / 100,
+            ai_voice: defaultSettings.aiVoice,
+            dos: defaultSettings.guardrails.doList.join('\n'),
+            donts: defaultSettings.guardrails.dontList.join('\n'),
+            escalation_rules: defaultSettings.guardrails.escalationRules,
+            quiet_hours: [],
+            compliance_notes: defaultSettings.guardrails.compliance,
+          });
+        }
+      }
+    };
+
+    loadSettings();
+  }, []);
+
+  const updateSettings = async (newSettings: Partial<GlobalAutomationSettings>) => {
+    setSettings(prev => {
+      const updated = { ...prev, ...newSettings };
+      
+      // Save to database if workspace ID is available
+      if (workspaceId) {
+        supabase
+          .from('workspace_ai_settings')
+          .upsert({
+            workspace_id: workspaceId,
+            mode: updated.mode,
+            confidence_threshold: updated.confidenceThreshold / 100,
+            ai_voice: updated.aiVoice,
+            dos: updated.guardrails.doList.join('\n'),
+            donts: updated.guardrails.dontList.join('\n'),
+            escalation_rules: updated.guardrails.escalationRules,
+            quiet_hours: [],
+            compliance_notes: updated.guardrails.compliance,
+          })
+          .then(({ error }) => {
+            if (error) console.error('Failed to save settings:', error);
+          });
+      }
+      
+      return updated;
+    });
   };
 
   const addAutomation = (automation: AutomationFlow) => {
