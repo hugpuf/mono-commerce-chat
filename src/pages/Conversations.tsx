@@ -378,10 +378,12 @@ export default function Conversations() {
               <button
                 key={conv.id}
                 onClick={() => setSelectedConversationId(conv.id)}
-                className={`
-                  w-full p-4 text-left transition-colors
-                  ${selectedConversationId === conv.id ? "bg-accent" : "hover:bg-muted"}
-                `}
+                className={cn(
+                  "w-full p-4 text-left transition-colors border-l-2",
+                  selectedConversationId === conv.id 
+                    ? "border-accent bg-accent/5" 
+                    : "border-transparent hover:bg-muted"
+                )}
               >
                 <div className="flex items-start gap-3">
                   <Avatar className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
