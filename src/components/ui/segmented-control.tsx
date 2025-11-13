@@ -24,15 +24,20 @@ export function SegmentedControl({
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
-    const selectedIndex = options.findIndex(opt => opt.value === value);
-    const selectedButton = buttonRefs.current[selectedIndex];
-    
-    if (selectedButton) {
-      setIndicatorStyle({
-        left: selectedButton.offsetLeft,
-        width: selectedButton.offsetWidth,
-      });
-    }
+    // Small delay to ensure DOM has rendered and refs are available
+    const timer = setTimeout(() => {
+      const selectedIndex = options.findIndex(opt => opt.value === value);
+      const selectedButton = buttonRefs.current[selectedIndex];
+      
+      if (selectedButton) {
+        setIndicatorStyle({
+          left: selectedButton.offsetLeft,
+          width: selectedButton.offsetWidth,
+        });
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [value, options]);
 
   return (
