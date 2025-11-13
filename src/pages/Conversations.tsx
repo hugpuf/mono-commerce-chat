@@ -42,6 +42,10 @@ interface Message {
   from_number: string;
   message_type: string;
   status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+  metadata?: {
+    ai_generated?: boolean;
+    [key: string]: any;
+  };
 }
 
 interface GroupedMessages {
@@ -65,6 +69,54 @@ export default function Conversations() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
+
+  // Fetch pending AI approvals
+  const fetchPendingApprovals = async () => {
+    if (!selectedConversationId) return;
+    
+    try {
+      const { data, error } = await (supabase as any)
+        .from('ai_pending_approvals')
+        .select('*')
+        .eq('conversation_id', selectedConversationId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+      
+      if (!error && data) {
+        setPendingApprovals(data);
+      }
+    } catch (err) {
+      console.error('Error fetching pending approvals:', err);
+    }
+  };
+
+  // Load pending approvals when conversation changes
+  useEffect(() => {
+    if (!selectedConversationId) return;
+    
+    fetchPendingApprovals();
+    
+    // Subscribe to approval changes
+    const approvalsChannel = supabase
+      .channel(`approvals-${selectedConversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ai_pending_approvals',
+          filter: `conversation_id=eq.${selectedConversationId}`,
+        },
+        () => {
+          fetchPendingApprovals();
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(approvalsChannel);
+    };
+  }, [selectedConversationId]);
 
   // Group messages by date and consecutive direction
   const groupMessages = (messages: Message[]): GroupedMessages[] => {
@@ -246,7 +298,7 @@ export default function Conversations() {
 
     fetchMessages();
 
-    // Subscribe to new messages
+    // Subscribe to new messages and trigger AI
     const messagesChannel = supabase
       .channel(`messages-${selectedConversationId}`)
       .on(
@@ -257,9 +309,44 @@ export default function Conversations() {
           table: 'messages',
           filter: `conversation_id=eq.${selectedConversationId}`,
         },
-        (payload) => {
-          console.log('New message:', payload);
-          setMessages((prev) => [...prev, payload.new as Message]);
+        async (payload) => {
+          const newMessage = payload.new as Message;
+          console.log('New message:', newMessage);
+          setMessages((prev) => [...prev, newMessage]);
+
+          // Trigger AI for inbound customer messages
+          if (newMessage.direction === 'inbound' && !newMessage.metadata?.ai_generated) {
+            console.log('🤖 Triggering AI handler for inbound message');
+            try {
+              const { data, error } = await supabase.functions.invoke('whatsapp-ai-handler', {
+                body: {
+                  conversationId: selectedConversationId,
+                  customerMessage: newMessage.content,
+                  workspaceId: workspaceId,
+                },
+              });
+
+              if (error) {
+                console.error('AI handler error:', error);
+                toast({
+                  title: "AI processing failed",
+                  description: error.message,
+                  variant: "destructive",
+                });
+              } else if (data?.requiresApproval) {
+                toast({
+                  title: "AI Response Ready",
+                  description: `Response generated with ${data.confidence}% confidence - review needed`,
+                });
+                // Refresh pending approvals
+                fetchPendingApprovals();
+              } else if (data?.mode === 'manual') {
+                console.log('⏸️ Manual mode - AI is passive');
+              }
+            } catch (err) {
+              console.error('Failed to invoke AI handler:', err);
+            }
+          }
         }
       )
       .subscribe();
@@ -267,7 +354,7 @@ export default function Conversations() {
     return () => {
       supabase.removeChannel(messagesChannel);
     };
-  }, [selectedConversationId, toast]);
+  }, [selectedConversationId, toast, workspaceId]);
 
   const handleSendMessage = async () => {
     if (!message.trim() || !selectedConversationId || isSending) return;
