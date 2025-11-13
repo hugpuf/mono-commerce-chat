@@ -32,9 +32,9 @@ All colors MUST be HSL.
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 40%;
 
-    /* Accent - subtle slate for focus/active states */
-    --accent: 210 8% 96%;
-    --accent-foreground: 210 12% 16%;
+    /* Accent - vibrant green for active/selected states */
+    --accent: 142 76% 36%;
+    --accent-foreground: 0 0% 100%;
 
     /* Destructive - minimal red for errors */
     --destructive: 0 72% 51%;

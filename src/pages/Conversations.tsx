@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Send, Paperclip, Plus, MoreVertical, Package, CreditCard, Tag, Settings2, ArrowDown } from "lucide-react";
+import { Search, Send, Paperclip, Plus, MoreVertical, Package, CreditCard, Tag, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format, isToday, isYesterday, isThisWeek } from "date-fns";
 import { NewConversationDialog } from "@/components/conversations/NewConversationDialog";
-import { WorkflowSettingsDialog } from "@/components/conversations/WorkflowSettingsDialog";
+import { WorkflowSettingsPreview } from "@/components/conversations/WorkflowSettingsPreview";
 import { MessageGroup } from "@/components/conversations/MessageGroup";
 import { AutoResizeTextarea } from "@/components/conversations/AutoResizeTextarea";
 import { PendingApprovalCard } from "@/components/conversations/PendingApprovalCard";
@@ -59,7 +59,6 @@ export default function Conversations() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [newConversationOpen, setNewConversationOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -344,13 +343,16 @@ export default function Conversations() {
           onOpenChange={setNewConversationOpen}
           onConversationCreated={(id) => setSelectedConversationId(id)}
         />
-        <WorkflowSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       </div>
     );
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Workflow Settings Preview - Always Visible */}
+      <WorkflowSettingsPreview />
+
+      <div className="flex flex-1 overflow-hidden">
         {/* Conversation List */}
         <div className="w-80 border-r border-border flex flex-col">
         <div className="p-4 border-b border-border space-y-3">
@@ -441,9 +443,6 @@ export default function Conversations() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)}>
-                <Settings2 className="h-4 w-4" />
-              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">
@@ -565,7 +564,7 @@ export default function Conversations() {
         onOpenChange={setNewConversationOpen}
         onConversationCreated={(id) => setSelectedConversationId(id)}
       />
-      <WorkflowSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      </div>
     </div>
   );
 }
