@@ -65,8 +65,8 @@ export function WorkflowSettingsDialog({ open, onOpenChange }: WorkflowSettingsD
             </div>
           </div>
 
-          {/* Confidence Threshold */}
-          {settings.mode !== 'manual' && (
+          {/* Confidence Threshold - HITL Mode Only */}
+          {settings.mode === 'hitl' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">Confidence Threshold</Label>
@@ -83,9 +83,7 @@ export function WorkflowSettingsDialog({ open, onOpenChange }: WorkflowSettingsD
                 className="py-2"
               />
               <p className="text-xs text-muted-foreground">
-                {settings.mode === 'hitl' 
-                  ? 'Actions below this threshold require your approval'
-                  : 'Only execute actions when AI confidence exceeds this threshold'}
+                AI actions below this threshold require your approval
               </p>
             </div>
           )}
