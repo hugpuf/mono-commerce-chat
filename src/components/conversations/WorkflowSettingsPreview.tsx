@@ -55,24 +55,26 @@ export function WorkflowSettingsPreview() {
     <>
       <div className="border-b border-border bg-background px-6 py-3">
         <div className="flex items-center justify-between gap-6">
-          {/* Mode Selector */}
-          <SegmentedControl
-            options={segmentedOptions}
-            value={settings.mode}
-            onChange={(value) => handleModeChange(value as AutomationMode)}
-            className="flex-shrink-0"
-          />
-
-          {/* Status Info */}
+          {/* Left Group: Mode Selector + Description */}
           <div className="flex items-center gap-4">
+            <SegmentedControl
+              options={segmentedOptions}
+              value={settings.mode}
+              onChange={(value) => handleModeChange(value as AutomationMode)}
+              className="flex-shrink-0"
+            />
+            
             {/* Active Mode Description */}
             <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
               <span>{activeDescription}</span>
             </div>
+          </div>
 
+          {/* Right Group: Threshold Badge + Settings */}
+          <div className="flex items-center gap-3">
             {/* Confidence Threshold Badge (only for HITL and Auto) */}
             {(settings.mode === 'hitl' || settings.mode === 'auto') && (
-              <Badge variant="secondary" className="font-mono">
+              <Badge variant="secondary" className="font-mono text-xs">
                 {settings.confidenceThreshold}% threshold
               </Badge>
             )}
