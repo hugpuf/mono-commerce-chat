@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, X, Brain, ShoppingCart, MessageSquare, Loader2 } from 'lucide-react';
+import { Check, X, Brain, ShoppingCart, MessageSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -14,12 +14,20 @@ interface PendingApprovalCardProps {
     ai_reasoning: string | null;
     confidence_score: number | null;
     created_at: string;
+    conversation_id: string;
   };
   onApprovalComplete?: () => void;
+  onOptimisticMessage?: (message: {
+    id: string;
+    content: string;
+    direction: 'outbound';
+    created_at: string;
+    status: 'sending';
+  }) => void;
 }
 
-export function PendingApprovalCard({ approval, onApprovalComplete }: PendingApprovalCardProps) {
-  const [loading, setLoading] = useState(false);
+export function PendingApprovalCard({ approval, onApprovalComplete, onOptimisticMessage }: PendingApprovalCardProps) {
+  const [isHidden, setIsHidden] = useState(false);
   const { toast } = useToast();
 
   const getActionIcon = () => {
@@ -65,36 +73,70 @@ export function PendingApprovalCard({ approval, onApprovalComplete }: PendingApp
   };
 
   const handleApprove = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('approve-ai-action', {
-        body: { approvalId: approval.id, approved: true }
+    // Generate optimistic message ID
+    const optimisticId = `optimistic-${Date.now()}-${Math.random()}`;
+    const messageContent = approval.action_type === 'send_message' 
+      ? approval.action_payload.message 
+      : JSON.stringify(approval.action_payload);
+
+    // Immediately hide card and show optimistic message
+    setIsHidden(true);
+    
+    // Create optimistic message
+    if (onOptimisticMessage) {
+      onOptimisticMessage({
+        id: optimisticId,
+        content: messageContent,
+        direction: 'outbound',
+        created_at: new Date().toISOString(),
+        status: 'sending'
       });
+    }
 
-      if (error) throw error;
-
-      toast({
-        title: "Action approved",
-        description: "The AI action has been executed successfully",
-      });
-
+    // Fire approval in background (don't await)
+    supabase.functions.invoke('approve-ai-action', {
+      body: { 
+        approvalId: approval.id, 
+        approved: true,
+        optimisticMessageId: optimisticId 
+      }
+    }).then(({ error }) => {
+      if (error) {
+        // Rollback on error
+        console.error('Approval error:', error);
+        setIsHidden(false);
+        toast({
+          title: "Action failed",
+          description: error.message || "Failed to execute action",
+          variant: "destructive"
+        });
+      } else {
+        // Success notification
+        toast({
+          title: "Action approved",
+          description: "Message sent successfully"
+        });
+      }
+      
       onApprovalComplete?.();
-    } catch (error) {
+    }).catch((error) => {
+      // Rollback on error
       console.error('Approval error:', error);
+      setIsHidden(false);
       toast({
-        title: "Approval failed",
-        description: error.message || "Failed to approve action",
+        title: "Action failed", 
+        description: error.message || "Failed to execute action",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
-    }
+      onApprovalComplete?.();
+    });
   };
 
   const handleReject = async () => {
-    setLoading(true);
+    setIsHidden(true);
+    
     try {
-      const { data, error } = await supabase.functions.invoke('approve-ai-action', {
+      const { error } = await supabase.functions.invoke('approve-ai-action', {
         body: { 
           approvalId: approval.id, 
           approved: false,
@@ -106,19 +148,18 @@ export function PendingApprovalCard({ approval, onApprovalComplete }: PendingApp
 
       toast({
         title: "Action rejected",
-        description: "The AI action has been declined",
+        description: "The AI action has been rejected"
       });
 
       onApprovalComplete?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Rejection error:', error);
+      setIsHidden(false);
       toast({
         title: "Rejection failed",
-        description: error.message || "Failed to reject action",
+        description: error.message,
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -129,54 +170,56 @@ export function PendingApprovalCard({ approval, onApprovalComplete }: PendingApp
     return 'destructive';
   };
 
+  if (isHidden) return null;
+
   return (
-    <Card className="border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/10">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
+    <Card className="bg-accent/10 border-accent/20">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {getActionIcon()}
             <div>
-              <CardTitle className="text-sm font-medium">{getActionLabel()}</CardTitle>
-              <CardDescription className="text-xs">Requires your approval</CardDescription>
+              <p className="font-medium text-sm">{getActionLabel()}</p>
+              <p className="text-xs text-muted-foreground">AI suggested action</p>
             </div>
           </div>
-          {approval.confidence_score && (
-            <Badge variant={confidenceColor(approval.confidence_score)} className="text-xs">
-              {Math.round(approval.confidence_score * 100)}% confidence
-            </Badge>
-          )}
+          <Badge variant={confidenceColor(approval.confidence_score)}>
+            {approval.confidence_score 
+              ? `${Math.round(approval.confidence_score * 100)}% confident`
+              : 'Unknown'
+            }
+          </Badge>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
+
         {approval.ai_reasoning && (
-          <div className="p-2 rounded bg-background/50 border border-border">
-            <p className="text-xs text-muted-foreground mb-1 font-medium">AI Reasoning:</p>
-            <p className="text-xs">{approval.ai_reasoning}</p>
+          <div className="bg-background/50 rounded p-2">
+            <p className="text-xs text-muted-foreground">
+              <Brain className="h-3 w-3 inline mr-1" />
+              {approval.ai_reasoning}
+            </p>
           </div>
         )}
 
-        <div className="p-2 rounded bg-background/50 border border-border">
-          <p className="text-xs text-muted-foreground mb-1 font-medium">Action Details:</p>
+        <div className="bg-muted/50 rounded p-2">
+          <p className="text-xs font-semibold mb-1">Action Details:</p>
           <p className="text-xs font-mono break-all">{getActionDetails()}</p>
         </div>
 
         <div className="flex gap-2">
           <Button
             onClick={handleApprove}
-            disabled={loading}
             className="flex-1"
             size="sm"
           >
-            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+            <Check className="h-3 w-3" />
             Approve
           </Button>
           <Button
             onClick={handleReject}
-            disabled={loading}
             variant="outline"
             size="sm"
           >
-            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+            <X className="h-3 w-3" />
             Reject
           </Button>
         </div>
