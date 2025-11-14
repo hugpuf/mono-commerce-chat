@@ -482,25 +482,25 @@ export default function Conversations() {
         {/* Conversation List */}
         <div className="w-80 border-r border-border flex flex-col">
         <div className="p-4 border-b border-border space-y-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-2">
             <h2 className="text-xl font-semibold">Conversations</h2>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <Button 
-                size="sm"
+                size="icon"
                 variant={showArchived ? "default" : "ghost"}
                 onClick={() => setShowArchived(!showArchived)}
-                className="flex items-center gap-1"
+                className="h-8 w-8"
+                title={showArchived ? "Show active conversations" : "Show archived conversations"}
               >
                 {showArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-                <span>{showArchived ? "Active" : "Archived"}</span>
               </Button>
               <Button 
-                size="sm" 
+                size="icon" 
                 onClick={() => setNewConversationOpen(true)}
-                className="flex items-center gap-1"
+                className="h-8 w-8"
+                title="New conversation"
               >
                 <Plus className="h-4 w-4" />
-                <span>New</span>
               </Button>
             </div>
           </div>
