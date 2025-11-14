@@ -43,7 +43,7 @@ export function SegmentedControl({
   return (
     <div 
       className={cn(
-        "relative inline-flex items-center gap-0 p-1 rounded-xl bg-secondary border border-border",
+        "relative flex items-center gap-0 p-1 rounded-xl bg-secondary border border-border",
         className
       )}
     >
@@ -66,7 +66,7 @@ export function SegmentedControl({
             ref={el => buttonRefs.current[index] = el}
             onClick={() => onChange(option.value)}
             className={cn(
-              "relative z-10 flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors duration-150",
+              "relative z-10 flex items-center justify-center gap-2 px-3 py-2.5 sm:px-4 sm:py-2 rounded-lg font-medium text-sm transition-colors duration-150 flex-1 min-h-[44px] sm:min-h-0",
               isSelected 
                 ? "text-accent-foreground" 
                 : "text-muted-foreground hover:text-foreground"
