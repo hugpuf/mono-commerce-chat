@@ -319,8 +319,22 @@ Remember: You can search products, manage cart, create checkout links, and check
     
     console.log(`📊 Confidence: ${confidence}%`);
     
-    // HITL Decision Logic
-    const requiresApproval = mode === 'hitl' && confidence < (confidenceThreshold * 100);
+    // Mode Decision Logic
+    // Manual: AI completely disabled (already handled above)
+    // HITL: Requires approval when confidence < threshold
+    // Auto (AI): Always auto-send, never require approval
+    
+    let requiresApproval = false;
+    
+    if (mode === 'hitl') {
+      // HITL mode: Check confidence threshold
+      requiresApproval = confidence < (confidenceThreshold * 100);
+      console.log(`🎯 HITL Mode: Confidence ${confidence}% vs Threshold ${confidenceThreshold * 100}% = Approval ${requiresApproval ? 'REQUIRED' : 'NOT REQUIRED'}`);
+    } else if (mode === 'auto') {
+      // Auto/AI mode: Never require approval
+      requiresApproval = false;
+      console.log(`🤖 AUTO Mode: Always auto-send (confidence: ${confidence}%)`);
+    }
     
     if (requiresApproval) {
       // Create pending approval

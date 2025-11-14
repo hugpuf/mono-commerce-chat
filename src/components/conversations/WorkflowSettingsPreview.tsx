@@ -22,7 +22,7 @@ export function WorkflowSettingsPreview() {
   const modeDescriptions = {
     manual: 'Review every action',
     hitl: 'Approve low-confidence actions',
-    auto: 'Full automation'
+    auto: 'Full AI - instant responses'
   };
 
   const handleModeChange = async (newMode: AutomationMode) => {
