@@ -295,31 +295,61 @@ export function AutomationsProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const updateSettings = async (newSettings: Partial<GlobalAutomationSettings>) => {
-    setSettings(prev => {
-      const updated = { ...prev, ...newSettings };
+    if (!workspaceId) {
+      console.error('Cannot save settings: workspace ID not available');
+      return;
+    }
+
+    const updated = { ...settings, ...newSettings };
+    
+    try {
+      // Save to database first (reliability fix)
+      const { error } = await supabase
+        .from('workspace_ai_settings' as any)
+        .upsert({
+          workspace_id: workspaceId,
+          mode: updated.mode,
+          confidence_threshold: updated.confidenceThreshold / 100,
+          ai_voice: updated.aiVoice,
+          dos: updated.guardrails.doList.join('\n'),
+          donts: updated.guardrails.dontList.join('\n'),
+          escalation_rules: updated.guardrails.escalationRules,
+          quiet_hours: [],
+          compliance_notes: updated.guardrails.compliance,
+        }) as any;
       
-      // Save to database if workspace ID is available
-      if (workspaceId) {
-        (supabase
-          .from('workspace_ai_settings' as any)
-          .upsert({
-            workspace_id: workspaceId,
-            mode: updated.mode,
-            confidence_threshold: updated.confidenceThreshold / 100,
-            ai_voice: updated.aiVoice,
-            dos: updated.guardrails.doList.join('\n'),
-            donts: updated.guardrails.dontList.join('\n'),
-            escalation_rules: updated.guardrails.escalationRules,
-            quiet_hours: [],
-            compliance_notes: updated.guardrails.compliance,
-          }) as any)
-          .then(({ error }: any) => {
-            if (error) console.error('Failed to save settings:', error);
-          });
+      if (error) {
+        console.error('Failed to save settings:', error);
+        throw error;
+      }
+
+      // If switching to auto mode, clean up pending approvals
+      if (newSettings.mode === 'auto' && settings.mode !== 'auto') {
+        console.log('🧹 Cleaning up pending approvals (switched to auto mode)');
+        await supabase
+          .from('ai_pending_approvals' as any)
+          .update({ status: 'superseded' })
+          .eq('workspace_id', workspaceId)
+          .eq('status', 'pending');
+        
+        // Log the mode switch
+        await supabase.from('ai_action_log' as any).insert({
+          workspace_id: workspaceId,
+          action_type: 'mode_switch',
+          action_payload: { from: settings.mode, to: 'auto' },
+          mode: 'auto',
+          execution_method: 'user_action',
+          result: 'success'
+        });
       }
       
-      return updated;
-    });
+      // Update local state only after successful DB write
+      setSettings(updated);
+      
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      throw error;
+    }
   };
 
   const addAutomation = (automation: AutomationFlow) => {

@@ -174,6 +174,27 @@ serve(async (req) => {
 
       console.log('Message stored successfully');
 
+      // Invoke AI handler (server-origin AI)
+      console.log('🤖 Triggering AI handler from webhook');
+      try {
+        const aiHandlerResponse = await supabase.functions.invoke('whatsapp-ai-handler', {
+          body: {
+            conversationId: conversation.id,
+            customerMessage: messageContent,
+            workspaceId: whatsappAccount.workspace_id,
+          },
+        });
+
+        if (aiHandlerResponse.error) {
+          console.error('❌ AI handler error:', aiHandlerResponse.error);
+        } else {
+          console.log('✅ AI handler completed:', aiHandlerResponse.data);
+        }
+      } catch (aiError) {
+        console.error('❌ AI handler exception:', aiError);
+        // Don't fail the webhook if AI fails
+      }
+
       return new Response(JSON.stringify({ status: 'ok' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
