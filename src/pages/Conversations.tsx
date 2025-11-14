@@ -615,6 +615,12 @@ export default function Conversations() {
                     onApprovalComplete={() => {
                       setPendingApprovals((prev) => prev.filter((a) => a.id !== approval.id));
                     }}
+                    onOptimisticMessage={(optimisticMsg) => {
+                      // Add optimistic message to timeline
+                      setMessages((prev) => [...prev, optimisticMsg as Message]);
+                      // Scroll to bottom
+                      scrollToBottom(true);
+                    }}
                   />
                 ))}
               </div>

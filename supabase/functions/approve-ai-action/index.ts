@@ -28,7 +28,7 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { approvalId, approved, rejectionReason } = await req.json();
+    const { approvalId, approved, rejectionReason, optimisticMessageId } = await req.json();
 
     console.log('🔐 Approval request:', { approvalId, approved, userId: user.id });
 
@@ -49,71 +49,7 @@ serve(async (req) => {
     );
 
     if (approved) {
-      // Execute the action
-      const { action_type, action_payload, conversation_id } = approval;
-      
-      console.log('✅ Executing approved action:', action_type);
-
-      let result = 'success';
-      let errorMessage = null;
-
-      try {
-        // Execute based on action type
-        if (action_type === 'send_message') {
-          const { data: conversation } = await serviceClient
-            .from('conversations')
-            .select('customer_phone, whatsapp_account_id')
-            .eq('id', conversation_id)
-            .single();
-
-          if (conversation) {
-            await serviceClient.functions.invoke('send-whatsapp-message', {
-              body: {
-                conversation_id: conversation_id,
-                content: action_payload.message,
-              }
-            });
-          }
-        } else if (action_type === 'add_to_cart') {
-          const { data: conv } = await serviceClient
-            .from('conversations')
-            .select('cart_items, cart_total')
-            .eq('id', conversation_id)
-            .single();
-
-          const cartItems = conv?.cart_items || [];
-          cartItems.push(action_payload);
-
-          await serviceClient
-            .from('conversations')
-            .update({ 
-              cart_items: cartItems,
-              cart_total: cartItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0)
-            })
-            .eq('id', conversation_id);
-        }
-      } catch (error) {
-        console.error('Action execution failed:', error);
-        result = 'failed';
-        errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      }
-
-      // Log the action
-      await serviceClient
-        .from('ai_action_log')
-        .insert({
-          workspace_id: approval.conversations.workspace_id,
-          conversation_id: conversation_id,
-          action_type,
-          action_payload,
-          confidence_score: approval.confidence_score,
-          mode: 'hitl',
-          execution_method: 'approved',
-          result,
-          error_message: errorMessage
-        });
-
-      // Update approval status
+      // Update approval status immediately
       await serviceClient
         .from('ai_pending_approvals')
         .update({
@@ -123,8 +59,78 @@ serve(async (req) => {
         })
         .eq('id', approvalId);
 
+      // Execute the action in background (fire and forget)
+      const { action_type, action_payload, conversation_id } = approval;
+      
+      // Don't await this - let it run in background
+      (async () => {
+        console.log('🔄 Background: Executing approved action:', action_type);
+
+        let result = 'success';
+        let errorMessage = null;
+
+        try {
+          // Execute based on action type
+          if (action_type === 'send_message') {
+            const { data: conversation } = await serviceClient
+              .from('conversations')
+              .select('customer_phone, whatsapp_account_id')
+              .eq('id', conversation_id)
+              .single();
+
+            if (conversation) {
+              await serviceClient.functions.invoke('send-whatsapp-message', {
+                body: {
+                  conversation_id: conversation_id,
+                  content: action_payload.message,
+                }
+              });
+            }
+          } else if (action_type === 'add_to_cart') {
+            const { data: conv } = await serviceClient
+              .from('conversations')
+              .select('cart_items, cart_total')
+              .eq('id', conversation_id)
+              .single();
+
+            const cartItems = conv?.cart_items || [];
+            cartItems.push(action_payload);
+
+            await serviceClient
+              .from('conversations')
+              .update({ 
+                cart_items: cartItems,
+                cart_total: cartItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0)
+              })
+              .eq('id', conversation_id);
+          }
+        } catch (error) {
+          console.error('Background action execution failed:', error);
+          result = 'failed';
+          errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        }
+
+        // Log the action
+        await serviceClient
+          .from('ai_action_log')
+          .insert({
+            workspace_id: approval.conversations.workspace_id,
+            conversation_id: conversation_id,
+            action_type,
+            action_payload,
+            confidence_score: approval.confidence_score,
+            mode: 'hitl',
+            execution_method: 'approved',
+            result,
+            error_message: errorMessage
+          });
+
+        console.log('✅ Background action completed:', result);
+      })().catch((err) => console.error('Background task error:', err));
+
+      // Return immediately
       return new Response(
-        JSON.stringify({ success: true, result }),
+        JSON.stringify({ success: true, optimisticMessageId }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
