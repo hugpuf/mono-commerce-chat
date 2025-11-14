@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkQuietHours, analyzeSentiment, shouldInjectCompliance } from "./utils.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -53,8 +54,23 @@ serve(async (req) => {
 
     const mode = aiSettings?.mode || 'manual';
     const confidenceThreshold = aiSettings?.confidence_threshold || 0.7;
+    const quietHours = aiSettings?.quiet_hours || [];
 
-    console.log('🔧 AI Settings:', { mode, confidenceThreshold });
+    console.log('🔧 AI Settings:', { mode, confidenceThreshold, quietHours });
+
+    // Check if we're in quiet hours
+    const isQuietHours = checkQuietHours(quietHours);
+    if (isQuietHours) {
+      console.log('🌙 Quiet hours active - queueing message for later');
+      return new Response(
+        JSON.stringify({ 
+          message: "Thank you for your message. Our team will respond during business hours.",
+          queued: true,
+          quiet_hours: true
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
 
     // MANUAL MODE: COMPLETELY PASSIVE - AI does not run
     if (mode === 'manual') {
@@ -299,6 +315,23 @@ Remember: You can search products, manage cart, create checkout links, and check
       }
     }
 
+    // Analyze sentiment of customer message for escalation detection
+    console.log('🎭 Analyzing customer sentiment...');
+    const sentimentScore = await analyzeSentiment(customerMessage);
+    console.log(`🎭 Sentiment score: ${sentimentScore}`);
+    
+    // Force escalation if highly negative sentiment (Phase 1 implementation)
+    const forceEscalation = sentimentScore < -0.7;
+    if (forceEscalation) {
+      console.log('⚠️ High negative sentiment detected - forcing escalation');
+    }
+    
+    // Inject compliance notes if certain keywords are detected (Phase 1 implementation)
+    if (aiSettings?.compliance_notes && shouldInjectCompliance(finalResponse)) {
+      console.log('📋 Injecting compliance notes');
+      finalResponse += `\n\n${aiSettings.compliance_notes}`;
+    }
+
     // Calculate confidence score
     console.log('📊 Calculating confidence score...');
     let confidence = 75; // Baseline
@@ -327,19 +360,30 @@ Remember: You can search products, manage cart, create checkout links, and check
     
     let requiresApproval = false;
     
+    // HITL Mode: Require approval if confidence below threshold OR high negative sentiment
     if (mode === 'hitl') {
-      // HITL mode: Check confidence threshold
-      requiresApproval = confidence < (confidenceThreshold * 100);
-      console.log(`🎯 HITL Mode: Confidence ${confidence}% vs Threshold ${confidenceThreshold * 100}% = Approval ${requiresApproval ? 'REQUIRED' : 'NOT REQUIRED'}`);
+      requiresApproval = confidence < (confidenceThreshold * 100) || forceEscalation;
+      const reason = forceEscalation 
+        ? `high negative sentiment (${sentimentScore.toFixed(2)})`
+        : `low confidence (${confidence}%)`;
+      console.log(`🎯 HITL Mode: Approval ${requiresApproval ? 'REQUIRED' : 'NOT REQUIRED'} - ${reason}`);
     } else if (mode === 'auto') {
-      // Auto/AI mode: Never require approval
-      requiresApproval = false;
-      console.log(`🤖 AUTO Mode: Always auto-send (confidence: ${confidence}%)`);
+      // Auto mode: Force approval only for high negative sentiment
+      requiresApproval = forceEscalation;
+      if (forceEscalation) {
+        console.log(`⚠️ AUTO Mode: Forcing approval due to high negative sentiment (${sentimentScore.toFixed(2)})`);
+      } else {
+        console.log(`🤖 AUTO Mode: Always auto-send (confidence: ${confidence}%)`);
+      }
     }
     
     if (requiresApproval) {
       // Create pending approval
-      console.log('⏸️  Creating pending approval (low confidence)');
+      const escalationReason = forceEscalation 
+        ? `High negative sentiment detected (${sentimentScore.toFixed(2)})`
+        : `Low confidence (${confidence}% < ${confidenceThreshold * 100}%)`;
+      
+      console.log(`⏸️  Creating pending approval: ${escalationReason}`);
       
       const { data: approval, error: approvalError } = await supabaseClient
         .from('ai_pending_approvals')
@@ -352,7 +396,7 @@ Remember: You can search products, manage cart, create checkout links, and check
             message: finalResponse,  // Changed from 'content' to 'message' to match UI
             message_type: 'text'
           },
-          ai_reasoning: `Generated response with ${confidence}% confidence (below ${confidenceThreshold * 100}% threshold)`,
+          ai_reasoning: escalationReason,
           confidence_score: confidence / 100,
           status: 'pending'
         })
