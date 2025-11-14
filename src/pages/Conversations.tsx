@@ -511,23 +511,23 @@ export default function Conversations() {
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="divide-y divide-border px-3 py-2">
+          <div className="space-y-1 p-2">
             {conversations.map((conv) => (
               <button
                 key={conv.id}
                 onClick={() => setSelectedConversationId(conv.id)}
                 className={cn(
-                  "w-full p-3 text-left transition-all rounded-lg group my-1",
+                  "w-full p-3 text-left transition-all rounded-lg group relative",
                   selectedConversationId === conv.id 
-                    ? "ring-2 ring-foreground ring-offset-4 ring-offset-background bg-muted/50" 
-                    : "hover:bg-muted"
+                    ? "bg-accent/50 border-l-4 border-l-primary" 
+                    : "hover:bg-muted border-l-4 border-l-transparent"
                 )}
               >
                 <div className="flex items-start gap-3 min-w-0">
                   <Avatar className={cn(
                     "h-10 w-10 flex-shrink-0 rounded-full flex items-center justify-center transition-colors",
                     selectedConversationId === conv.id 
-                      ? "bg-accent text-accent-foreground" 
+                      ? "bg-primary text-primary-foreground" 
                       : "bg-muted"
                   )}>
                     <span className="text-sm font-medium">
