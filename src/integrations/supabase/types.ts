@@ -14,6 +14,123 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_action_log: {
+        Row: {
+          action_payload: Json
+          action_type: string
+          confidence_score: number | null
+          conversation_id: string | null
+          created_at: string
+          error_message: string | null
+          execution_method: string
+          id: string
+          mode: string
+          result: string
+          workspace_id: string
+        }
+        Insert: {
+          action_payload: Json
+          action_type: string
+          confidence_score?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          execution_method: string
+          id?: string
+          mode: string
+          result: string
+          workspace_id: string
+        }
+        Update: {
+          action_payload?: Json
+          action_type?: string
+          confidence_score?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          execution_method?: string
+          id?: string
+          mode?: string
+          result?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_action_log_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_action_log_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_pending_approvals: {
+        Row: {
+          action_payload: Json
+          action_type: string
+          ai_reasoning: string | null
+          confidence_score: number | null
+          conversation_id: string
+          created_at: string
+          id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          action_payload: Json
+          action_type: string
+          ai_reasoning?: string | null
+          confidence_score?: number | null
+          conversation_id: string
+          created_at?: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          action_payload?: Json
+          action_type?: string
+          ai_reasoning?: string | null
+          confidence_score?: number | null
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_pending_approvals_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_pending_approvals_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -59,6 +176,53 @@ export type Database = {
             foreignKeyName: "audit_logs_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_hours_config: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          holidays: Json | null
+          id: string
+          metadata: Json | null
+          out_of_hours_behavior: Json
+          schedule: Json
+          timezone: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          holidays?: Json | null
+          id?: string
+          metadata?: Json | null
+          out_of_hours_behavior: Json
+          schedule: Json
+          timezone?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          holidays?: Json | null
+          id?: string
+          metadata?: Json | null
+          out_of_hours_behavior?: Json
+          schedule?: Json
+          timezone?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_hours_config_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
@@ -217,8 +381,68 @@ export type Database = {
           },
         ]
       }
+      compliance_checks: {
+        Row: {
+          check_type: string
+          compliance_text: string | null
+          created_at: string
+          description: string | null
+          enabled: boolean
+          enforcement: string
+          id: string
+          metadata: Json | null
+          name: string
+          priority: number
+          trigger_conditions: Json | null
+          updated_at: string
+          validation: Json
+          workspace_id: string
+        }
+        Insert: {
+          check_type: string
+          compliance_text?: string | null
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          enforcement?: string
+          id?: string
+          metadata?: Json | null
+          name: string
+          priority?: number
+          trigger_conditions?: Json | null
+          updated_at?: string
+          validation: Json
+          workspace_id: string
+        }
+        Update: {
+          check_type?: string
+          compliance_text?: string | null
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          enforcement?: string
+          id?: string
+          metadata?: Json | null
+          name?: string
+          priority?: number
+          trigger_conditions?: Json | null
+          updated_at?: string
+          validation?: Json
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_checks_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
+          archived_at: string | null
           assigned_to: string | null
           cart_items: Json | null
           cart_total: number | null
@@ -240,6 +464,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          archived_at?: string | null
           assigned_to?: string | null
           cart_items?: Json | null
           cart_total?: number | null
@@ -261,6 +486,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          archived_at?: string | null
           assigned_to?: string | null
           cart_items?: Json | null
           cart_total?: number | null
@@ -354,6 +580,115 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "data_deletion_requests_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escalation_policies: {
+        Row: {
+          behavior: Json
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          metadata: Json | null
+          name: string
+          priority: number
+          routing: Json
+          triggers: Json
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          behavior: Json
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          metadata?: Json | null
+          name: string
+          priority?: number
+          routing: Json
+          triggers: Json
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          behavior?: Json
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          metadata?: Json | null
+          name?: string
+          priority?: number
+          routing?: Json
+          triggers?: Json
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_policies_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guardrail_rules: {
+        Row: {
+          condition: Json
+          created_at: string
+          description: string | null
+          enabled: boolean
+          enforcement: string
+          fallback_message: string | null
+          id: string
+          metadata: Json | null
+          name: string
+          priority: number
+          type: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          condition: Json
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          enforcement?: string
+          fallback_message?: string | null
+          id?: string
+          metadata?: Json | null
+          name: string
+          priority?: number
+          type: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          condition?: Json
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          enforcement?: string
+          fallback_message?: string | null
+          id?: string
+          metadata?: Json | null
+          name?: string
+          priority?: number
+          type?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guardrail_rules_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -1317,6 +1652,59 @@ export type Database = {
             foreignKeyName: "whatsapp_webhook_events_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_ai_settings: {
+        Row: {
+          ai_voice: string | null
+          compliance_notes: string | null
+          confidence_threshold: number
+          created_at: string
+          donts: string | null
+          dos: string | null
+          escalation_rules: string | null
+          id: string
+          mode: string
+          quiet_hours: Json | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          ai_voice?: string | null
+          compliance_notes?: string | null
+          confidence_threshold?: number
+          created_at?: string
+          donts?: string | null
+          dos?: string | null
+          escalation_rules?: string | null
+          id?: string
+          mode?: string
+          quiet_hours?: Json | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          ai_voice?: string | null
+          compliance_notes?: string | null
+          confidence_threshold?: number
+          created_at?: string
+          donts?: string | null
+          dos?: string | null
+          escalation_rules?: string | null
+          id?: string
+          mode?: string
+          quiet_hours?: Json | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_ai_settings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
