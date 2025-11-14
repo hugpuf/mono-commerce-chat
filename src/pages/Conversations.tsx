@@ -75,7 +75,11 @@ export default function Conversations() {
   // Fetch pending AI approvals
   const fetchPendingApprovals = async () => {
     if (!selectedConversationId) return;
-    
+    // Do not fetch or show approvals in full AI mode
+    if (settings.mode === 'auto') {
+      setPendingApprovals([]);
+      return;
+    }
     try {
       const { data, error } = await (supabase as any)
         .from('ai_pending_approvals')
@@ -92,9 +96,13 @@ export default function Conversations() {
     }
   };
 
-  // Load pending approvals when conversation changes
+  // Load pending approvals when conversation changes (disabled in auto mode)
   useEffect(() => {
     if (!selectedConversationId) return;
+    if (settings.mode === 'auto') {
+      setPendingApprovals([]);
+      return;
+    }
     
     fetchPendingApprovals();
     
@@ -118,7 +126,7 @@ export default function Conversations() {
     return () => {
       supabase.removeChannel(approvalsChannel);
     };
-  }, [selectedConversationId]);
+  }, [selectedConversationId, settings.mode]);
 
   // Group messages by date and consecutive direction
   const groupMessages = (messages: Message[]): GroupedMessages[] => {
@@ -335,12 +343,12 @@ export default function Conversations() {
                   description: error.message,
                   variant: "destructive",
                 });
-              } else if (data?.requiresApproval) {
+              } else if (data?.requiresApproval && settings.mode !== 'auto') {
                 toast({
                   title: "AI Response Ready",
                   description: `Response generated with ${data.confidence}% confidence - review needed`,
                 });
-                // Refresh pending approvals
+                // Refresh pending approvals (non-auto modes only)
                 fetchPendingApprovals();
               } else if (data?.mode === 'manual') {
                 console.log('⏸️ Manual mode - AI is passive');
