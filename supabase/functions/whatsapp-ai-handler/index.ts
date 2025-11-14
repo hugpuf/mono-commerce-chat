@@ -1,6 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { checkQuietHours, analyzeSentiment, shouldInjectCompliance } from "./utils.ts";
+import { 
+  checkQuietHours, 
+  analyzeSentiment, 
+  shouldInjectCompliance,
+  evaluateGuardrailRules,
+  checkEscalationPolicies,
+  isWithinBusinessHours,
+  validateComplianceChecks
+} from "./utils.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,7 +67,7 @@ serve(async (req) => {
     console.log('🔧 AI Settings:', { mode, confidenceThreshold, quietHours });
 
     // Check if we're in quiet hours
-    const isQuietHours = checkQuietHours(quietHours);
+    const isQuietHours = await checkQuietHours(quietHours, workspace?.timezone || 'UTC');
     if (isQuietHours) {
       console.log('🌙 Quiet hours active - queueing message for later');
       return new Response(
@@ -315,22 +323,129 @@ Remember: You can search products, manage cart, create checkout links, and check
       }
     }
 
-    // Analyze sentiment of customer message for escalation detection
+    // === PHASE 2: STRUCTURED RULE EVALUATION ENGINE ===
+    
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+    // Analyze sentiment for rules and escalation
     console.log('🎭 Analyzing customer sentiment...');
     const sentimentScore = await analyzeSentiment(customerMessage);
     console.log(`🎭 Sentiment score: ${sentimentScore}`);
+
+    // Evaluate guardrail rules against AI response
+    console.log('🛡️ Evaluating guardrail rules...');
+    const guardrailViolations = await evaluateGuardrailRules(
+      finalResponse,
+      { 
+        sentimentScore,
+        lastMessage: customerMessage,
+        cart_total: conversation.cart_total,
+        messageCount: messages?.length || 0,
+        lastMessageAt: conversation.last_message_at
+      },
+      workspaceId,
+      supabaseUrl,
+      supabaseServiceKey
+    );
+
+    // Handle critical violations (block enforcement)
+    const criticalViolations = guardrailViolations.filter(v => v.enforcement === 'block');
+    if (criticalViolations.length > 0) {
+      console.log('🚫 Critical guardrail violations detected:', criticalViolations);
+      
+      const fallback = criticalViolations[0].fallbackMessage || 
+        'I apologize, but I cannot provide that information. Please contact our support team for assistance.';
+      
+      await supabaseClient.from('ai_action_log').insert({
+        workspace_id: workspaceId,
+        conversation_id: conversationId,
+        action_type: 'guardrail_block',
+        action_payload: { violations: criticalViolations, originalResponse: finalResponse },
+        result: 'blocked',
+        mode: aiSettings.mode,
+        execution_method: 'automatic',
+        confidence_score: null
+      });
+
+      finalResponse = fallback;
+    }
+
+    // Check escalation policies
+    console.log('📋 Checking escalation policies...');
+    const escalationMatch = await checkEscalationPolicies(
+      {
+        sentimentScore,
+        confidenceScore: 0, // Will be calculated later
+        lastMessage: customerMessage,
+        cart_total: conversation.cart_total,
+        messageCount: messages?.length || 0,
+        lastMessageAt: conversation.last_message_at
+      },
+      workspaceId,
+      supabaseUrl,
+      supabaseServiceKey
+    );
+
+    let forceEscalation = false;
+    let escalationReason = '';
     
-    // Force escalation if highly negative sentiment (Phase 1 implementation)
-    const forceEscalation = sentimentScore < -0.7;
-    if (forceEscalation) {
-      console.log('⚠️ High negative sentiment detected - forcing escalation');
+    if (escalationMatch) {
+      forceEscalation = true;
+      escalationReason = `Escalation policy "${escalationMatch.policyName}" triggered (${escalationMatch.triggers.join(', ')})`;
+      console.log('⚠️ Escalation policy matched:', escalationMatch);
+    }
+
+    // Legacy sentiment-based escalation (fallback)
+    if (!forceEscalation && sentimentScore < -0.7) {
+      forceEscalation = true;
+      escalationReason = `High negative sentiment detected (${sentimentScore.toFixed(2)})`;
+    }
+
+    // Validate compliance checks
+    console.log('✅ Validating compliance checks...');
+    const complianceResult = await validateComplianceChecks(
+      finalResponse,
+      { lastMessage: customerMessage },
+      workspaceId,
+      supabaseUrl,
+      supabaseServiceKey
+    );
+
+    // If required compliance failed, block the message
+    if (!complianceResult.passed && complianceResult.required) {
+      console.log('❌ Required compliance checks failed:', complianceResult.checksFailed);
+      
+      await supabaseClient.from('ai_action_log').insert({
+        workspace_id: workspaceId,
+        conversation_id: conversationId,
+        action_type: 'compliance_block',
+        action_payload: { checksFailed: complianceResult.checksFailed, originalResponse: finalResponse },
+        result: 'blocked',
+        mode: aiSettings.mode,
+        execution_method: 'automatic',
+        confidence_score: null
+      });
+
+      finalResponse = 'I apologize, but I need to verify some information before proceeding. A team member will assist you shortly.';
+      forceEscalation = true;
+      escalationReason = escalationReason || 'Required compliance validation failed';
+    }
+
+    // Inject compliance suggestions
+    if (complianceResult.suggestions.length > 0) {
+      finalResponse += '\n\n' + complianceResult.suggestions.join('\n\n');
+    }
+
+    // Legacy compliance injection (backwards compatibility)
+    if (aiSettings?.compliance_notes && shouldInjectCompliance(customerMessage, aiSettings.compliance_notes)) {
+      if (!finalResponse.includes(aiSettings.compliance_notes)) {
+        console.log('📋 Injecting legacy compliance notes');
+        finalResponse += `\n\n${aiSettings.compliance_notes}`;
+      }
     }
     
-    // Inject compliance notes if certain keywords are detected (Phase 1 implementation)
-    if (aiSettings?.compliance_notes && shouldInjectCompliance(finalResponse)) {
-      console.log('📋 Injecting compliance notes');
-      finalResponse += `\n\n${aiSettings.compliance_notes}`;
-    }
+    // === END PHASE 2 INTEGRATION ===
 
     // Calculate confidence score
     console.log('📊 Calculating confidence score...');
