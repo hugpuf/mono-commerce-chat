@@ -42,9 +42,6 @@ const settingsNav: SettingsNavItem[] = [
       { title: 'Connection', href: '/settings/whatsapp/connection', icon: MessageSquare },
       { title: 'Phone Numbers', href: '/settings/whatsapp/numbers', icon: MessageSquare },
       { title: 'Templates', href: '/settings/whatsapp/templates', icon: MessageSquare },
-      { title: 'Messaging Rules', href: '/settings/whatsapp/rules', icon: MessageSquare },
-      { title: 'Webhooks', href: '/settings/whatsapp/webhooks', icon: MessageSquare },
-      { title: 'Compliance', href: '/settings/whatsapp/compliance', icon: MessageSquare },
     ],
   },
   {
