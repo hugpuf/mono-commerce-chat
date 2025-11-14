@@ -62,25 +62,25 @@ export function WorkflowSettingsPreview() {
 
   return (
     <>
-      <div className="border-b border-border bg-background px-6 py-3">
-        <div className="flex items-center justify-between gap-6">
+      <div className="border-b border-border bg-background px-4 md:px-6 py-3">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
           {/* Left Group: Mode Selector + Description */}
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
             <SegmentedControl
               options={segmentedOptions}
               value={settings.mode}
               onChange={(value) => handleModeChange(value as AutomationMode)}
-              className="flex-shrink-0"
+              className="flex-shrink-0 w-full sm:w-auto"
             />
             
             {/* Active Mode Description */}
-            <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
-              <span>{activeDescription}</span>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="truncate">{activeDescription}</span>
             </div>
           </div>
 
           {/* Right Group: Threshold Badge + Settings */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 justify-between sm:justify-end">
             {/* Confidence Threshold Badge (only for HITL) - Clickable with Popover */}
             {settings.mode === 'hitl' && (
               <Popover open={thresholdOpen} onOpenChange={setThresholdOpen}>
@@ -89,7 +89,7 @@ export function WorkflowSettingsPreview() {
                     type="button"
                     variant="secondary"
                     size="sm"
-                    className="font-mono text-xs rounded-full h-6 px-2"
+                    className="font-mono text-xs rounded-full h-8 px-3 min-h-[44px] md:min-h-0 md:h-6"
                   >
                     {settings.confidenceThreshold}% threshold
                   </Button>
@@ -135,7 +135,7 @@ export function WorkflowSettingsPreview() {
               variant="ghost"
               size="icon"
               onClick={() => setSettingsOpen(true)}
-              className="flex-shrink-0"
+              className="flex-shrink-0 h-10 w-10 md:h-9 md:w-9"
             >
               <Settings2 className="h-4 w-4" />
             </Button>

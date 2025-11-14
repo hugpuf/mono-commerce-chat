@@ -13,6 +13,8 @@ import {
 import { IntegrationCircle } from "./IntegrationCircle";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useWorkspaceConnections } from "@/hooks/useWorkspaceConnections";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import logo from '@/assets/logo.png';
 import shopifyLogo from '@/assets/shopify-logo.png';
 import whatsappLogo from '@/assets/whatsapp-logo.png';
@@ -25,7 +27,13 @@ const mainNavItems = [
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}
+
+export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProps) {
+  const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
   const { workspace, workspaceId } = useWorkspace();
@@ -47,8 +55,14 @@ export function AppSidebar() {
     { id: "whatsapp", name: "WhatsApp", icon: whatsappLogo, status: "connected" as const, active: location.pathname === "/conversations" }
   ] : [];
 
-  return (
-    <aside className="w-60 border-r border-border flex flex-col bg-background">
+  const handleNavClick = () => {
+    if (isMobile && onMobileClose) {
+      onMobileClose();
+    }
+  };
+
+  const sidebarContent = (
+    <aside className="w-60 border-r border-border flex flex-col bg-background h-full">
       {/* Integration Groups */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {/* Channels */}
@@ -64,13 +78,19 @@ export function AppSidebar() {
                   connected={true}
                   status={channel.status}
                   active={channel.active}
-                  onClick={() => navigate("/conversations")}
+                  onClick={() => {
+                    navigate("/conversations");
+                    handleNavClick();
+                  }}
                 />
               ))
             ) : (
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => navigate("/setup/channel")}
+                  onClick={() => {
+                    navigate("/setup/channel");
+                    handleNavClick();
+                  }}
                   className="integration-circle integration-circle-inactive"
                 >
                   <Plus className="w-4 h-4" />
@@ -94,13 +114,19 @@ export function AppSidebar() {
                   connected={true}
                   status={catalog.status}
                   active={location.pathname === "/catalog"}
-                  onClick={() => navigate("/catalog")}
+                  onClick={() => {
+                    navigate("/catalog");
+                    handleNavClick();
+                  }}
                 />
               ))
             ) : (
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => navigate("/setup/catalog")}
+                  onClick={() => {
+                    navigate("/setup/catalog");
+                    handleNavClick();
+                  }}
                   className="integration-circle integration-circle-inactive"
                 >
                   <Plus className="w-4 h-4" />
@@ -124,13 +150,19 @@ export function AppSidebar() {
                   connected={true}
                   status={payment.status}
                   active={location.pathname === "/orders"}
-                  onClick={() => navigate("/orders")}
+                  onClick={() => {
+                    navigate("/orders");
+                    handleNavClick();
+                  }}
                 />
               ))
             ) : (
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => navigate("/setup/payment")}
+                  onClick={() => {
+                    navigate("/setup/payment");
+                    handleNavClick();
+                  }}
                   className="integration-circle integration-circle-inactive"
                 >
                   <Plus className="w-4 h-4" />
@@ -149,6 +181,7 @@ export function AppSidebar() {
                 key={item.path}
                 to={item.path}
                 end
+                onClick={handleNavClick}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
                     isActive
@@ -168,7 +201,10 @@ export function AppSidebar() {
       {/* Company Settings (pinned bottom) */}
       <div className="border-t border-border p-4">
         <button 
-          onClick={() => navigate("/settings")}
+          onClick={() => {
+            navigate("/settings");
+            handleNavClick();
+          }}
           className="flex items-center gap-3 w-full hover:bg-muted rounded-lg p-3 transition-colors text-left"
         >
           <div className="w-10 h-10 rounded-full border-2 border-border overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
@@ -192,4 +228,18 @@ export function AppSidebar() {
       </div>
     </aside>
   );
+
+  // Mobile: render in Sheet drawer
+  if (isMobile) {
+    return (
+      <Sheet open={mobileOpen} onOpenChange={(open) => !open && onMobileClose?.()}>
+        <SheetContent side="left" className="p-0 w-60">
+          {sidebarContent}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  // Desktop: render directly
+  return sidebarContent;
 }
