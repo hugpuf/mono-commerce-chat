@@ -7,6 +7,7 @@ import {
   CreditCard,
   ChevronRight,
   Plug,
+  Shield,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -27,6 +28,11 @@ const settingsNav: SettingsNavItem[] = [
     title: 'Integrations',
     href: '/settings/integrations',
     icon: Plug,
+  },
+  {
+    title: 'AI Rules & Policies',
+    href: '/settings/rules',
+    icon: Shield,
   },
   {
     title: 'WhatsApp',

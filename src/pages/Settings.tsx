@@ -3,6 +3,7 @@ import { SettingsSidebar } from '@/components/settings/SettingsSidebar';
 import GeneralSettings from './settings/GeneralSettings';
 import ConnectionSettings from './settings/whatsapp/ConnectionSettings';
 import Integrations from './settings/Integrations';
+import RulesManagement from './settings/RulesManagement';
 
 export default function Settings() {
   return (
@@ -13,6 +14,7 @@ export default function Settings() {
           <Routes>
             <Route index element={<GeneralSettings />} />
             <Route path="integrations" element={<Integrations />} />
+            <Route path="rules" element={<RulesManagement />} />
             <Route path="whatsapp">
               <Route index element={<Navigate to="connection" replace />} />
               <Route path="connection" element={<ConnectionSettings />} />
