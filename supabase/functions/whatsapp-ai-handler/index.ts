@@ -21,12 +21,35 @@ serve(async (req) => {
 
     console.log('🤖 AI Handler - Processing message:', { conversationId, workspaceId });
 
-    // Fetch AI settings for workspace
-    const { data: aiSettings } = await supabaseClient
-      .from('workspace_ai_settings')
-      .select('*')
-      .eq('workspace_id', workspaceId)
-      .single();
+    // Parallelize all database reads for performance
+    const [
+      { data: aiSettings },
+      { data: messages },
+      { data: conversation },
+      { data: workspace }
+    ] = await Promise.all([
+      supabaseClient
+        .from('workspace_ai_settings')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .single(),
+      supabaseClient
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+        .limit(20),
+      supabaseClient
+        .from('conversations')
+        .select('*, whatsapp_accounts(*)')
+        .eq('id', conversationId)
+        .single(),
+      supabaseClient
+        .from('workspaces')
+        .select('*')
+        .eq('id', workspaceId)
+        .single()
+    ]);
 
     const mode = aiSettings?.mode || 'manual';
     const confidenceThreshold = aiSettings?.confidence_threshold || 0.7;
@@ -44,28 +67,6 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
-
-    // Fetch conversation history
-    const { data: messages } = await supabaseClient
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true })
-      .limit(20); // Last 20 messages for context
-
-    // Fetch conversation (for cart state)
-    const { data: conversation } = await supabaseClient
-      .from('conversations')
-      .select('*, whatsapp_accounts(*)')
-      .eq('id', conversationId)
-      .single();
-
-    // Fetch workspace info
-    const { data: workspace } = await supabaseClient
-      .from('workspaces')
-      .select('*')
-      .eq('id', workspaceId)
-      .single();
 
     // Build conversation history for AI
     const conversationHistory = messages?.map(msg => ({
@@ -389,23 +390,65 @@ Remember: You can search products, manage cart, create checkout links, and check
       });
       
     } else {
-      // Auto-send message
+      // Auto-send message (inline for performance)
       console.log('✅ Auto-sending (high confidence or auto mode)');
       
-      // Send via WhatsApp (this also stores the message)
-      const { data: sendResult, error: whatsappError } = await supabaseClient.functions.invoke('send-whatsapp-message', {
-        body: {
-          conversation_id: conversationId,
-          content: finalResponse
-        }
-      });
+      const startSend = Date.now();
       
-      if (whatsappError) {
-        console.error('❌ WhatsApp send failed:', whatsappError);
-        throw whatsappError;
+      // Get WhatsApp credentials and send directly (no extra function call)
+      const whatsappAccount = conversation.whatsapp_accounts;
+      if (!whatsappAccount?.access_token || !whatsappAccount?.phone_number_id) {
+        console.error('❌ WhatsApp credentials missing');
+        throw new Error('WhatsApp account not properly configured');
       }
-      
-      console.log('✅ Message sent via WhatsApp');
+
+      // Send via Meta Graph API directly
+      const graphApiUrl = `https://graph.facebook.com/v18.0/${whatsappAccount.phone_number_id}/messages`;
+      const graphResponse = await fetch(graphApiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${whatsappAccount.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: conversation.customer_phone,
+          type: 'text',
+          text: { body: finalResponse }
+        })
+      });
+
+      if (!graphResponse.ok) {
+        const errorText = await graphResponse.text();
+        console.error('❌ WhatsApp API error:', errorText);
+        throw new Error(`WhatsApp send failed: ${graphResponse.status}`);
+      }
+
+      const graphData = await graphResponse.json();
+      console.log(`✅ Message sent via WhatsApp API in ${Date.now() - startSend}ms`);
+
+      // Store the outbound message
+      await supabaseClient.from('messages').insert({
+        conversation_id: conversationId,
+        direction: 'outbound',
+        from_number: whatsappAccount.phone_number,
+        to_number: conversation.customer_phone,
+        content: finalResponse,
+        message_type: 'text',
+        status: 'sent',
+        whatsapp_message_id: graphData.messages?.[0]?.id,
+        metadata: { ai_generated: true, confidence }
+      });
+
+      // Update conversation
+      await supabaseClient
+        .from('conversations')
+        .update({
+          last_message_at: new Date().toISOString(),
+          last_message_preview: finalResponse.substring(0, 100)
+        })
+        .eq('id', conversationId);
       
       // Log the action (non-blocking)
       supabaseClient.from('ai_action_log').insert({

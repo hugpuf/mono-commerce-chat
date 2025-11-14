@@ -308,7 +308,7 @@ export default function Conversations() {
 
     fetchMessages();
 
-    // Subscribe to new messages and trigger AI
+    // Subscribe to new messages (AI is handled server-side now)
     const messagesChannel = supabase
       .channel(`messages-${selectedConversationId}`)
       .on(
@@ -321,41 +321,14 @@ export default function Conversations() {
         },
         async (payload) => {
           const newMessage = payload.new as Message;
-          console.log('New message:', newMessage);
+          console.log('New message received:', newMessage);
           setMessages((prev) => [...prev, newMessage]);
 
-          // Trigger AI for inbound customer messages
-          if (newMessage.direction === 'inbound' && !newMessage.metadata?.ai_generated) {
-            console.log('🤖 Triggering AI handler for inbound message');
-            try {
-              const { data, error } = await supabase.functions.invoke('whatsapp-ai-handler', {
-                body: {
-                  conversationId: selectedConversationId,
-                  customerMessage: newMessage.content,
-                  workspaceId: workspaceId,
-                },
-              });
-
-              if (error) {
-                console.error('AI handler error:', error);
-                toast({
-                  title: "AI processing failed",
-                  description: error.message,
-                  variant: "destructive",
-                });
-              } else if (data?.requiresApproval && settings.mode !== 'auto') {
-                toast({
-                  title: "AI Response Ready",
-                  description: `Response generated with ${data.confidence}% confidence - review needed`,
-                });
-                // Refresh pending approvals (non-auto modes only)
-                fetchPendingApprovals();
-              } else if (data?.mode === 'manual') {
-                console.log('⏸️ Manual mode - AI is passive');
-              }
-            } catch (err) {
-              console.error('Failed to invoke AI handler:', err);
-            }
+          // AI is now invoked server-side from webhook
+          // No need to invoke from frontend to avoid race conditions
+          if (newMessage.direction === 'inbound') {
+            console.log('📥 Inbound message received (AI handled by webhook)');
+            // AI processing happens server-side in whatsapp-webhook function
           }
         }
       )
