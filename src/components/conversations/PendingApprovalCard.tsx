@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Check, X, Brain, ShoppingCart, MessageSquare, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Textarea } from '@/components/ui/textarea';
 
 interface PendingApprovalCardProps {
   approval: {
@@ -21,8 +20,6 @@ interface PendingApprovalCardProps {
 
 export function PendingApprovalCard({ approval, onApprovalComplete }: PendingApprovalCardProps) {
   const [loading, setLoading] = useState(false);
-  const [showRejectReason, setShowRejectReason] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
   const { toast } = useToast();
 
   const getActionIcon = () => {
@@ -95,22 +92,13 @@ export function PendingApprovalCard({ approval, onApprovalComplete }: PendingApp
   };
 
   const handleReject = async () => {
-    if (!rejectionReason.trim()) {
-      toast({
-        title: "Reason required",
-        description: "Please provide a reason for rejection",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('approve-ai-action', {
         body: { 
           approvalId: approval.id, 
           approved: false,
-          rejectionReason: rejectionReason.trim()
+          rejectionReason: 'Rejected by user'
         }
       });
 
@@ -172,59 +160,26 @@ export function PendingApprovalCard({ approval, onApprovalComplete }: PendingApp
           <p className="text-xs font-mono break-all">{getActionDetails()}</p>
         </div>
 
-        {showRejectReason ? (
-          <div className="space-y-2">
-            <Textarea
-              placeholder="Why are you rejecting this action?"
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              className="text-sm min-h-[60px]"
-            />
-            <div className="flex gap-2">
-              <Button
-                onClick={handleReject}
-                disabled={loading}
-                variant="destructive"
-                size="sm"
-                className="flex-1"
-              >
-                {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
-                Confirm Reject
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowRejectReason(false);
-                  setRejectionReason('');
-                }}
-                variant="outline"
-                size="sm"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <Button
-              onClick={handleApprove}
-              disabled={loading}
-              className="flex-1"
-              size="sm"
-            >
-              {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-              Approve
-            </Button>
-            <Button
-              onClick={() => setShowRejectReason(true)}
-              disabled={loading}
-              variant="outline"
-              size="sm"
-            >
-              <X className="h-3 w-3" />
-              Reject
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Button
+            onClick={handleApprove}
+            disabled={loading}
+            className="flex-1"
+            size="sm"
+          >
+            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+            Approve
+          </Button>
+          <Button
+            onClick={handleReject}
+            disabled={loading}
+            variant="outline"
+            size="sm"
+          >
+            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+            Reject
+          </Button>
+        </div>
 
         <p className="text-[10px] text-muted-foreground">
           Requested {new Date(approval.created_at).toLocaleTimeString()}
