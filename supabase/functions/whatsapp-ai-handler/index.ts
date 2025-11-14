@@ -201,7 +201,23 @@ serve(async (req) => {
     // Build system prompt from settings
     const systemPromptParts = [
       `You are a helpful shopping assistant for ${workspace?.company_name || workspace?.name}.`,
-      aiSettings?.ai_voice ? `Brand Voice: ${aiSettings.ai_voice}` : '',
+      
+      // BRAND VOICE - TOP PRIORITY (when set)
+      aiSettings?.ai_voice ? `
+═══════════════════════════════════════════════════════════
+⚠️ CRITICAL INSTRUCTION - BRAND VOICE ⚠️
+═══════════════════════════════════════════════════════════
+
+${aiSettings.ai_voice}
+
+YOU MUST follow this brand voice EXACTLY in EVERY response you give.
+This voice guideline is your TOP PRIORITY and OVERRIDES all other 
+stylistic suggestions below. Do not deviate from this voice under 
+any circumstances.
+
+═══════════════════════════════════════════════════════════
+      `.trim() : '',
+      
       aiSettings?.dos ? `Do: ${aiSettings.dos}` : '',
       aiSettings?.donts ? `Don't: ${aiSettings.donts}` : '',
       aiSettings?.escalation_rules ? `Escalate when: ${aiSettings.escalation_rules}` : '',
@@ -215,13 +231,17 @@ Your role:
 
 Current cart: ${conversation?.cart_items?.length || 0} items, Total: $${Number(conversation?.cart_total || 0).toFixed(2)}
 
-Guidelines:
+${!aiSettings?.ai_voice ? `Guidelines:
 - Be friendly, concise, and helpful
 - When showing products, mention key details: name, price, stock status
 - Always confirm before adding items to cart
 - Guide customers naturally toward checkout when appropriate
 - If a product is out of stock, suggest alternatives
-- Use emojis occasionally to be friendly: 🛍️ 📦 ✨
+- Use emojis occasionally to be friendly: 🛍️ 📦 ✨` : `Guidelines:
+- When showing products, mention key details: name, price, stock status
+- Always confirm before adding items to cart
+- Guide customers naturally toward checkout when appropriate
+- If a product is out of stock, suggest alternatives`}
 
 Remember: You can search products, manage cart, create checkout links, and check orders.
       `.trim()
