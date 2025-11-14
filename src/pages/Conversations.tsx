@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAutomations } from "@/contexts/AutomationsContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format, isToday, isYesterday, isThisWeek } from "date-fns";
@@ -55,6 +56,7 @@ interface GroupedMessages {
 
 export default function Conversations() {
   const { workspaceId } = useWorkspace();
+  const { settings } = useAutomations();
   const { toast } = useToast();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -604,8 +606,8 @@ export default function Conversations() {
             )}
           </div>
 
-          {/* Pending Approvals - at bottom above composer */}
-          {pendingApprovals.length > 0 && (
+          {/* Pending Approvals - at bottom above composer (hidden in auto mode) */}
+          {pendingApprovals.length > 0 && settings.mode !== 'auto' && (
             <div className="border-t border-border bg-background p-4 space-y-3">
               <div className="max-w-3xl mx-auto space-y-3">
                 {pendingApprovals.map((approval) => (
