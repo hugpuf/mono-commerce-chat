@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Send, Paperclip, Plus, MoreVertical, Package, CreditCard, Tag, ArrowDown } from "lucide-react";
+import { Search, Send, Paperclip, Plus, MoreVertical, Package, CreditCard, Tag, ArrowDown, Archive, ArchiveRestore } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -67,6 +67,7 @@ export default function Conversations() {
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -230,11 +231,20 @@ export default function Conversations() {
 
     const fetchConversations = async () => {
       setIsLoading(true);
-      const { data, error } = await supabase
+      
+      const query = supabase
         .from('conversations')
         .select('*')
-        .eq('workspace_id', workspaceId)
-        .order('last_message_at', { ascending: false });
+        .eq('workspace_id', workspaceId);
+      
+      // Filter based on showArchived state
+      if (showArchived) {
+        query.eq('status', 'archived');
+      } else {
+        query.neq('status', 'archived');
+      }
+      
+      const { data, error } = await query.order('last_message_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching conversations:', error);
@@ -281,7 +291,7 @@ export default function Conversations() {
     return () => {
       supabase.removeChannel(conversationsChannel);
     };
-  }, [workspaceId, toast]);
+  }, [workspaceId, toast, showArchived]);
 
   // Fetch messages for selected conversation
   useEffect(() => {
@@ -338,6 +348,52 @@ export default function Conversations() {
       supabase.removeChannel(messagesChannel);
     };
   }, [selectedConversationId, toast, workspaceId]);
+
+  const handleArchiveConversation = async (conversationId: string, isArchived: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .update({ 
+          status: isArchived ? 'open' : 'archived',
+          archived_at: isArchived ? null : new Date().toISOString()
+        })
+        .eq('id', conversationId);
+
+      if (error) throw error;
+
+      toast({
+        title: isArchived ? "Conversation restored" : "Conversation archived",
+        description: isArchived ? "Moved back to active conversations" : "Moved to archived conversations",
+      });
+
+      // Refetch conversations to update the list
+      const query = supabase
+        .from('conversations')
+        .select('*')
+        .eq('workspace_id', workspaceId);
+      
+      if (showArchived) {
+        query.eq('status', 'archived');
+      } else {
+        query.neq('status', 'archived');
+      }
+      
+      const { data } = await query.order('last_message_at', { ascending: false });
+      if (data) setConversations(data);
+      
+      // If archiving the currently selected conversation, deselect it
+      if (!isArchived && conversationId === selectedConversationId) {
+        setSelectedConversationId(null);
+      }
+    } catch (error) {
+      console.error('Error archiving conversation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to archive conversation",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!message.trim() || !selectedConversationId || isSending) return;
@@ -428,13 +484,23 @@ export default function Conversations() {
         <div className="p-4 border-b border-border space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">Conversations</h2>
-            <Button 
-              size="sm" 
-              onClick={() => setNewConversationOpen(true)}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              New
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                size="sm"
+                variant={showArchived ? "default" : "ghost"}
+                onClick={() => setShowArchived(!showArchived)}
+              >
+                {showArchived ? <ArchiveRestore className="h-4 w-4 mr-1" /> : <Archive className="h-4 w-4 mr-1" />}
+                {showArchived ? "Active" : "Archived"}
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={() => setNewConversationOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                New
+              </Button>
+            </div>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -449,7 +515,7 @@ export default function Conversations() {
                 key={conv.id}
                 onClick={() => setSelectedConversationId(conv.id)}
                 className={cn(
-                  "w-full p-4 text-left transition-all rounded-lg",
+                  "w-full p-4 text-left transition-all rounded-lg group",
                   selectedConversationId === conv.id 
                     ? "ring-2 ring-foreground ring-offset-2 ring-offset-background" 
                     : "hover:bg-muted"
@@ -457,7 +523,7 @@ export default function Conversations() {
               >
                 <div className="flex items-start gap-3">
                   <Avatar className={cn(
-                    "h-10 w-10 rounded-full flex items-center justify-center transition-colors",
+                    "h-10 w-10 flex-shrink-0 rounded-full flex items-center justify-center transition-colors",
                     selectedConversationId === conv.id 
                       ? "bg-accent text-accent-foreground" 
                       : "bg-muted"
@@ -472,7 +538,7 @@ export default function Conversations() {
                     </span>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between mb-1 gap-2">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <span className={cn(
                           "font-medium text-sm truncate",
@@ -486,18 +552,49 @@ export default function Conversations() {
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+                      <span className="text-xs text-muted-foreground flex-shrink-0">
                         {conv.last_message_at
                           ? formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true })
                           : ""}
                       </span>
                     </div>
-                    <p className={cn(
-                      "text-sm text-muted-foreground truncate",
-                      conv.unread_count && conv.unread_count > 0 && "font-semibold text-foreground"
-                    )}>
-                      {conv.last_message_preview || conv.customer_phone}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className={cn(
+                        "text-sm text-muted-foreground truncate flex-1 min-w-0",
+                        conv.unread_count && conv.unread_count > 0 && "font-semibold text-foreground"
+                      )}>
+                        {conv.last_message_preview || conv.customer_phone}
+                      </p>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 w-6 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <MoreVertical className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation();
+                            handleArchiveConversation(conv.id, conv.status === 'archived');
+                          }}>
+                            {conv.status === 'archived' ? (
+                              <>
+                                <ArchiveRestore className="h-4 w-4 mr-2" />
+                                Restore
+                              </>
+                            ) : (
+                              <>
+                                <Archive className="h-4 w-4 mr-2" />
+                                Archive
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </div>
               </button>
