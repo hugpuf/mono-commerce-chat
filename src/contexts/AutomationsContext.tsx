@@ -270,12 +270,25 @@ export function AutomationsProvider({ children }: { children: React.ReactNode })
               doList: settingsData.dos ? settingsData.dos.split('\n').filter(Boolean) : defaultSettings.guardrails.doList,
               dontList: settingsData.donts ? settingsData.donts.split('\n').filter(Boolean) : defaultSettings.guardrails.dontList,
               escalationRules: settingsData.escalation_rules || defaultSettings.guardrails.escalationRules,
-              quietHours: settingsData.quiet_hours ? JSON.stringify(settingsData.quiet_hours) : defaultSettings.guardrails.quietHours,
+              quietHours: settingsData.quiet_hours && Array.isArray(settingsData.quiet_hours) && settingsData.quiet_hours.length > 0 
+                ? JSON.stringify(settingsData.quiet_hours) 
+                : defaultSettings.guardrails.quietHours,
               compliance: settingsData.compliance_notes || defaultSettings.guardrails.compliance,
             },
           });
         } else {
           // Create default settings in database
+          // Parse default quiet hours into structured format
+          const defaultQuietHoursStructured = [
+            {
+              enabled: true,
+              start: "22:00",
+              end: "08:00",
+              timezone: "local",
+              days: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+            }
+          ];
+          
           await (supabase.from('workspace_ai_settings' as any).insert({
             workspace_id: profile.workspace_id,
             mode: defaultSettings.mode,
@@ -284,7 +297,7 @@ export function AutomationsProvider({ children }: { children: React.ReactNode })
             dos: defaultSettings.guardrails.doList.join('\n'),
             donts: defaultSettings.guardrails.dontList.join('\n'),
             escalation_rules: defaultSettings.guardrails.escalationRules,
-            quiet_hours: [],
+            quiet_hours: defaultQuietHoursStructured,
             compliance_notes: defaultSettings.guardrails.compliance,
           }) as any);
         }
@@ -303,6 +316,35 @@ export function AutomationsProvider({ children }: { children: React.ReactNode })
     const updated = { ...settings, ...newSettings };
     
     try {
+      // Parse quietHours text into structured format
+      let quietHoursStructured = [];
+      try {
+        // Try to parse if it's already JSON
+        const parsed = JSON.parse(updated.guardrails.quietHours);
+        if (Array.isArray(parsed)) {
+          quietHoursStructured = parsed;
+        }
+      } catch {
+        // If not JSON, parse as simple time range text like "10 PM - 8 AM local time"
+        const match = updated.guardrails.quietHours.match(/(\d+)\s*(AM|PM)\s*-\s*(\d+)\s*(AM|PM)/i);
+        if (match) {
+          const startHour = match[2].toUpperCase() === 'PM' && parseInt(match[1]) !== 12 
+            ? parseInt(match[1]) + 12 
+            : parseInt(match[1]);
+          const endHour = match[4].toUpperCase() === 'PM' && parseInt(match[3]) !== 12 
+            ? parseInt(match[3]) + 12 
+            : parseInt(match[3]);
+          
+          quietHoursStructured = [{
+            enabled: true,
+            start: `${startHour.toString().padStart(2, '0')}:00`,
+            end: `${endHour.toString().padStart(2, '0')}:00`,
+            timezone: "local",
+            days: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+          }];
+        }
+      }
+
       // Save to database first (reliability fix)
       const { error } = await supabase
         .from('workspace_ai_settings' as any)
@@ -314,7 +356,7 @@ export function AutomationsProvider({ children }: { children: React.ReactNode })
           dos: updated.guardrails.doList.join('\n'),
           donts: updated.guardrails.dontList.join('\n'),
           escalation_rules: updated.guardrails.escalationRules,
-          quiet_hours: [],
+          quiet_hours: quietHoursStructured,
           compliance_notes: updated.guardrails.compliance,
         }, {
           onConflict: 'workspace_id'
