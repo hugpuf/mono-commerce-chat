@@ -482,23 +482,25 @@ export default function Conversations() {
         {/* Conversation List */}
         <div className="w-80 border-r border-border flex flex-col">
         <div className="p-4 border-b border-border space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Conversations</h2>
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold">Conversations</h2>
+            <div className="flex items-center gap-2 flex-shrink-0">
               <Button 
                 size="sm"
                 variant={showArchived ? "default" : "ghost"}
                 onClick={() => setShowArchived(!showArchived)}
+                className="flex items-center gap-1"
               >
-                {showArchived ? <ArchiveRestore className="h-4 w-4 mr-1" /> : <Archive className="h-4 w-4 mr-1" />}
-                {showArchived ? "Active" : "Archived"}
+                {showArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                <span>{showArchived ? "Active" : "Archived"}</span>
               </Button>
               <Button 
                 size="sm" 
                 onClick={() => setNewConversationOpen(true)}
+                className="flex items-center gap-1"
               >
-                <Plus className="h-4 w-4 mr-1" />
-                New
+                <Plus className="h-4 w-4" />
+                <span>New</span>
               </Button>
             </div>
           </div>
@@ -509,19 +511,19 @@ export default function Conversations() {
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="divide-y divide-border p-2">
+          <div className="divide-y divide-border px-3 py-2">
             {conversations.map((conv) => (
               <button
                 key={conv.id}
                 onClick={() => setSelectedConversationId(conv.id)}
                 className={cn(
-                  "w-full p-4 text-left transition-all rounded-lg group",
+                  "w-full p-3 text-left transition-all rounded-lg group my-1",
                   selectedConversationId === conv.id 
-                    ? "ring-2 ring-foreground ring-offset-2 ring-offset-background" 
+                    ? "ring-2 ring-foreground ring-offset-4 ring-offset-background bg-muted/50" 
                     : "hover:bg-muted"
                 )}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3 min-w-0">
                   <Avatar className={cn(
                     "h-10 w-10 flex-shrink-0 rounded-full flex items-center justify-center transition-colors",
                     selectedConversationId === conv.id 
@@ -537,9 +539,9 @@ export default function Conversations() {
                         .slice(0, 2) || "?"}
                     </span>
                   </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1 gap-2">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-center justify-between mb-1 gap-2 min-w-0">
+                      <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
                         <span className={cn(
                           "font-medium text-sm truncate",
                           conv.unread_count && conv.unread_count > 0 && "font-bold"
@@ -552,13 +554,13 @@ export default function Conversations() {
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-muted-foreground flex-shrink-0">
+                      <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
                         {conv.last_message_at
                           ? formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true })
                           : ""}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <p className={cn(
                         "text-sm text-muted-foreground truncate flex-1 min-w-0",
                         conv.unread_count && conv.unread_count > 0 && "font-semibold text-foreground"
@@ -570,7 +572,7 @@ export default function Conversations() {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-6 w-6 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="h-6 w-6 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ml-1"
                           >
                             <MoreVertical className="h-3 w-3" />
                           </Button>
