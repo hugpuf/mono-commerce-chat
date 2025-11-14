@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Send, Paperclip, Plus, MoreVertical, Package, CreditCard, Tag, ArrowDown, Archive, ArchiveRestore } from "lucide-react";
+import { Search, Send, Paperclip, Plus, MoreVertical, Package, CreditCard, Tag, ArrowDown, Archive, ArchiveRestore, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -20,6 +20,7 @@ import { WorkflowSettingsPreview } from "@/components/conversations/WorkflowSett
 import { MessageGroup } from "@/components/conversations/MessageGroup";
 import { AutoResizeTextarea } from "@/components/conversations/AutoResizeTextarea";
 import { PendingApprovalCard } from "@/components/conversations/PendingApprovalCard";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 // WhatsApp Conversations Page
@@ -58,6 +59,7 @@ export default function Conversations() {
   const { workspaceId } = useWorkspace();
   const { settings } = useAutomations();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -68,6 +70,7 @@ export default function Conversations() {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const [showArchived, setShowArchived] = useState(false);
+  const [showMobileChat, setShowMobileChat] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -475,12 +478,16 @@ export default function Conversations() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Workflow Settings Preview - Always Visible */}
-      <WorkflowSettingsPreview />
+      {/* Workflow Settings Preview - Desktop Only */}
+      {!isMobile && <WorkflowSettingsPreview />}
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Conversation List */}
-        <div className="w-80 border-r border-border flex flex-col">
+        {/* Conversation List - Hidden on mobile when chat is open */}
+        <div className={cn(
+          "border-r border-border flex flex-col",
+          "w-full md:w-80",
+          isMobile && showMobileChat && "hidden"
+        )}>
         <div className="p-4 border-b border-border space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-xl font-semibold">Conversations</h2>
@@ -515,7 +522,10 @@ export default function Conversations() {
             {conversations.map((conv) => (
               <button
                 key={conv.id}
-                onClick={() => setSelectedConversationId(conv.id)}
+                onClick={() => {
+                  setSelectedConversationId(conv.id);
+                  if (isMobile) setShowMobileChat(true);
+                }}
                 className={cn(
                   "w-full p-3 text-left transition-all rounded-lg group relative",
                   selectedConversationId === conv.id 
@@ -605,18 +615,35 @@ export default function Conversations() {
         </ScrollArea>
       </div>
 
-      {/* Chat Area */}
+      {/* Chat Area - Hidden on mobile when list is showing */}
       {selectedConversation ? (
-        <div className="flex-1 flex flex-col">
-          {/* Chat Header */}
-          <div className="h-14 border-b border-border px-6 flex items-center justify-between">
-            <div>
-              <h2 className="font-semibold">
-                {selectedConversation.customer_name || "Unknown"}
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                {selectedConversation.customer_phone}
-              </p>
+        <div className={cn(
+          "flex-1 flex flex-col",
+          isMobile && !showMobileChat && "hidden"
+        )}>
+          {/* Chat Header with Mobile Back Button */}
+          <div className="h-14 border-b border-border px-4 md:px-6 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              {/* Mobile Back Button */}
+              {isMobile && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowMobileChat(false)}
+                  className="flex-shrink-0 h-9 w-9"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              )}
+              
+              <div className="min-w-0 flex-1">
+                <h2 className="font-semibold truncate">
+                  {selectedConversation.customer_name || "Unknown"}
+                </h2>
+                <p className="text-xs text-muted-foreground truncate">
+                  {selectedConversation.customer_phone}
+                </p>
+              </div>
             </div>
             
             <div className="flex items-center gap-2">
@@ -710,13 +737,13 @@ export default function Conversations() {
           )}
 
           {/* Composer */}
-          <div className="border-t border-border p-4">
+          <div className="border-t border-border p-3 md:p-4">
             <div className="flex items-end gap-2">
-              <Button variant="ghost" size="icon" className="flex-shrink-0">
-                <Plus className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="flex-shrink-0 h-11 w-11 md:h-10 md:w-10">
+                <Plus className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="flex-shrink-0">
-                <Paperclip className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="flex-shrink-0 h-11 w-11 md:h-10 md:w-10">
+                <Paperclip className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
               <AutoResizeTextarea
                 placeholder="Type a message..."
@@ -724,14 +751,14 @@ export default function Conversations() {
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
                 disabled={isSending}
-                className="flex-1"
+                className="flex-1 text-base md:text-sm"
                 maxHeight={200}
               />
               <Button
                 size="icon"
+                className="flex-shrink-0 h-11 w-11 md:h-10 md:w-10"
                 onClick={handleSendMessage}
                 disabled={!message.trim() || isSending}
-                className="flex-shrink-0"
               >
                 <Send className="h-4 w-4" />
               </Button>
