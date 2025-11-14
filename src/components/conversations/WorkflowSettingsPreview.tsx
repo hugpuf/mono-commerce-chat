@@ -70,7 +70,7 @@ export function WorkflowSettingsPreview() {
               options={segmentedOptions}
               value={settings.mode}
               onChange={(value) => handleModeChange(value as AutomationMode)}
-              className="flex-shrink-0 w-full sm:w-auto"
+              className="w-full sm:w-auto"
             />
             
             {/* Active Mode Description */}
