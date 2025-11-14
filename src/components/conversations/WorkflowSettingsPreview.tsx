@@ -26,7 +26,7 @@ export function WorkflowSettingsPreview() {
     manual: 'Review every action',
     hitl: 'Approve low-confidence actions',
     auto: 'Full AI - instant responses'
-  };
+  } as const;
 
   const handleModeChange = async (newMode: AutomationMode) => {
     if (newMode === settings.mode || updating) return;
@@ -84,15 +84,17 @@ export function WorkflowSettingsPreview() {
             {/* Confidence Threshold Badge (only for HITL) - Clickable with Popover */}
             {settings.mode === 'hitl' && (
               <Popover open={thresholdOpen} onOpenChange={setThresholdOpen}>
-                <PopoverTrigger asChild>
-                  <Badge 
-                    variant="secondary" 
-                    className="font-mono text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
+                <PopoverTrigger>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="font-mono text-xs rounded-full h-6 px-2"
                   >
                     {settings.confidenceThreshold}% threshold
-                  </Badge>
+                  </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-64" align="end">
+                <PopoverContent className="w-64" align="end" side="bottom">
                   <div className="space-y-3">
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
