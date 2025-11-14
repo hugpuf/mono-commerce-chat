@@ -297,7 +297,7 @@ export function AutomationsProvider({ children }: { children: React.ReactNode })
   const updateSettings = async (newSettings: Partial<GlobalAutomationSettings>) => {
     if (!workspaceId) {
       console.error('Cannot save settings: workspace ID not available');
-      return;
+      throw new Error('Workspace ID not available');
     }
 
     const updated = { ...settings, ...newSettings };
@@ -316,11 +316,17 @@ export function AutomationsProvider({ children }: { children: React.ReactNode })
           escalation_rules: updated.guardrails.escalationRules,
           quiet_hours: [],
           compliance_notes: updated.guardrails.compliance,
+        }, {
+          onConflict: 'workspace_id'
         }) as any;
       
       if (error) {
         console.error('Failed to save settings:', error);
-        throw error;
+        // Provide user-friendly error messages
+        if (error.code === '23505') {
+          throw new Error('Database conflict - please refresh the page and try again');
+        }
+        throw new Error(error.message || 'Failed to update settings');
       }
 
       // If switching to auto mode, clean up pending approvals

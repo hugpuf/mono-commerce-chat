@@ -30,6 +30,9 @@ export function WorkflowSettingsPreview() {
 
     setUpdating(true);
     
+    // Store previous mode for rollback
+    const previousMode = settings.mode;
+    
     try {
       await updateSettings({ mode: newMode });
       
@@ -38,12 +41,15 @@ export function WorkflowSettingsPreview() {
         title: "Mode updated",
         description: `Switched to ${modeLabel} mode`,
       });
-    } catch (error) {
+    } catch (error: any) {
+      // Show detailed error message
+      const errorMessage = error?.message || "Failed to update workflow mode";
       toast({
         title: "Update failed",
-        description: "Failed to update workflow mode",
+        description: errorMessage,
         variant: "destructive"
       });
+      console.error('Mode change error:', error);
     } finally {
       setUpdating(false);
     }
