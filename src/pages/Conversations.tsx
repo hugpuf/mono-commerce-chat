@@ -671,6 +671,9 @@ export default function Conversations() {
             </div>
           </div>
 
+          {/* Mobile Workflow Settings */}
+          {isMobile && <WorkflowSettingsPreview />}
+
           {/* Messages */}
           <div className="flex-1 relative overflow-hidden">
             <div 
