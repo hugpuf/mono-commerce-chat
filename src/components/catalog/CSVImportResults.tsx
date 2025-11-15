@@ -1,7 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, Download } from "lucide-react";
+import { CheckCircle2, XCircle, Download, Package } from "lucide-react";
 import { ImportResult } from "./types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { clearWorkspaceConnectionsCache } from "@/hooks/useWorkspaceConnections";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 interface CSVImportResultsProps {
   result: ImportResult;
@@ -9,6 +13,27 @@ interface CSVImportResultsProps {
 }
 
 export function CSVImportResults({ result, onClose }: CSVImportResultsProps) {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { workspaceId } = useWorkspace();
+
+  const totalImported = result.created + result.updated;
+
+  const handleViewCatalog = () => {
+    // Show success toast
+    toast({
+      title: "Catalog imported successfully",
+      description: `${totalImported} product${totalImported !== 1 ? 's' : ''} ready to sell`,
+    });
+    
+    // Clear cache to update sidebar
+    clearWorkspaceConnectionsCache(workspaceId);
+    
+    // Navigate to catalog view
+    navigate("/catalog");
+    onClose();
+  };
+
   const handleDownloadErrors = () => {
     if (result.errors.length === 0) return;
 
@@ -70,9 +95,13 @@ export function CSVImportResults({ result, onClose }: CSVImportResultsProps) {
         </Alert>
       )}
 
-      <div className="flex justify-center pt-4 border-t">
-        <Button onClick={onClose}>
-          Done
+      <div className="flex justify-center gap-3 pt-4 border-t">
+        <Button variant="outline" onClick={onClose}>
+          Close
+        </Button>
+        <Button onClick={handleViewCatalog}>
+          <Package className="h-4 w-4 mr-2" />
+          View Catalog
         </Button>
       </div>
     </div>
