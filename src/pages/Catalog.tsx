@@ -7,6 +7,8 @@ import { clearWorkspaceConnectionsCache } from "@/hooks/useWorkspaceConnections"
 import { AppShell } from "@/components/AppShell";
 import { CatalogHeader } from "@/components/catalog/CatalogHeader";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
+import { CatalogWelcomeBanner } from "@/components/catalog/CatalogWelcomeBanner";
+import { SyncHistoryCard } from "@/components/catalog/SyncHistoryCard";
 import AddCatalog from "./setup/AddCatalog";
 
 export default function Catalog() {
@@ -20,6 +22,11 @@ export default function Catalog() {
   
   const [catalogSource, setCatalogSource] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(() => {
+    // Check if this is the first time viewing catalog after import
+    const hasSeenWelcome = localStorage.getItem(`catalog-welcome-${workspaceId}`);
+    return !hasSeenWelcome;
+  });
 
   useEffect(() => {
     if (workspaceId) {
@@ -81,6 +88,12 @@ export default function Catalog() {
 
         if (productsError) throw productsError;
         setProducts(productsData || []);
+        
+        // Show welcome banner if products exist and user hasn't seen it
+        if (productsData && productsData.length > 0) {
+          const hasSeenWelcome = localStorage.getItem(`catalog-welcome-${workspaceId}`);
+          setShowWelcomeBanner(!hasSeenWelcome);
+        }
       }
     } catch (error) {
       console.error("Error fetching catalog:", error);
@@ -199,6 +212,11 @@ export default function Catalog() {
     return filtered;
   }, [products, searchQuery, stockFilter]);
 
+  const handleDismissWelcome = () => {
+    localStorage.setItem(`catalog-welcome-${workspaceId}`, "true");
+    setShowWelcomeBanner(false);
+  };
+
   // If no catalog source, show setup page
   if (!loading && !catalogSource) {
     return <AddCatalog />;
@@ -213,6 +231,13 @@ export default function Catalog() {
           </div>
         ) : (
           <>
+            {showWelcomeBanner && products.length > 0 && (
+              <CatalogWelcomeBanner
+                productsCount={products.length}
+                onDismiss={handleDismissWelcome}
+              />
+            )}
+
             <CatalogHeader
               productsCount={products.length}
               filteredCount={filteredProducts.length}
@@ -229,6 +254,16 @@ export default function Catalog() {
               stockFilter={stockFilter}
               onStockFilterChange={setStockFilter}
             />
+
+            {/* Sync History */}
+            {products.length > 0 && (
+              <div className="mb-6">
+                <SyncHistoryCard
+                  workspaceId={workspaceId}
+                  catalogSourceId={catalogSource?.id}
+                />
+              </div>
+            )}
 
             {catalogSource?.sync_status === "syncing" && products.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-4 text-center">

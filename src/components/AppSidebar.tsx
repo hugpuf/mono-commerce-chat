@@ -103,23 +103,33 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
 
         {/* Catalog */}
         <div>
-          <h4 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Catalog</h4>
+          <div className="flex items-center justify-between mb-3 px-2">
+            <h4 className="text-xs font-semibold text-muted-foreground">Catalog</h4>
+            {catalogSource && (
+              <span className="text-xs text-muted-foreground">
+                {catalogSource.products_count || 0} products
+              </span>
+            )}
+          </div>
           <div className="flex flex-wrap gap-2">
             {activeCatalogs.length > 0 ? (
-              activeCatalogs.map((catalog) => (
-                <IntegrationCircle
-                  key={catalog.id}
-                  name={catalog.name}
-                  icon={catalog.icon}
-                  connected={true}
-                  status={catalog.status}
-                  active={location.pathname === "/catalog"}
-                  onClick={() => {
-                    navigate("/catalog");
-                    handleNavClick();
-                  }}
-                />
-              ))
+              <div className="flex items-center gap-2">
+                {activeCatalogs.map((catalog) => (
+                  <IntegrationCircle
+                    key={catalog.id}
+                    name={catalog.name}
+                    icon={catalog.icon}
+                    connected={true}
+                    status={catalog.status}
+                    active={location.pathname === "/catalog"}
+                    onClick={() => {
+                      navigate("/catalog");
+                      handleNavClick();
+                    }}
+                  />
+                ))}
+                <span className="text-xs text-green-600 font-medium">✓ Connected</span>
+              </div>
             ) : (
               <div className="flex items-center gap-3">
                 <button
