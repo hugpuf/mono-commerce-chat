@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface WorkspaceConnections {
@@ -10,20 +10,9 @@ interface WorkspaceConnections {
 
 const CACHE_KEY = 'workspace-connections-cache';
 
-const getInitialData = (workspaceId: string | null): WorkspaceConnections | undefined => {
-  if (!workspaceId) return undefined;
-  
-  try {
-    const cached = localStorage.getItem(`${CACHE_KEY}-${workspaceId}`);
-    return cached ? JSON.parse(cached) : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
 const saveToCache = (workspaceId: string | null, data: WorkspaceConnections) => {
   if (!workspaceId) return;
-  
+
   try {
     localStorage.setItem(`${CACHE_KEY}-${workspaceId}`, JSON.stringify(data));
   } catch {
@@ -42,6 +31,13 @@ export const clearWorkspaceConnectionsCache = (workspaceId: string | null) => {
 };
 
 export const useWorkspaceConnections = (workspaceId: string | null) => {
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedDataRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    lastSavedDataRef.current = null;
+  }, [workspaceId]);
+
   const query = useQuery({
     queryKey: ['workspace-connections', workspaceId],
     queryFn: async (): Promise<WorkspaceConnections> => {
@@ -102,9 +98,31 @@ export const useWorkspaceConnections = (workspaceId: string | null) => {
 
   // Save to cache when data changes
   useEffect(() => {
-    if (query.data) {
-      saveToCache(workspaceId, query.data);
+    if (!workspaceId || !query.data) {
+      return;
     }
+
+    const serializedData = JSON.stringify(query.data);
+    if (serializedData === lastSavedDataRef.current) {
+      return;
+    }
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      saveToCache(workspaceId, query.data);
+      lastSavedDataRef.current = serializedData;
+      saveTimeoutRef.current = null;
+    }, 250);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+    };
   }, [query.data, workspaceId]);
 
   return query;
