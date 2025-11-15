@@ -14,6 +14,7 @@ import {
 import { IntegrationCircle } from "./IntegrationCircle";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useWorkspaceConnections } from "@/hooks/useWorkspaceConnections";
+import { useWorkspaceProductCount } from "@/hooks/useWorkspaceProductCount";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import logo from '@/assets/logo.png';
@@ -39,20 +40,33 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
   const location = useLocation();
   const { workspace, workspaceId } = useWorkspace();
   const { data: connections } = useWorkspaceConnections(workspaceId);
+  const { data: productCount } = useWorkspaceProductCount(workspaceId);
 
   const catalogSource = connections?.catalogSource || null;
   const paymentProvider = connections?.paymentProvider || null;
   const whatsappAccount = connections?.whatsappAccount || null;
+  const hasProducts = !catalogSource && (productCount ?? 0) > 0;
 
-  const activeCatalogs = catalogSource ? [
-    { 
-      id: catalogSource.provider, 
-      name: catalogSource.provider === "shopify" ? "Shopify" : "Products", 
-      icon: catalogSource.provider === "shopify" ? shopifyLogo : undefined,
-      showPackageIcon: catalogSource.provider !== "shopify",
-      status: "connected" as const 
-    }
-  ] : [];
+  const activeCatalogs = catalogSource
+    ? [
+        {
+          id: catalogSource.provider,
+          name: catalogSource.provider === "shopify" ? "Shopify" : "Products",
+          icon: catalogSource.provider === "shopify" ? shopifyLogo : undefined,
+          showPackageIcon: catalogSource.provider !== "shopify",
+          status: "connected" as const,
+        },
+      ]
+    : hasProducts
+    ? [
+        {
+          id: "manual",
+          name: "Products",
+          showPackageIcon: true,
+          status: "connected" as const,
+        },
+      ]
+    : [];
 
   const activePayments = paymentProvider ? [
     { id: paymentProvider.provider, name: paymentProvider.provider === "stripe" ? "Stripe" : paymentProvider.provider, icon: stripeLogo, status: "connected" as const }
@@ -112,9 +126,9 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
         <div>
           <div className="flex items-center justify-between mb-3 px-2">
             <h4 className="text-xs font-semibold text-muted-foreground">Catalog</h4>
-            {catalogSource && (
+            {(catalogSource || hasProducts) && (
               <span className="text-xs text-muted-foreground">
-                {catalogSource.products_count || 0} products
+                {(catalogSource?.products_count ?? productCount ?? 0)} products
               </span>
             )}
           </div>
