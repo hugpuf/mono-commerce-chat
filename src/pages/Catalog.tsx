@@ -67,34 +67,44 @@ export default function Catalog() {
     try {
       setLoading(true);
 
-      // Check if catalog source exists
-      const { data: catalog } = await supabase
-        .from("catalog_sources")
-        .select("*")
-        .eq("workspace_id", workspaceId)
-        .eq("status", "active")
-        .maybeSingle();
-
-      setCatalogSource(catalog);
-
-      if (catalog) {
-        // Fetch products
-        const { data: productsData, error: productsError } = await supabase
+      // Fetch active catalog source and products in parallel
+      const [catalogRes, productsRes] = await Promise.all([
+        supabase
+          .from("catalog_sources")
+          .select("*")
+          .eq("workspace_id", workspaceId)
+          .eq("status", "active")
+          .maybeSingle(),
+        supabase
           .from("products")
           .select("*")
           .eq("workspace_id", workspaceId)
           .eq("status", "active")
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false })
+      ]);
 
-        if (productsError) throw productsError;
-        setProducts(productsData || []);
-        
-        // Show welcome banner if products exist and user hasn't seen it
-        if (productsData && productsData.length > 0) {
-          const hasSeenWelcome = localStorage.getItem(`catalog-welcome-${workspaceId}`);
-          setShowWelcomeBanner(!hasSeenWelcome);
-        }
+      const catalog = catalogRes.data || null;
+      const productsData = productsRes.data || [];
+
+      // Always set products so UI can render even without a catalog_source row
+      setProducts(productsData);
+
+      // If there is no active catalog source but products exist, assume manual import
+      if (catalog) {
+        setCatalogSource(catalog);
+      } else if (productsData.length > 0) {
+        setCatalogSource({ provider: "manual", status: "active", id: null, sync_status: "success" });
+      } else {
+        setCatalogSource(null);
       }
+
+      // Welcome banner if products exist and user hasn't seen it
+      if (productsData && productsData.length > 0) {
+        const hasSeenWelcome = localStorage.getItem(`catalog-welcome-${workspaceId}`);
+        setShowWelcomeBanner(!hasSeenWelcome);
+      }
+
+      if (productsRes.error) throw productsRes.error;
     } catch (error) {
       console.error("Error fetching catalog:", error);
       toast({

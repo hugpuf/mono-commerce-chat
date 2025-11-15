@@ -167,24 +167,30 @@ export function CSVValidationPreview({
             }
           });
 
-          // Upsert product by SKU
-          const { error } = await supabase
-            .from("products")
-            .upsert(productData, { onConflict: "sku,workspace_id" });
-
-          if (error) throw error;
-
-          // Check if it was an update or create (simplified)
-          const { data: existing } = await supabase
+          // Insert or update product by SKU without relying on DB unique constraints
+          const { data: existing, error: selectError } = await supabase
             .from("products")
             .select("id")
             .eq("sku", productData.sku)
             .eq("workspace_id", workspace_id)
-            .single();
+            .maybeSingle();
+
+          if (selectError) {
+            throw selectError;
+          }
 
           if (existing) {
+            const { error: updateError } = await supabase
+              .from("products")
+              .update(productData)
+              .eq("id", existing.id);
+            if (updateError) throw updateError;
             updated++;
           } else {
+            const { error: insertError } = await supabase
+              .from("products")
+              .insert(productData);
+            if (insertError) throw insertError;
             created++;
           }
         } catch (error: any) {
@@ -196,6 +202,34 @@ export function CSVValidationPreview({
             reason: error.message,
           });
         }
+      }
+
+      // Ensure catalog source exists and is marked active after manual import
+      try {
+        const { data: existingSource } = await supabase
+          .from('catalog_sources')
+          .select('id')
+          .eq('workspace_id', workspace_id)
+          .eq('provider', 'manual')
+          .maybeSingle();
+
+        const sourcePayload: any = {
+          workspace_id,
+          provider: 'manual',
+          status: 'active',
+          sync_status: 'success',
+          last_sync_at: new Date().toISOString(),
+          products_count: created + updated,
+          provider_config: { file_name: csvData.fileName, total_rows: csvData.totalRows },
+        };
+
+        if (existingSource?.id) {
+          await supabase.from('catalog_sources').update(sourcePayload).eq('id', existingSource.id);
+        } else {
+          await supabase.from('catalog_sources').insert(sourcePayload);
+        }
+      } catch (e) {
+        console.warn('Failed to upsert catalog source after import', e);
       }
 
       const result: ImportResult = {
