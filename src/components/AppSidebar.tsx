@@ -9,6 +9,7 @@ import {
   Plus,
   Camera,
   MessageSquare,
+  Package2,
 } from "lucide-react";
 import { IntegrationCircle } from "./IntegrationCircle";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -44,7 +45,13 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
   const whatsappAccount = connections?.whatsappAccount || null;
 
   const activeCatalogs = catalogSource ? [
-    { id: catalogSource.provider, name: catalogSource.provider === "shopify" ? "Shopify" : catalogSource.provider, icon: shopifyLogo, status: "connected" as const }
+    { 
+      id: catalogSource.provider, 
+      name: catalogSource.provider === "shopify" ? "Shopify" : "Products", 
+      icon: catalogSource.provider === "shopify" ? shopifyLogo : undefined,
+      showPackageIcon: catalogSource.provider !== "shopify",
+      status: "connected" as const 
+    }
   ] : [];
 
   const activePayments = paymentProvider ? [
@@ -115,18 +122,35 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
             {activeCatalogs.length > 0 ? (
               <div className="flex items-center gap-2">
                 {activeCatalogs.map((catalog) => (
-                  <IntegrationCircle
-                    key={catalog.id}
-                    name={catalog.name}
-                    icon={catalog.icon}
-                    connected={true}
-                    status={catalog.status}
-                    active={location.pathname === "/catalog"}
-                    onClick={() => {
-                      navigate("/catalog");
-                      handleNavClick();
-                    }}
-                  />
+                  catalog.showPackageIcon ? (
+                    <button
+                      key={catalog.id}
+                      onClick={() => {
+                        navigate("/catalog");
+                        handleNavClick();
+                      }}
+                      className={`integration-circle ${
+                        location.pathname === "/catalog" 
+                          ? "integration-circle-active" 
+                          : "integration-circle-connected"
+                      }`}
+                    >
+                      <Package2 className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <IntegrationCircle
+                      key={catalog.id}
+                      name={catalog.name}
+                      icon={catalog.icon}
+                      connected={true}
+                      status={catalog.status}
+                      active={location.pathname === "/catalog"}
+                      onClick={() => {
+                        navigate("/catalog");
+                        handleNavClick();
+                      }}
+                    />
+                  )
                 ))}
                 <span className="text-xs text-green-600 font-medium">✓ Connected</span>
               </div>
