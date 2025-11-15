@@ -1229,6 +1229,7 @@ export type Database = {
           collection_ids: string[] | null
           compare_at_price: number | null
           created_at: string
+          currency: string | null
           description: string | null
           external_id: string | null
           handle: string | null
@@ -1252,6 +1253,7 @@ export type Database = {
           updated_at: string
           variant_options: Json | null
           vendor: string | null
+          weight: number | null
           workspace_id: string
         }
         Insert: {
@@ -1259,6 +1261,7 @@ export type Database = {
           collection_ids?: string[] | null
           compare_at_price?: number | null
           created_at?: string
+          currency?: string | null
           description?: string | null
           external_id?: string | null
           handle?: string | null
@@ -1282,6 +1285,7 @@ export type Database = {
           updated_at?: string
           variant_options?: Json | null
           vendor?: string | null
+          weight?: number | null
           workspace_id: string
         }
         Update: {
@@ -1289,6 +1293,7 @@ export type Database = {
           collection_ids?: string[] | null
           compare_at_price?: number | null
           created_at?: string
+          currency?: string | null
           description?: string | null
           external_id?: string | null
           handle?: string | null
@@ -1312,6 +1317,7 @@ export type Database = {
           updated_at?: string
           variant_options?: Json | null
           vendor?: string | null
+          weight?: number | null
           workspace_id?: string
         }
         Relationships: [
