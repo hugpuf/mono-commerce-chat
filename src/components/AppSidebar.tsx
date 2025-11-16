@@ -124,50 +124,40 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
 
         {/* Catalog */}
         <div>
-          <div className="flex items-center justify-between mb-3 px-2">
-            <h4 className="text-xs font-semibold text-muted-foreground">Catalog</h4>
-            {(catalogSource || hasProducts) && (
-              <span className="text-xs text-muted-foreground">
-                {(catalogSource?.products_count ?? productCount ?? 0)} products
-              </span>
-            )}
-          </div>
+          <h4 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Catalog</h4>
           <div className="flex flex-wrap gap-2">
             {activeCatalogs.length > 0 ? (
-              <div className="flex items-center gap-2">
-                {activeCatalogs.map((catalog) => (
-                  catalog.showPackageIcon ? (
-                    <button
-                      key={catalog.id}
-                      onClick={() => {
-                        navigate("/catalog");
-                        handleNavClick();
-                      }}
-                      className={`integration-circle ${
-                        location.pathname === "/catalog" 
-                          ? "integration-circle-active" 
-                          : "integration-circle-connected"
-                      }`}
-                    >
-                      <Package2 className="w-4 h-4" />
-                    </button>
-                  ) : (
-                    <IntegrationCircle
-                      key={catalog.id}
-                      name={catalog.name}
-                      icon={catalog.icon}
-                      connected={true}
-                      status={catalog.status}
-                      active={location.pathname === "/catalog"}
-                      onClick={() => {
-                        navigate("/catalog");
-                        handleNavClick();
-                      }}
-                    />
-                  )
-                ))}
-                <span className="text-xs text-green-600 font-medium">✓ Connected</span>
-              </div>
+              activeCatalogs.map((catalog) => (
+                catalog.showPackageIcon ? (
+                  <button
+                    key={catalog.id}
+                    onClick={() => {
+                      navigate("/catalog");
+                      handleNavClick();
+                    }}
+                    className={`integration-circle ${
+                      location.pathname === "/catalog" 
+                        ? "integration-circle-active" 
+                        : "integration-circle-connected"
+                    }`}
+                  >
+                    <Package2 className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <IntegrationCircle
+                    key={catalog.id}
+                    name={catalog.name}
+                    icon={catalog.icon}
+                    connected={true}
+                    status={catalog.status}
+                    active={location.pathname === "/catalog"}
+                    onClick={() => {
+                      navigate("/catalog");
+                      handleNavClick();
+                    }}
+                  />
+                )
+              ))
             ) : (
               <div className="flex items-center gap-3">
                 <button
