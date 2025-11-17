@@ -9,6 +9,7 @@ import {
   isWithinBusinessHours,
   validateComplianceChecks
 } from "./utils.ts";
+import { buildSystemPrompt } from "./parent-prompt.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,7 +36,8 @@ serve(async (req) => {
       { data: aiSettings },
       { data: messages },
       { data: conversation },
-      { data: workspace }
+      { data: workspace },
+      { count: productCount }
     ] = await Promise.all([
       supabaseClient
         .from('workspace_ai_settings')
@@ -57,7 +59,12 @@ serve(async (req) => {
         .from('workspaces')
         .select('*')
         .eq('id', workspaceId)
-        .single()
+        .single(),
+      supabaseClient
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('workspace_id', workspaceId)
+        .eq('status', 'active')
     ]);
 
     const mode = aiSettings?.mode || 'manual';
@@ -198,54 +205,13 @@ serve(async (req) => {
       }
     ];
 
-    // Build system prompt from settings
-    const systemPromptParts = [
-      `You are a helpful shopping assistant for ${workspace?.company_name || workspace?.name}.`,
-      
-      // BRAND VOICE - TOP PRIORITY (when set)
-      aiSettings?.ai_voice ? `
-═══════════════════════════════════════════════════════════
-⚠️ CRITICAL INSTRUCTION - BRAND VOICE ⚠️
-═══════════════════════════════════════════════════════════
-
-${aiSettings.ai_voice}
-
-YOU MUST follow this brand voice EXACTLY in EVERY response you give.
-This voice guideline is your TOP PRIORITY and OVERRIDES all other 
-stylistic suggestions below. Do not deviate from this voice under 
-any circumstances.
-
-═══════════════════════════════════════════════════════════
-      `.trim() : '',
-      
-      aiSettings?.dos ? `Do: ${aiSettings.dos}` : '',
-      aiSettings?.donts ? `Don't: ${aiSettings.donts}` : '',
-      aiSettings?.escalation_rules ? `Escalate when: ${aiSettings.escalation_rules}` : '',
-      aiSettings?.compliance_notes ? `Compliance: ${aiSettings.compliance_notes}` : '',
-      `
-Your role:
-- Help customers find products
-- Answer questions about products, prices, and availability
-- Guide customers through the buying process
-- Provide order status updates
-
-Current cart: ${conversation?.cart_items?.length || 0} items, Total: $${Number(conversation?.cart_total || 0).toFixed(2)}
-
-${!aiSettings?.ai_voice ? `Guidelines:
-- Be friendly, concise, and helpful
-- When showing products, mention key details: name, price, stock status
-- Always confirm before adding items to cart
-- Guide customers naturally toward checkout when appropriate
-- If a product is out of stock, suggest alternatives
-- Use emojis occasionally to be friendly: 🛍️ 📦 ✨` : `Guidelines:
-- When showing products, mention key details: name, price, stock status
-- Always confirm before adding items to cart
-- Guide customers naturally toward checkout when appropriate
-- If a product is out of stock, suggest alternatives`}
-
-Remember: You can search products, manage cart, create checkout links, and check orders.
-      `.trim()
-    ].filter(Boolean).join('\n\n');
+    // Build system prompt using layered hierarchy
+    const systemPrompt = buildSystemPrompt({
+      workspace,
+      aiSettings,
+      conversation,
+      productCount: productCount || 0
+    });
 
     // Call Lovable AI
     console.log('🤖 Calling Lovable AI...');
@@ -258,7 +224,7 @@ Remember: You can search products, manage cart, create checkout links, and check
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: systemPromptParts },
+          { role: "system", content: systemPrompt },
           ...conversationHistory,
           { role: "user", content: customerMessage }
         ],
@@ -325,7 +291,7 @@ Remember: You can search products, manage cart, create checkout links, and check
           body: JSON.stringify({
             model: "google/gemini-2.5-flash",
             messages: [
-              { role: "system", content: systemPromptParts },
+              { role: "system", content: systemPrompt },
               ...conversationHistory,
               { role: "user", content: customerMessage },
               aiData.choices[0].message,
@@ -467,26 +433,85 @@ Remember: You can search products, manage cart, create checkout links, and check
     
     // === END PHASE 2 INTEGRATION ===
 
-    // Calculate confidence score
-    console.log('📊 Calculating confidence score...');
-    let confidence = 75; // Baseline
+    // Calculate confidence score using parent prompt rubric
+    console.log('📊 Calculating confidence score (Parent Prompt Rubric)...');
     
-    // Heuristic-based confidence scoring (future: use second LLM call)
-    if (finalResponse.includes("I'm not sure") || 
-        finalResponse.includes("might") || 
-        finalResponse.includes("possibly") ||
-        finalResponse.includes("maybe")) {
-      confidence = 60; // Uncertainty penalty
-    } else if (finalResponse.length > 200) {
-      confidence = 85; // Detailed response bonus
+    // Start with base confidence
+    let aiConfidenceScore = 0.85; // Default HIGH-MEDIUM
+    
+    const confidenceFactors = {
+      sentiment: sentimentScore,
+      cartValue: Number(conversation?.cart_total || 0),
+      messageComplexity: finalResponse.length,
+      guardrailViolations: guardrailViolations.length,
+      escalationMatch: escalationMatch ? true : false,
+      toolCallsCount: toolCalls?.length || 0,
+      uncertaintyWords: (finalResponse.match(/\b(maybe|might|possibly|uncertain|not sure|I think|probably)\b/gi) || []).length
+    };
+    
+    console.log('🎯 Confidence Factors:', confidenceFactors);
+    
+    // Apply parent prompt rubric adjustments
+    
+    // CRITICAL ESCALATION TRIGGERS (Force LOW confidence)
+    if (confidenceFactors.cartValue > 1000) {
+      aiConfidenceScore = 0.5; // Force escalation for high-value
+      console.log('🚨 CRITICAL: Cart value > $1000 - forcing escalation');
+    } else if (confidenceFactors.escalationMatch) {
+      aiConfidenceScore = 0.0; // Force escalation
+      console.log('🚨 CRITICAL: Escalation policy matched - forcing human review');
+    } else if (confidenceFactors.sentiment < -0.3) {
+      aiConfidenceScore = 0.6; // LOW confidence for negative sentiment
+      console.log('⚠️ WARNING: Negative sentiment detected - reducing confidence');
+    } else if (customerMessage.toLowerCase().match(/\b(refund|return|complaint|manager|human|speak to someone)\b/)) {
+      aiConfidenceScore = 0.5; // Force escalation for critical keywords
+      console.log('🚨 CRITICAL: Escalation keyword detected');
+    } else {
+      // Standard confidence calculation (HIGH/MEDIUM range)
+      
+      // Penalty for uncertainty language
+      if (confidenceFactors.uncertaintyWords > 0) {
+        aiConfidenceScore -= (confidenceFactors.uncertaintyWords * 0.05);
+        console.log(`⚠️ Uncertainty words detected (${confidenceFactors.uncertaintyWords}) - reducing confidence`);
+      }
+      
+      // Penalty for excessive response length (violates brevity mandate)
+      if (confidenceFactors.messageComplexity > 300) {
+        aiConfidenceScore -= 0.1;
+        console.log('⚠️ Response too long (>300 chars) - violates brevity mandate');
+      }
+      
+      // Penalty for guardrail violations
+      if (confidenceFactors.guardrailViolations > 0) {
+        aiConfidenceScore -= (confidenceFactors.guardrailViolations * 0.15);
+        console.log(`⚠️ Guardrail violations (${confidenceFactors.guardrailViolations}) - reducing confidence`);
+      }
+      
+      // Penalty for high cart value (not critical threshold yet)
+      if (confidenceFactors.cartValue > 500) {
+        aiConfidenceScore -= 0.1;
+        console.log('⚠️ Cart value > $500 - slight confidence reduction');
+      }
+      
+      // Bonus for successful tool usage (indicates clear intent)
+      if (confidenceFactors.toolCallsCount > 0) {
+        aiConfidenceScore += 0.05;
+        console.log(`✅ Tools used successfully (${confidenceFactors.toolCallsCount}) - confidence boost`);
+      }
     }
     
-    // Boost confidence if tools were successfully used
-    if (toolCalls && toolCalls.length > 0) {
-      confidence = Math.min(90, confidence + 10);
-    }
+    // Clamp confidence between 0 and 1
+    aiConfidenceScore = Math.max(0.0, Math.min(1.0, aiConfidenceScore));
     
-    console.log(`📊 Confidence: ${confidence}%`);
+    const confidence = aiConfidenceScore * 100; // Convert to percentage for legacy compatibility
+    
+    console.log(`📊 Final Confidence: ${aiConfidenceScore.toFixed(2)} (${confidence.toFixed(0)}%) | Factors:`, {
+      sentiment: sentimentScore.toFixed(2),
+      cartValue: `$${confidenceFactors.cartValue}`,
+      violations: confidenceFactors.guardrailViolations,
+      toolCalls: confidenceFactors.toolCallsCount,
+      escalation: confidenceFactors.escalationMatch
+    });
     
     // Mode Decision Logic
     // Manual: AI completely disabled (already handled above)
