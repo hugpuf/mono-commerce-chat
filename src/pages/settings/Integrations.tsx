@@ -5,7 +5,7 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
 import { clearWorkspaceConnectionsCache } from "@/hooks/useWorkspaceConnections";
 import { IntegrationCard } from "@/components/settings/IntegrationCard";
-import { DisconnectIntegrationDialog } from "@/components/settings/DisconnectIntegrationDialog";
+import { EnhancedDisconnectDialog } from "@/components/settings/EnhancedDisconnectDialog";
 import { ShoppingBag, CreditCard, MessageSquare, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +19,7 @@ export default function Integrations() {
   const [catalogSource, setCatalogSource] = useState<any>(null);
   const [paymentProvider, setPaymentProvider] = useState<any>(null);
   const [whatsappAccount, setWhatsappAccount] = useState<any>(null);
+  const [productCount, setProductCount] = useState(0);
 
   const [disconnectDialog, setDisconnectDialog] = useState<{
     open: boolean;
@@ -60,9 +61,16 @@ export default function Integrations() {
         .order("updated_at", { ascending: false })
         .maybeSingle();
 
+      // Fetch product count for catalog disconnect dialog
+      const { count } = await supabase
+        .from("products")
+        .select("*", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId);
+
       setCatalogSource(catalog);
       setPaymentProvider(payment);
       setWhatsappAccount(whatsapp);
+      setProductCount(count || 0);
     } catch (error) {
       console.error("Error fetching integrations:", error);
     } finally {
@@ -138,7 +146,7 @@ export default function Integrations() {
     }
   };
 
-  const handleDisconnect = async () => {
+  const handleDisconnect = async (productAction: "keep" | "archive" | "delete" = "keep") => {
     if (!disconnectDialog.type) return;
 
     try {
@@ -146,6 +154,7 @@ export default function Integrations() {
         case "catalog":
           if (!catalogSource) return;
           
+          // Update catalog source status
           const { error: catalogError } = await supabase
             .from("catalog_sources")
             .update({ status: "disconnected" })
@@ -153,9 +162,30 @@ export default function Integrations() {
 
           if (catalogError) throw catalogError;
 
+          // Handle product actions based on user choice
+          if (productAction === "archive") {
+            const { error: archiveError } = await supabase
+              .from("products")
+              .update({ status: "archived" })
+              .eq("workspace_id", workspaceId);
+
+            if (archiveError) throw archiveError;
+          } else if (productAction === "delete") {
+            const { error: deleteError } = await supabase
+              .from("products")
+              .delete()
+              .eq("workspace_id", workspaceId);
+
+            if (deleteError) throw deleteError;
+          }
+
           toast({
             title: "Catalog disconnected",
-            description: "Your product catalog has been disconnected.",
+            description: productAction === "keep" 
+              ? "Your products remain active and can be managed manually."
+              : productAction === "archive"
+              ? "Your products have been archived."
+              : "Your products have been deleted.",
           });
           break;
 
@@ -211,18 +241,6 @@ export default function Integrations() {
     }
   };
 
-  const getDisconnectWarning = (type: string) => {
-    switch (type) {
-      case "catalog":
-        return "Disconnecting your catalog will remove all synced products and prevent new product updates. You'll need to reconnect to restore catalog functionality.";
-      case "payment":
-        return "Disconnecting your payment gateway will prevent you from processing new transactions. Existing payment links will stop working.";
-      case "whatsapp":
-        return "Disconnecting WhatsApp will prevent you from sending and receiving messages. Your conversation history will be preserved but you won't be able to access it until you reconnect.";
-      default:
-        return undefined;
-    }
-  };
 
   if (loading) {
     return (
@@ -240,18 +258,19 @@ export default function Integrations() {
 
   return (
     <>
-      <DisconnectIntegrationDialog
+      <EnhancedDisconnectDialog
         open={disconnectDialog.open}
-        onOpenChange={(open) => setDisconnectDialog({ open, type: null })}
+        onOpenChange={(open) => setDisconnectDialog({ ...disconnectDialog, open })}
         onConfirm={handleDisconnect}
         integrationName={
           disconnectDialog.type === "catalog"
-            ? "Product Catalog"
+            ? catalogSource?.provider || "Catalog"
             : disconnectDialog.type === "payment"
-            ? "Payment Gateway"
-            : "WhatsApp Business"
+            ? "Stripe"
+            : "WhatsApp"
         }
-        warningMessage={disconnectDialog.type ? getDisconnectWarning(disconnectDialog.type) : undefined}
+        integrationType={disconnectDialog.type || "catalog"}
+        productCount={disconnectDialog.type === "catalog" ? productCount : 0}
       />
 
       <div className="space-y-6">
