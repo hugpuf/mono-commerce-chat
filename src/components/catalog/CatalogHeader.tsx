@@ -2,8 +2,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RefreshCw, Settings, ShoppingBag, Search, ExternalLink, XCircle } from "lucide-react";
+import { RefreshCw, Settings, ShoppingBag, Search, ExternalLink, XCircle, LayoutGrid, List } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface CatalogHeaderProps {
   productsCount: number;
@@ -23,6 +24,8 @@ interface CatalogHeaderProps {
   onStockFilterChange: (value: "all" | "in-stock" | "low-stock" | "out-of-stock") => void;
   statusFilter: "all" | "active" | "draft" | "archived";
   onStatusFilterChange: (value: "all" | "active" | "draft" | "archived") => void;
+  viewMode: "gallery" | "list";
+  onViewModeChange: (value: "gallery" | "list") => void;
 }
 
 export function CatalogHeader({
@@ -43,6 +46,8 @@ export function CatalogHeader({
   onStockFilterChange,
   statusFilter,
   onStatusFilterChange,
+  viewMode,
+  onViewModeChange,
 }: CatalogHeaderProps) {
   const getStatusBadge = () => {
     // For manual imports, show "Manual Catalog" instead of "Synced"
@@ -184,7 +189,7 @@ export function CatalogHeader({
         </div>
       </div>
 
-      {/* Search and Filters */}
+      {/* Search, Filters, and View Toggle */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -195,6 +200,14 @@ export function CatalogHeader({
             className="pl-9"
           />
         </div>
+        <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && onViewModeChange(value as "gallery" | "list")}>
+          <ToggleGroupItem value="gallery" aria-label="Gallery view">
+            <LayoutGrid className="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="list" aria-label="List view">
+            <List className="h-4 w-4" />
+          </ToggleGroupItem>
+        </ToggleGroup>
         <Select value={stockFilter} onValueChange={onStockFilterChange}>
           <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Filter by stock" />

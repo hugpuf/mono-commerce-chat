@@ -1,7 +1,11 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Package, ExternalLink, AlertTriangle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useState } from "react";
 
 interface Product {
   id: string;
@@ -21,9 +25,12 @@ interface Product {
 interface ProductGridProps {
   products: Product[];
   shopDomain?: string;
+  onStatusChange?: () => void;
 }
 
-export function ProductGrid({ products, shopDomain }: ProductGridProps) {
+export function ProductGrid({ products, shopDomain, onStatusChange }: ProductGridProps) {
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+
   const getStockBadge = (stock: number) => {
     if (stock === 0) {
       return (
@@ -54,6 +61,27 @@ export function ProductGrid({ products, shopDomain }: ProductGridProps) {
     
     // Otherwise link to the product page
     return `https://${shopDomain}/admin/products/${product.shopify_product_id}`;
+  };
+
+  const handleStatusChange = async (productId: string, newStatus: string) => {
+    setUpdatingStatus(productId);
+    
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ status: newStatus })
+        .eq('id', productId);
+
+      if (error) throw error;
+
+      toast.success(`Product status updated to ${newStatus}`);
+      onStatusChange?.();
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error('Failed to update product status');
+    } finally {
+      setUpdatingStatus(null);
+    }
   };
 
   if (products.length === 0) {
@@ -116,33 +144,42 @@ export function ProductGrid({ products, shopDomain }: ProductGridProps) {
               )}
             </div>
 
-            <div className="p-4 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold line-clamp-2 flex-1">
-                  {product.title}
-                </h3>
+            <div className="p-4 space-y-3">
+              <div>
+                <h3 className="font-semibold line-clamp-1">{product.title}</h3>
+                {product.is_variant && product.variant_options && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {Object.entries(product.variant_options)
+                      .map(([key, value]) => `${key}: ${value}`)
+                      .join(" • ")}
+                  </p>
+                )}
               </div>
-
-              {product.is_variant && product.variant_options && (
-                <p className="text-xs text-muted-foreground">
-                  {Object.entries(product.variant_options)
-                    .map(([key, value]) => `${key}: ${value}`)
-                    .join(" • ")}
-                </p>
-              )}
-
+              
               <div className="flex items-center justify-between">
-                <p className="text-lg font-bold">
-                  ${Number(product.price).toFixed(2)}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Stock: {product.stock}
-                </p>
+                <div>
+                  <div className="text-lg font-bold">${Number(product.price).toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground">SKU: {product.sku}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-medium">{product.stock} in stock</div>
+                </div>
               </div>
 
-              <p className="text-xs text-muted-foreground">
-                SKU: {product.sku}
-              </p>
+              <Select 
+                value={product.status} 
+                onValueChange={(value) => handleStatusChange(product.id, value)}
+                disabled={updatingStatus === product.id}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </Card>
         );
