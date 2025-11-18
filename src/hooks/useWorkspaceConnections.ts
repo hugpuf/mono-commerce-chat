@@ -51,14 +51,12 @@ export const useWorkspaceConnections = (workspaceId: string | null) => {
 
       // Parallel queries for all connection types
       const [catalogResult, paymentResult, whatsappResult] = await Promise.all([
-        // Catalog - only consider it connected if it has a shop_domain AND access_token
+        // Catalog - fetch any active catalog source (Shopify or manual)
         supabase
           .from('catalog_sources')
           .select('*')
           .eq('workspace_id', workspaceId)
           .eq('status', 'active')
-          .not('shop_domain', 'is', null)
-          .not('access_token', 'is', null)
           .maybeSingle(),
         
         // Payment
@@ -80,10 +78,30 @@ export const useWorkspaceConnections = (workspaceId: string | null) => {
           .maybeSingle(),
       ]);
 
+      let catalogSource = catalogResult.data;
+
+      // If no formal catalog source, check if manual products exist
+      if (!catalogSource) {
+        const { count } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .eq('workspace_id', workspaceId)
+          .eq('status', 'active');
+        
+        if (count && count > 0) {
+          // Create a virtual catalog source for manual catalogs
+          catalogSource = { 
+            provider: 'manual', 
+            status: 'active', 
+            products_count: count 
+          } as any;
+        }
+      }
+
       const whatsapp = whatsappResult.data || null;
 
       return {
-        catalogSource: catalogResult.data || null,
+        catalogSource,
         paymentProvider: paymentResult.data || null,
         whatsappAccount: whatsapp,
       };

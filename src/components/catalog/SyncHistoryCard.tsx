@@ -26,6 +26,11 @@ interface SyncHistoryCardProps {
 }
 
 export function SyncHistoryCard({ workspaceId, catalogSourceId, provider }: SyncHistoryCardProps) {
+  // Don't show sync history for manual catalogs - they don't create sync logs
+  if (provider === "manual") {
+    return null;
+  }
+
   const [logs, setLogs] = useState<SyncLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
