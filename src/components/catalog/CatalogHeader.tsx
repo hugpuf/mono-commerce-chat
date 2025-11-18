@@ -206,6 +206,17 @@ export function CatalogHeader({
             <SelectItem value="out-of-stock">Out of Stock</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="active">Active ({productCounts.active})</SelectItem>
+            <SelectItem value="draft">Draft ({productCounts.draft})</SelectItem>
+            <SelectItem value="archived">Archived ({productCounts.archived})</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );
