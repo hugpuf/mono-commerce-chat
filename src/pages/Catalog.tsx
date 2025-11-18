@@ -237,8 +237,13 @@ export default function Catalog() {
       });
     }
 
+    // Status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((p) => p.status === statusFilter);
+    }
+
     return filtered;
-  }, [products, searchQuery, stockFilter]);
+  }, [products, searchQuery, stockFilter, statusFilter]);
 
   const handleDismissWelcome = () => {
     localStorage.setItem(`catalog-welcome-${workspaceId}`, "true");
