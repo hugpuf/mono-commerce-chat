@@ -22,9 +22,10 @@ interface SyncLog {
 interface SyncHistoryCardProps {
   workspaceId: string;
   catalogSourceId: string | null;
+  provider?: string;
 }
 
-export function SyncHistoryCard({ workspaceId, catalogSourceId }: SyncHistoryCardProps) {
+export function SyncHistoryCard({ workspaceId, catalogSourceId, provider }: SyncHistoryCardProps) {
   const [logs, setLogs] = useState<SyncLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
@@ -102,12 +103,14 @@ export function SyncHistoryCard({ workspaceId, catalogSourceId }: SyncHistoryCar
     return null;
   }
 
+  const historyTitle = provider === "manual" ? "Import History" : "Sync History";
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-base flex items-center gap-2">
           <History className="h-4 w-4" />
-          Sync History
+          {historyTitle}
         </CardTitle>
         {logs.length > 3 && (
           <Button

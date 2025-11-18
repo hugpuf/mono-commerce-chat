@@ -8,6 +8,7 @@ import { formatDistanceToNow } from "date-fns";
 interface CatalogHeaderProps {
   productsCount: number;
   filteredCount: number;
+  productCounts: { active: number; draft: number; archived: number; total: number };
   provider?: string;
   shopDomain?: string;
   lastSync?: Date | string | null;
@@ -20,11 +21,14 @@ interface CatalogHeaderProps {
   onSearchChange: (value: string) => void;
   stockFilter: "all" | "in-stock" | "low-stock" | "out-of-stock";
   onStockFilterChange: (value: "all" | "in-stock" | "low-stock" | "out-of-stock") => void;
+  statusFilter: "all" | "active" | "draft" | "archived";
+  onStatusFilterChange: (value: "all" | "active" | "draft" | "archived") => void;
 }
 
 export function CatalogHeader({
   productsCount,
   filteredCount,
+  productCounts,
   provider,
   shopDomain,
   lastSync,
@@ -37,8 +41,19 @@ export function CatalogHeader({
   onSearchChange,
   stockFilter,
   onStockFilterChange,
+  statusFilter,
+  onStatusFilterChange,
 }: CatalogHeaderProps) {
   const getStatusBadge = () => {
+    // For manual imports, show "Manual Catalog" instead of "Synced"
+    if (provider === "manual" && syncStatus === "success") {
+      return (
+        <Badge variant="default" className="bg-primary/10 text-primary border-primary/20">
+          Manual Catalog
+        </Badge>
+      );
+    }
+
     switch (syncStatus) {
       case "syncing":
         return (
@@ -82,25 +97,50 @@ export function CatalogHeader({
               <h1 className="text-2xl font-bold">Product Catalog</h1>
               {syncStatus && getStatusBadge()}
             </div>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-              <span>
-                {filteredCount === productsCount
-                  ? `${productsCount} products`
-                  : `${filteredCount} of ${productsCount} products`}
-              </span>
-              {provider && (
-                <>
-                  <span>•</span>
-                  <span>Connected to {provider}</span>
-                </>
-              )}
-              {lastSync && (
-                <>
-                  <span>•</span>
-                  <span>
-                    Last synced {formatDistanceToNow(new Date(lastSync), { addSuffix: true })}
+            <div className="space-y-1">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>
+                  {filteredCount === productsCount
+                    ? `${productsCount} products`
+                    : `${filteredCount} of ${productsCount} products`}
+                </span>
+                {provider && (
+                  <>
+                    <span>•</span>
+                    <span>Connected to {provider}</span>
+                  </>
+                )}
+                {lastSync && (
+                  <>
+                    <span>•</span>
+                    <span>
+                      Last synced {formatDistanceToNow(new Date(lastSync), { addSuffix: true })}
+                    </span>
+                  </>
+                )}
+              </div>
+              {productCounts.total > 0 && (
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span className="text-green-600 dark:text-green-400 font-medium">
+                    {productCounts.active} active
                   </span>
-                </>
+                  {productCounts.draft > 0 && (
+                    <>
+                      <span>•</span>
+                      <span className="text-yellow-600 dark:text-yellow-400">
+                        {productCounts.draft} draft
+                      </span>
+                    </>
+                  )}
+                  {productCounts.archived > 0 && (
+                    <>
+                      <span>•</span>
+                      <span className="text-muted-foreground">
+                        {productCounts.archived} archived
+                      </span>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           </div>

@@ -19,9 +19,11 @@ export default function Catalog() {
   const [syncLoading, setSyncLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [stockFilter, setStockFilter] = useState<"all" | "in-stock" | "low-stock" | "out-of-stock">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft" | "archived">("all");
   
   const [catalogSource, setCatalogSource] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
+  const [productCounts, setProductCounts] = useState({ active: 0, draft: 0, archived: 0, total: 0 });
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(() => {
     // Check if this is the first time viewing catalog after import
     const hasSeenWelcome = localStorage.getItem(`catalog-welcome-${workspaceId}`);
@@ -67,8 +69,8 @@ export default function Catalog() {
     try {
       setLoading(true);
 
-      // Fetch active catalog source and products in parallel
-      const [catalogRes, productsRes] = await Promise.all([
+      // Fetch active catalog source and ALL products with status counts in parallel
+      const [catalogRes, productsRes, countsRes] = await Promise.all([
         supabase
           .from("catalog_sources")
           .select("*")
@@ -79,14 +81,30 @@ export default function Catalog() {
           .from("products")
           .select("*")
           .eq("workspace_id", workspaceId)
-          .eq("status", "active")
-          .order("created_at", { ascending: false })
+          .order("created_at", { ascending: false }),
+        // Get counts for each status
+        supabase
+          .from("products")
+          .select("status")
+          .eq("workspace_id", workspaceId)
       ]);
 
       const catalog = catalogRes.data || null;
       const productsData = productsRes.data || [];
 
-      // Always set products so UI can render even without a catalog_source row
+      // Calculate status counts
+      const counts = { active: 0, draft: 0, archived: 0, total: 0 };
+      if (countsRes.data) {
+        countsRes.data.forEach((p) => {
+          if (p.status === "active") counts.active++;
+          else if (p.status === "draft") counts.draft++;
+          else if (p.status === "archived") counts.archived++;
+        });
+        counts.total = countsRes.data.length;
+      }
+      setProductCounts(counts);
+
+      // Set all products so UI can handle filtering
       setProducts(productsData);
 
       // If there is no active catalog source but products exist, assume manual import
@@ -251,6 +269,7 @@ export default function Catalog() {
             <CatalogHeader
               productsCount={products.length}
               filteredCount={filteredProducts.length}
+              productCounts={productCounts}
               provider={catalogSource?.provider === "shopify" ? "Shopify" : catalogSource?.provider}
               shopDomain={catalogSource?.shop_domain}
               lastSync={catalogSource?.last_sync_at}
@@ -263,6 +282,8 @@ export default function Catalog() {
               onSearchChange={setSearchQuery}
               stockFilter={stockFilter}
               onStockFilterChange={setStockFilter}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
             />
 
             {/* Sync History */}
@@ -271,6 +292,7 @@ export default function Catalog() {
                 <SyncHistoryCard
                   workspaceId={workspaceId}
                   catalogSourceId={catalogSource?.id}
+                  provider={catalogSource?.provider}
                 />
               </div>
             )}
