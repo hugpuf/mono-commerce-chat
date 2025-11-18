@@ -7,6 +7,7 @@ import { clearWorkspaceConnectionsCache } from "@/hooks/useWorkspaceConnections"
 import { AppShell } from "@/components/AppShell";
 import { CatalogHeader } from "@/components/catalog/CatalogHeader";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
+import { ProductList } from "@/components/catalog/ProductList";
 import { CatalogWelcomeBanner } from "@/components/catalog/CatalogWelcomeBanner";
 import { SyncHistoryCard } from "@/components/catalog/SyncHistoryCard";
 import AddCatalog from "./setup/AddCatalog";
@@ -20,6 +21,7 @@ export default function Catalog() {
   const [searchQuery, setSearchQuery] = useState("");
   const [stockFilter, setStockFilter] = useState<"all" | "in-stock" | "low-stock" | "out-of-stock">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft" | "archived">("all");
+  const [viewMode, setViewMode] = useState<"gallery" | "list">("gallery");
   
   const [catalogSource, setCatalogSource] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
@@ -285,11 +287,13 @@ export default function Catalog() {
               syncLoading={syncLoading}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
-              stockFilter={stockFilter}
-              onStockFilterChange={setStockFilter}
-              statusFilter={statusFilter}
-              onStatusFilterChange={setStatusFilter}
-            />
+            stockFilter={stockFilter}
+            onStockFilterChange={setStockFilter}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+          />
 
             {/* Sync History */}
             {products.length > 0 && (
@@ -327,8 +331,18 @@ export default function Catalog() {
                   {catalogSource?.sync_error || "An error occurred while syncing your products"}
                 </p>
               </div>
+            ) : viewMode === "gallery" ? (
+              <ProductGrid 
+                products={filteredProducts} 
+                shopDomain={catalogSource?.shop_domain}
+                onStatusChange={fetchCatalogData}
+              />
             ) : (
-              <ProductGrid products={filteredProducts} shopDomain={catalogSource?.shop_domain} />
+              <ProductList 
+                products={filteredProducts} 
+                shopDomain={catalogSource?.shop_domain}
+                onStatusChange={fetchCatalogData}
+              />
             )}
           </>
         )}
