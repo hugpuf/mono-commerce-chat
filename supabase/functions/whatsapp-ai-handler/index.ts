@@ -111,13 +111,13 @@ serve(async (req) => {
         type: "function",
         function: {
           name: "search_products",
-          description: "Search the product catalog by name, category, keywords, or description. Use this when customer wants to browse or find products.",
+          description: "Search the product catalog by name, category, keywords, or description. Use tag-based searches for broad queries (e.g., 'footwear', 'sneakers').",
           parameters: {
             type: "object",
             properties: {
               query: { 
                 type: "string", 
-                description: "What to search for (e.g., 'running shoes', 'Nike', 'red dress')" 
+                description: "What to search for (product name, SKU, category, tag, or description)" 
               },
               category: { 
                 type: "string", 
@@ -129,6 +129,23 @@ serve(async (req) => {
               }
             },
             required: ["query"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "browse_catalog",
+          description: "Show a sample of available products when customer wants to browse generally. Use when they ask 'what do you have', 'show me products', or when search returns no results.",
+          parameters: {
+            type: "object",
+            properties: {
+              limit: {
+                type: "number",
+                description: "Number of products to show (default 5)",
+                default: 5
+              }
+            }
           }
         }
       },
@@ -274,6 +291,9 @@ serve(async (req) => {
             break;
           case "check_order_status":
             toolResult = await executeCheckOrderStatus(supabaseClient, conversation.customer_phone, toolArgs);
+            break;
+          case "browse_catalog":
+            toolResult = await executeBrowseCatalog(supabaseClient, workspaceId, toolArgs);
             break;
           default:
             toolResult = { error: "Unknown tool" };
@@ -900,4 +920,31 @@ async function executeCheckOrderStatus(supabase: any, customerPhone: string, arg
     tracking_number: order.tracking_number || null,
     created_at: order.created_at
   };
+}
+
+async function executeBrowseCatalog(supabase: any, workspaceId: string, args: any) {
+  try {
+    const limit = args.limit || 5;
+    console.log('[executeBrowseCatalog] Fetching', limit, 'products for workspace:', workspaceId);
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, sku, title, description, price, stock, image_url, tags')
+      .eq('workspace_id', workspaceId)
+      .eq('status', 'active')
+      .gt('stock', 0)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('[executeBrowseCatalog] Error:', error);
+      return { error: "Failed to load products", products: [] };
+    }
+
+    console.log('[executeBrowseCatalog] Found', data?.length || 0, 'products');
+    return { products: data || [] };
+  } catch (err) {
+    console.error('[executeBrowseCatalog] Exception:', err);
+    return { error: "Failed to browse catalog", products: [] };
+  }
 }
