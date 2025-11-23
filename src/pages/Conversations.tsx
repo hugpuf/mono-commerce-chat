@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Send, Paperclip, Plus, MoreVertical, Package, CreditCard, Tag, ArrowDown, Archive, ArchiveRestore, ArrowLeft } from "lucide-react";
+import { Search, Send, Paperclip, Plus, MoreVertical, Package, CreditCard, Tag, ArrowDown, Archive, ArchiveRestore, ArrowLeft, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,6 +9,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useAutomations } from "@/contexts/AutomationsContext";
@@ -20,6 +21,8 @@ import { WorkflowSettingsPreview } from "@/components/conversations/WorkflowSett
 import { MessageGroup } from "@/components/conversations/MessageGroup";
 import { AutoResizeTextarea } from "@/components/conversations/AutoResizeTextarea";
 import { PendingApprovalCard } from "@/components/conversations/PendingApprovalCard";
+import { DeleteConversationDialog } from "@/components/conversations/DeleteConversationDialog";
+import { useMessageDeletion } from "@/hooks/useMessageDeletion";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
@@ -71,10 +74,24 @@ export default function Conversations() {
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const { softDeleteMessages, softDeleteConversation } = useMessageDeletion();
+
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
+
+  // Get current user
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+    };
+    getUser();
+  }, []);
 
   // Fetch pending AI approvals
   const fetchPendingApprovals = async () => {
@@ -305,6 +322,7 @@ export default function Conversations() {
         .from('messages')
         .select('*')
         .eq('conversation_id', selectedConversationId)
+        .eq('is_deleted', false)
         .order('created_at', { ascending: true });
 
       if (error) {
@@ -321,7 +339,7 @@ export default function Conversations() {
 
     fetchMessages();
 
-    // Subscribe to new messages (AI is handled server-side now)
+    // Subscribe to new messages and updates
     const messagesChannel = supabase
       .channel(`messages-${selectedConversationId}`)
       .on(
@@ -335,13 +353,27 @@ export default function Conversations() {
         async (payload) => {
           const newMessage = payload.new as Message;
           console.log('New message received:', newMessage);
-          setMessages((prev) => [...prev, newMessage]);
+          if (!(newMessage as any).is_deleted) {
+            setMessages((prev) => [...prev, newMessage]);
+          }
 
-          // AI is now invoked server-side from webhook
-          // No need to invoke from frontend to avoid race conditions
           if (newMessage.direction === 'inbound') {
             console.log('📥 Inbound message received (AI handled by webhook)');
-            // AI processing happens server-side in whatsapp-webhook function
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${selectedConversationId}`,
+        },
+        (payload) => {
+          const updatedMessage = payload.new as any;
+          if (updatedMessage.is_deleted) {
+            setMessages((prev) => prev.filter(m => m.id !== updatedMessage.id));
           }
         }
       )
@@ -395,6 +427,37 @@ export default function Conversations() {
         description: "Failed to archive conversation",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!conversationToDelete || !currentUserId) return;
+
+    const success = await softDeleteConversation(conversationToDelete, currentUserId);
+    
+    if (success) {
+      // Remove from local state
+      setConversations(prev => prev.filter(c => c.id !== conversationToDelete));
+      
+      // If deleting the currently selected conversation, deselect it
+      if (conversationToDelete === selectedConversationId) {
+        setSelectedConversationId(null);
+        setShowMobileChat(false);
+      }
+    }
+
+    setDeleteDialogOpen(false);
+    setConversationToDelete(null);
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!currentUserId) return;
+
+    const success = await softDeleteMessages([messageId], currentUserId);
+    
+    if (success) {
+      // Remove from local state
+      setMessages(prev => prev.filter(m => m.id !== messageId));
     }
   };
 
@@ -604,6 +667,18 @@ export default function Conversations() {
                               </>
                             )}
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConversationToDelete(conv.id);
+                              setDeleteDialogOpen(true);
+                            }}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -695,6 +770,9 @@ export default function Conversations() {
                           messages={messageGroup}
                           customerName={selectedConversation.customer_name || ''}
                           isOutbound={messageGroup[0]?.direction === 'outbound'}
+                          onDeleteMessage={handleDeleteMessage}
+                          canDeleteMessages={true}
+                          currentUserId={currentUserId || undefined}
                         />
                       ))}
                     </div>
@@ -778,6 +856,13 @@ export default function Conversations() {
         open={newConversationOpen}
         onOpenChange={setNewConversationOpen}
         onConversationCreated={(id) => setSelectedConversationId(id)}
+      />
+
+      <DeleteConversationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteConversation}
+        customerName={conversations.find(c => c.id === conversationToDelete)?.customer_name}
       />
       </div>
     </div>
