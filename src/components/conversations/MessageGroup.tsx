@@ -1,6 +1,8 @@
 import { Avatar } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { Check, CheckCheck, Clock, AlertCircle } from "lucide-react";
+import { MessageContextMenu } from "./MessageContextMenu";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
@@ -14,6 +16,9 @@ interface MessageGroupProps {
   messages: Message[];
   customerName: string;
   isOutbound: boolean;
+  onDeleteMessage?: (messageId: string) => void;
+  canDeleteMessages?: boolean;
+  currentUserId?: string;
 }
 
 function MessageStatusIcon({ status }: { status?: string }) {
@@ -33,8 +38,31 @@ function MessageStatusIcon({ status }: { status?: string }) {
   }
 }
 
-export function MessageGroup({ messages, customerName, isOutbound }: MessageGroupProps) {
+export function MessageGroup({ 
+  messages, 
+  customerName, 
+  isOutbound, 
+  onDeleteMessage,
+  canDeleteMessages = false,
+  currentUserId 
+}: MessageGroupProps) {
+  const { toast } = useToast();
+  
   if (messages.length === 0) return null;
+
+  const handleCopyMessage = (content: string) => {
+    navigator.clipboard.writeText(content);
+    toast({
+      title: "Copied",
+      description: "Message copied to clipboard",
+    });
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    if (onDeleteMessage) {
+      onDeleteMessage(messageId);
+    }
+  };
 
   return (
     <div className={`flex gap-3 ${isOutbound ? 'justify-end' : ''}`}>
@@ -51,18 +79,29 @@ export function MessageGroup({ messages, customerName, isOutbound }: MessageGrou
         </Avatar>
       )}
       <div className={`flex flex-col gap-1 ${isOutbound ? 'items-end' : 'items-start'} max-w-md`}>
-        {messages.map((msg, index) => (
-          <div
-            key={msg.id}
-            className={`rounded-lg p-3 ${
-              isOutbound
-                ? 'bg-foreground text-background'
-                : 'bg-muted text-foreground'
-            }`}
-          >
-            <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-          </div>
-        ))}
+        {messages.map((msg, index) => {
+          // Can delete if user is admin OR if it's their own outbound message
+          const canDelete = canDeleteMessages && (isOutbound || !!currentUserId);
+          
+          return (
+            <MessageContextMenu
+              key={msg.id}
+              onDelete={() => handleDeleteMessage(msg.id)}
+              onCopy={() => handleCopyMessage(msg.content)}
+              canDelete={canDelete}
+            >
+              <div
+                className={`rounded-lg p-3 cursor-pointer transition-opacity hover:opacity-90 ${
+                  isOutbound
+                    ? 'bg-foreground text-background'
+                    : 'bg-muted text-foreground'
+                }`}
+              >
+                <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+              </div>
+            </MessageContextMenu>
+          );
+        })}
         <div className="flex items-center gap-1.5 px-1">
           {isOutbound && <MessageStatusIcon status={messages[messages.length - 1]?.status} />}
           <p className="text-xs text-muted-foreground">

@@ -452,6 +452,7 @@ export type Database = {
           customer_name: string | null
           customer_phone: string
           id: string
+          is_deleted: boolean | null
           last_interaction_type: string | null
           last_message_at: string | null
           last_message_preview: string | null
@@ -474,6 +475,7 @@ export type Database = {
           customer_name?: string | null
           customer_phone: string
           id?: string
+          is_deleted?: boolean | null
           last_interaction_type?: string | null
           last_message_at?: string | null
           last_message_preview?: string | null
@@ -496,6 +498,7 @@ export type Database = {
           customer_name?: string | null
           customer_phone?: string
           id?: string
+          is_deleted?: boolean | null
           last_interaction_type?: string | null
           last_message_at?: string | null
           last_message_preview?: string | null
@@ -826,6 +829,60 @@ export type Database = {
           },
         ]
       }
+      message_deletion_log: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          deletion_type: string
+          id: string
+          message_id: string | null
+          metadata: Json | null
+          original_content: string | null
+          workspace_id: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deletion_type: string
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          original_content?: string | null
+          workspace_id: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deletion_type?: string
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          original_content?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_deletion_log_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_deletion_log_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           body_text: string
@@ -905,11 +962,14 @@ export type Database = {
           content: string
           conversation_id: string
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           delivered_at: string | null
           direction: string
           error_message: string | null
           from_number: string
           id: string
+          is_deleted: boolean | null
           message_type: string
           metadata: Json | null
           read_at: string | null
@@ -922,11 +982,14 @@ export type Database = {
           content: string
           conversation_id: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           delivered_at?: string | null
           direction: string
           error_message?: string | null
           from_number: string
           id?: string
+          is_deleted?: boolean | null
           message_type?: string
           metadata?: Json | null
           read_at?: string | null
@@ -939,11 +1002,14 @@ export type Database = {
           content?: string
           conversation_id?: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           delivered_at?: string | null
           direction?: string
           error_message?: string | null
           from_number?: string
           id?: string
+          is_deleted?: boolean | null
           message_type?: string
           metadata?: Json | null
           read_at?: string | null
@@ -1830,6 +1896,10 @@ export type Database = {
         Args: { p: Database["public"]["Tables"]["products"]["Row"] }
         Returns: string
       }
+      restore_messages: {
+        Args: { p_message_ids: string[] }
+        Returns: undefined
+      }
       search_products: {
         Args: {
           category_filter?: string
@@ -1852,6 +1922,14 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      soft_delete_conversation: {
+        Args: { p_conversation_id: string; p_deleted_by: string }
+        Returns: undefined
+      }
+      soft_delete_messages: {
+        Args: { p_deleted_by: string; p_message_ids: string[] }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
