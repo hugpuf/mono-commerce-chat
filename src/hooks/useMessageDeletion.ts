@@ -2,11 +2,22 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+/**
+ * Provides soft-delete and restore helpers for messages and conversations.
+ *
+ * @returns API for soft-deleting messages, soft-deleting conversations, and restoring messages, plus loading flags.
+ */
 export function useMessageDeletion() {
   const { toast } = useToast();
   const [deletingMessages, setDeletingMessages] = useState<Set<string>>(new Set());
   const [deletingConversation, setDeletingConversation] = useState<string | null>(null);
 
+  /**
+   * Soft-delete specific messages for the current user.
+   * @param messageIds IDs of the messages to delete.
+   * @param userId ID of the user performing the delete (used for audit fields).
+   * @param onUndo Optional callback to trigger UI-based undo flows.
+   */
   const softDeleteMessages = async (messageIds: string[], userId: string, onUndo?: () => void) => {
     try {
       setDeletingMessages(prev => {
@@ -46,6 +57,11 @@ export function useMessageDeletion() {
     }
   };
 
+  /**
+   * Soft-delete an entire conversation for the current user.
+   * @param conversationId Conversation to delete.
+   * @param userId ID of the user performing the delete.
+   */
   const softDeleteConversation = async (conversationId: string, userId: string) => {
     try {
       setDeletingConversation(conversationId);
@@ -76,6 +92,10 @@ export function useMessageDeletion() {
     }
   };
 
+  /**
+   * Restore previously soft-deleted messages.
+   * @param messageIds IDs to restore within the undo window.
+   */
   const restoreMessages = async (messageIds: string[]) => {
     try {
       const { error } = await supabase.rpc('restore_messages', {

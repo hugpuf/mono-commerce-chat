@@ -1,6 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Retrieves the count of products belonging to a workspace via Supabase.
+ *
+ * @param workspaceId Workspace identifier; query is disabled when falsy.
+ * @returns React Query result containing the numeric count.
+ */
 export function useWorkspaceProductCount(workspaceId: string | null | undefined) {
   return useQuery<number>({
     queryKey: ["product-count", workspaceId],

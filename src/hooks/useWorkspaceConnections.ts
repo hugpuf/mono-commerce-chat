@@ -3,13 +3,14 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface WorkspaceConnections {
-  catalogSource: any | null;
-  paymentProvider: any | null;
-  whatsappAccount: any | null;
+  catalogSource: Record<string, unknown> | null;
+  paymentProvider: Record<string, unknown> | null;
+  whatsappAccount: Record<string, unknown> | null;
 }
 
 const CACHE_KEY = 'workspace-connections-cache';
 
+/** Persist connection metadata in localStorage to reduce redundant fetches. */
 const saveToCache = (workspaceId: string | null, data: WorkspaceConnections) => {
   if (!workspaceId) return;
 
@@ -20,6 +21,9 @@ const saveToCache = (workspaceId: string | null, data: WorkspaceConnections) => 
   }
 };
 
+/**
+ * Remove a workspace's cached connection metadata (e.g., after disconnecting providers).
+ */
 export const clearWorkspaceConnectionsCache = (workspaceId: string | null) => {
   if (!workspaceId) return;
   
@@ -30,6 +34,12 @@ export const clearWorkspaceConnectionsCache = (workspaceId: string | null) => {
   }
 };
 
+/**
+ * Fetches the active catalog, payment, and WhatsApp connections for a workspace.
+ *
+ * @param workspaceId Workspace identifier; disables the query when nullish.
+ * @returns React Query result with connection records plus optimistic caching.
+ */
 export const useWorkspaceConnections = (workspaceId: string | null) => {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedDataRef = useRef<string | null>(null);

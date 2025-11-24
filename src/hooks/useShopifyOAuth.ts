@@ -7,6 +7,14 @@ interface ShopifyOAuthParams {
   scopes: string[];
 }
 
+/**
+ * Launches the Shopify OAuth flow for a workspace.
+ *
+ * @remarks
+ * - Requires WorkspaceContext for workspace selection.
+ * - Uses `VITE_SHOPIFY_CLIENT_ID` from environment variables.
+ * - Normalizes the provided shop domain before redirecting to Shopify.
+ */
 export function useShopifyOAuth() {
   const { workspaceId } = useWorkspace();
 

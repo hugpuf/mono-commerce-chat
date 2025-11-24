@@ -134,6 +134,10 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">;
 
+/**
+ * Programmatically enqueue a toast.
+ * @returns Helpers to update or dismiss the created toast.
+ */
 function toast({ ...props }: Toast) {
   const id = genId();
 
@@ -163,6 +167,9 @@ function toast({ ...props }: Toast) {
   };
 }
 
+/**
+ * React hook for subscribing to toast state and dispatching new toasts.
+ */
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState);
 
@@ -174,7 +181,7 @@ function useToast() {
         listeners.splice(index, 1);
       }
     };
-  }, [state]);
+  }, []);
 
   return {
     ...state,
