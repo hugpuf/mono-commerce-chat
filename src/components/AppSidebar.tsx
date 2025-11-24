@@ -68,8 +68,13 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
       ]
     : [];
 
-  const activePayments = paymentProvider ? [
-    { id: paymentProvider.provider, name: paymentProvider.provider === "stripe" ? "Stripe" : paymentProvider.provider, icon: stripeLogo, status: "connected" as const }
+  const activePayments: Array<{ id: string; name: string; icon: string; status: "connected" }> = paymentProvider ? [
+    { 
+      id: String(paymentProvider.provider), 
+      name: paymentProvider.provider === "stripe" ? "Stripe" : String(paymentProvider.provider), 
+      icon: stripeLogo, 
+      status: "connected" as const 
+    }
   ] : [];
 
   const activeChannels = whatsappAccount ? [
