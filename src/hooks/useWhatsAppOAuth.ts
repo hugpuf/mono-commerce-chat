@@ -11,6 +11,15 @@ declare global {
   }
 }
 
+/**
+ * Legacy WhatsApp OAuth helper built around the Facebook SDK.
+ *
+ * @remarks
+ * - Prefer the `WhatsAppLoginButton` flow when possible; this hook only orchestrates loading the SDK and launching FB.login.
+ * - Requires WorkspaceContext for the workspace identifier and Supabase edge functions for Meta config.
+ *
+ * @returns Initiation function and a flag indicating whether the Facebook SDK is ready.
+ */
 export const useWhatsAppOAuth = () => {
   const { workspaceId } = useWorkspace();
   const [fbSdkReady, setFbSdkReady] = useState(false);
