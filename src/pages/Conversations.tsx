@@ -617,11 +617,11 @@ export default function Conversations() {
                       <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
                         <span className={cn(
                           "font-medium text-sm truncate",
-                          conv.unread_count && conv.unread_count > 0 && "font-bold"
+                          (conv.unread_count ?? 0) > 0 && "font-bold"
                         )}>
                           {conv.customer_name || conv.customer_phone}
                         </span>
-                        {conv.unread_count && conv.unread_count > 0 && (
+                        {(conv.unread_count ?? 0) > 0 && (
                           <span className="flex-shrink-0 h-5 min-w-[20px] px-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex items-center justify-center">
                             {conv.unread_count}
                           </span>
@@ -636,7 +636,7 @@ export default function Conversations() {
                     <div className="flex items-center gap-2 min-w-0">
                       <p className={cn(
                         "text-sm text-muted-foreground truncate flex-1 min-w-0",
-                        conv.unread_count && conv.unread_count > 0 && "font-semibold text-foreground"
+                        (conv.unread_count ?? 0) > 0 && "font-semibold text-foreground"
                       )}>
                         {conv.last_message_preview || conv.customer_phone}
                       </p>
