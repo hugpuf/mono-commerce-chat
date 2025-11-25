@@ -295,35 +295,160 @@ serve(async (req) => {
         // Wait for debounce period
         await new Promise(resolve => setTimeout(resolve, DEBOUNCE_DELAY));
         
-        try {
-          console.log(`⏱️ Debounce complete (${DEBOUNCE_DELAY}ms) - triggering AI handler`);
-          
-          const aiHandlerResponse = await supabase.functions.invoke('whatsapp-ai-handler', {
-            body: {
-              conversationId: conversation.id,
-              workspaceId: whatsappAccount.workspace_id,
-              instanceId: instanceId,
-              whatsappMessageId: message.id,
-            },
-          });
+        console.log(`⏱️ Debounce complete (${DEBOUNCE_DELAY}ms) - triggering handlers`);
+        
+        // Start existing AI handler (don't await yet)
+        const aiHandlerPromise = supabase.functions.invoke('whatsapp-ai-handler', {
+          body: {
+            conversationId: conversation.id,
+            workspaceId: whatsappAccount.workspace_id,
+            instanceId: instanceId,
+            whatsappMessageId: message.id,
+          },
+        });
 
-          if (aiHandlerResponse.error) {
-            console.error('❌ AI handler error:', aiHandlerResponse.error);
-          } else {
-            console.log('✅ AI handler completed:', aiHandlerResponse.data);
-          }
-        } catch (aiError) {
-          console.error('❌ AI handler exception:', aiError);
+        // Parallel n8n webhook (shadow mode)
+        const n8nWebhookUrl = Deno.env.get('N8N_WEBHOOK_URL');
+        
+        if (n8nWebhookUrl) {
+          console.log('👥 Triggering n8n in parallel (shadow mode)...');
           
-          // Emergency unlock on failure
+          const n8nPromise = (async () => {
+            try {
+              // Fetch current message buffer
+              const { data: currentConv, error: fetchError } = await supabase
+                .from('conversations')
+                .select('message_buffer, customer_phone, customer_name, workspace_id')
+                .eq('id', conversation.id)
+                .single();
+
+              if (fetchError) {
+                console.error('⚠️ n8n: Failed to fetch conversation:', fetchError);
+                return;
+              }
+
+              const bufferedMessages = (currentConv?.message_buffer || []) as string[];
+              const combinedMessage = bufferedMessages.join('\n');
+
+              // Fetch AI mode
+              const { data: aiSettings } = await supabase
+                .from('workspace_ai_settings')
+                .select('mode')
+                .eq('workspace_id', whatsappAccount.workspace_id)
+                .single();
+
+              // Send comprehensive payload to n8n
+              const payload = {
+                // Core identifiers
+                conversationId: conversation.id,
+                workspaceId: whatsappAccount.workspace_id,
+                whatsappAccountId: whatsappAccount.id,
+                instanceId: instanceId,
+                
+                // Customer info
+                customerPhone: currentConv.customer_phone,
+                customerName: currentConv.customer_name,
+                
+                // Message content
+                message: combinedMessage,
+                messageType: messageType,
+                originalMessageId: message.id,
+                
+                // System context
+                aiMode: aiSettings?.mode || 'manual',
+                timestamp: new Date().toISOString(),
+                
+                // Debug info
+                bufferSize: bufferedMessages.length,
+                source: 'whatsapp-webhook-shadow',
+              };
+
+              const response = await fetch(n8nWebhookUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+              });
+
+              if (response.ok) {
+                console.log('✅ n8n shadow webhook sent successfully');
+              } else {
+                console.error('⚠️ n8n webhook returned:', response.status);
+              }
+            } catch (error) {
+              console.error('⚠️ n8n shadow webhook failed (non-blocking):', error);
+            }
+          })();
+
+          // Wait for both AI handler and n8n call
           try {
-            await supabase.rpc('release_conversation_lock', {
-              p_conversation_id: conversation.id,
-              p_instance_id: instanceId
-            });
-            console.log('🔓 Emergency unlock performed');
-          } catch (unlockError) {
-            console.error('❌ Emergency unlock failed:', unlockError);
+            const [aiHandlerResponse] = await Promise.all([aiHandlerPromise, n8nPromise]);
+
+            if (aiHandlerResponse.error) {
+              console.error('❌ AI handler error:', aiHandlerResponse.error);
+              
+              // Emergency unlock on failure
+              try {
+                await supabase.rpc('release_conversation_lock', {
+                  p_conversation_id: conversation.id,
+                  p_instance_id: instanceId
+                });
+                console.log('🔓 Emergency unlock performed');
+              } catch (unlockError) {
+                console.error('❌ Emergency unlock failed:', unlockError);
+              }
+            } else {
+              console.log('✅ AI handler completed:', aiHandlerResponse.data);
+            }
+          } catch (aiError) {
+            console.error('❌ AI handler exception:', aiError);
+            
+            // Emergency unlock on failure
+            try {
+              await supabase.rpc('release_conversation_lock', {
+                p_conversation_id: conversation.id,
+                p_instance_id: instanceId
+              });
+              console.log('🔓 Emergency unlock performed');
+            } catch (unlockError) {
+              console.error('❌ Emergency unlock failed:', unlockError);
+            }
+          }
+        } else {
+          // No n8n configured, just run AI handler
+          try {
+            const aiHandlerResponse = await aiHandlerPromise;
+
+            if (aiHandlerResponse.error) {
+              console.error('❌ AI handler error:', aiHandlerResponse.error);
+              
+              // Emergency unlock on failure
+              try {
+                await supabase.rpc('release_conversation_lock', {
+                  p_conversation_id: conversation.id,
+                  p_instance_id: instanceId
+                });
+                console.log('🔓 Emergency unlock performed');
+              } catch (unlockError) {
+                console.error('❌ Emergency unlock failed:', unlockError);
+              }
+            } else {
+              console.log('✅ AI handler completed:', aiHandlerResponse.data);
+            }
+          } catch (aiError) {
+            console.error('❌ AI handler exception:', aiError);
+            
+            // Emergency unlock on failure
+            try {
+              await supabase.rpc('release_conversation_lock', {
+                p_conversation_id: conversation.id,
+                p_instance_id: instanceId
+              });
+              console.log('🔓 Emergency unlock performed');
+            } catch (unlockError) {
+              console.error('❌ Emergency unlock failed:', unlockError);
+            }
           }
         }
       };
