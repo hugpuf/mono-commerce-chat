@@ -290,8 +290,11 @@ serve(async (req) => {
         console.error('⚠️ Typing indicator error (non-blocking):', typingError);
       }
 
-      // Debounce and process
-      setTimeout(async () => {
+      // Debounce and process using EdgeRuntime.waitUntil for reliability
+      const debounceAndProcess = async () => {
+        // Wait for debounce period
+        await new Promise(resolve => setTimeout(resolve, DEBOUNCE_DELAY));
+        
         try {
           console.log(`⏱️ Debounce complete (${DEBOUNCE_DELAY}ms) - triggering AI handler`);
           
@@ -323,7 +326,16 @@ serve(async (req) => {
             console.error('❌ Emergency unlock failed:', unlockError);
           }
         }
-      }, DEBOUNCE_DELAY);
+      };
+
+      // Use EdgeRuntime.waitUntil to ensure task completes even if function instance shuts down
+      const edgeRuntime = (globalThis as any).EdgeRuntime;
+      if (edgeRuntime && typeof edgeRuntime.waitUntil === 'function') {
+        edgeRuntime.waitUntil(debounceAndProcess());
+      } else {
+        // Fallback for local development
+        debounceAndProcess();
+      }
 
       return new Response(JSON.stringify({ status: 'ok' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
