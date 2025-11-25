@@ -174,7 +174,7 @@ serve(async (req) => {
 
       console.log('Message stored successfully');
 
-      // Check AI mode and send typing indicator if not in manual mode
+      // Check AI mode
       const { data: aiSettings } = await supabase
         .from('workspace_ai_settings')
         .select('mode')
@@ -184,67 +184,132 @@ serve(async (req) => {
       const aiMode = aiSettings?.mode || 'manual';
       console.log('🎯 AI Mode:', aiMode);
 
-      // Send typing indicator for AI/HITL modes (not manual)
-      if (aiMode !== 'manual') {
-        try {
-          console.log('⌨️ Sending typing indicator...');
-          const { data: whatsappDetails } = await supabase
-            .from('whatsapp_accounts')
-            .select('access_token, phone_number_id')
-            .eq('id', whatsappAccount.id)
-            .single();
-
-          if (whatsappDetails?.access_token && whatsappDetails?.phone_number_id) {
-            const typingUrl = `https://graph.facebook.com/v18.0/${whatsappDetails.phone_number_id}/messages`;
-            const typingResponse = await fetch(typingUrl, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${whatsappDetails.access_token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                messaging_product: 'whatsapp',
-                status: 'read',
-                message_id: message.id,
-                typing_indicator: {
-                  type: 'text'
-                }
-              })
-            });
-
-            if (typingResponse.ok) {
-              console.log('✅ Typing indicator sent');
-            } else {
-              const errorText = await typingResponse.text();
-              console.error('⚠️ Failed to send typing indicator:', errorText);
-            }
-          }
-        } catch (typingError) {
-          console.error('⚠️ Typing indicator error (non-blocking):', typingError);
-        }
-      }
-
-      // Invoke AI handler (server-origin AI)
-      console.log('🤖 Triggering AI handler from webhook');
-      try {
-        const aiHandlerResponse = await supabase.functions.invoke('whatsapp-ai-handler', {
-          body: {
-            conversationId: conversation.id,
-            customerMessage: messageContent,
-            workspaceId: whatsappAccount.workspace_id,
-            whatsappMessageId: message.id, // Pass for read receipts
-          },
+      // Manual mode: skip locking/processing entirely
+      if (aiMode === 'manual') {
+        console.log('⏸️  Manual mode - no locking or AI processing');
+        return new Response(JSON.stringify({ status: 'ok', mode: 'manual' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
-
-        if (aiHandlerResponse.error) {
-          console.error('❌ AI handler error:', aiHandlerResponse.error);
-        } else {
-          console.log('✅ AI handler completed:', aiHandlerResponse.data);
-        }
-      } catch (aiError) {
-        console.error('❌ AI handler exception:', aiError);
-        // Don't fail the webhook if AI fails
       }
+
+      // === CONVERSATION LOCKING & BUFFERING ===
+      
+      const DEBOUNCE_DELAY = 2000; // 2 seconds
+      const instanceId = crypto.randomUUID(); // Unique ID for this invocation
+
+      console.log('🔐 Attempting to acquire conversation lock...', { conversationId: conversation.id, instanceId });
+
+      // Try to acquire lock
+      const { data: lockAcquired, error: lockError } = await supabase.rpc('try_conversation_lock', {
+        p_conversation_id: conversation.id,
+        p_instance_id: instanceId
+      });
+
+      if (lockError) {
+        console.error('❌ Lock acquisition error:', lockError);
+        throw lockError;
+      }
+
+      if (!lockAcquired) {
+        // Lock already held - buffer this message
+        console.log('🔒 Conversation locked by another process - buffering message');
+        
+        const { data: currentConv } = await supabase
+          .from('conversations')
+          .select('message_buffer')
+          .eq('id', conversation.id)
+          .single();
+
+        const currentBuffer = currentConv?.message_buffer || [];
+        const updatedBuffer = [...currentBuffer, messageContent];
+
+        await supabase
+          .from('conversations')
+          .update({ 
+            message_buffer: updatedBuffer,
+            last_message_at: new Date().toISOString()
+          })
+          .eq('id', conversation.id);
+
+        console.log(`📦 Message buffered. Buffer size: ${updatedBuffer.length}`);
+        
+        return new Response(JSON.stringify({ status: 'buffered', buffer_size: updatedBuffer.length }), {
+          status: 202,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Lock acquired! Initialize buffer with current message
+      console.log('✅ Lock acquired - initializing buffer and starting debounce');
+      await supabase
+        .from('conversations')
+        .update({ message_buffer: [messageContent] })
+        .eq('id', conversation.id);
+
+      // Send typing indicator
+      try {
+        console.log('⌨️ Sending typing indicator...');
+        const { data: whatsappDetails } = await supabase
+          .from('whatsapp_accounts')
+          .select('access_token, phone_number_id')
+          .eq('id', whatsappAccount.id)
+          .single();
+
+        if (whatsappDetails?.access_token && whatsappDetails?.phone_number_id) {
+          const typingUrl = `https://graph.facebook.com/v18.0/${whatsappDetails.phone_number_id}/messages`;
+          await fetch(typingUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${whatsappDetails.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              status: 'read',
+              message_id: message.id,
+              typing_indicator: { type: 'text' }
+            })
+          });
+          console.log('✅ Typing indicator sent');
+        }
+      } catch (typingError) {
+        console.error('⚠️ Typing indicator error (non-blocking):', typingError);
+      }
+
+      // Debounce and process
+      setTimeout(async () => {
+        try {
+          console.log(`⏱️ Debounce complete (${DEBOUNCE_DELAY}ms) - triggering AI handler`);
+          
+          const aiHandlerResponse = await supabase.functions.invoke('whatsapp-ai-handler', {
+            body: {
+              conversationId: conversation.id,
+              workspaceId: whatsappAccount.workspace_id,
+              instanceId: instanceId,
+              whatsappMessageId: message.id,
+            },
+          });
+
+          if (aiHandlerResponse.error) {
+            console.error('❌ AI handler error:', aiHandlerResponse.error);
+          } else {
+            console.log('✅ AI handler completed:', aiHandlerResponse.data);
+          }
+        } catch (aiError) {
+          console.error('❌ AI handler exception:', aiError);
+          
+          // Emergency unlock on failure
+          try {
+            await supabase.rpc('release_conversation_lock', {
+              p_conversation_id: conversation.id,
+              p_instance_id: instanceId
+            });
+            console.log('🔓 Emergency unlock performed');
+          } catch (unlockError) {
+            console.error('❌ Emergency unlock failed:', unlockError);
+          }
+        }
+      }, DEBOUNCE_DELAY);
 
       return new Response(JSON.stringify({ status: 'ok' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

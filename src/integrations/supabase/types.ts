@@ -453,11 +453,15 @@ export type Database = {
           customer_phone: string
           id: string
           is_deleted: boolean | null
+          is_processing: boolean | null
           last_interaction_type: string | null
           last_message_at: string | null
           last_message_preview: string | null
+          lock_acquired_by: string | null
+          message_buffer: Json | null
           opt_in_date: string | null
           opt_in_status: string | null
+          processing_started_at: string | null
           status: string
           unread_count: number | null
           updated_at: string
@@ -476,11 +480,15 @@ export type Database = {
           customer_phone: string
           id?: string
           is_deleted?: boolean | null
+          is_processing?: boolean | null
           last_interaction_type?: string | null
           last_message_at?: string | null
           last_message_preview?: string | null
+          lock_acquired_by?: string | null
+          message_buffer?: Json | null
           opt_in_date?: string | null
           opt_in_status?: string | null
+          processing_started_at?: string | null
           status?: string
           unread_count?: number | null
           updated_at?: string
@@ -499,11 +507,15 @@ export type Database = {
           customer_phone?: string
           id?: string
           is_deleted?: boolean | null
+          is_processing?: boolean | null
           last_interaction_type?: string | null
           last_message_at?: string | null
           last_message_preview?: string | null
+          lock_acquired_by?: string | null
+          message_buffer?: Json | null
           opt_in_date?: string | null
           opt_in_status?: string | null
+          processing_started_at?: string | null
           status?: string
           unread_count?: number | null
           updated_at?: string
@@ -1896,6 +1908,10 @@ export type Database = {
         Args: { p: Database["public"]["Tables"]["products"]["Row"] }
         Returns: string
       }
+      release_conversation_lock: {
+        Args: { p_conversation_id: string; p_instance_id: string }
+        Returns: boolean
+      }
       restore_messages: {
         Args: { p_message_ids: string[] }
         Returns: undefined
@@ -1930,6 +1946,11 @@ export type Database = {
         Args: { p_deleted_by: string; p_message_ids: string[] }
         Returns: undefined
       }
+      try_conversation_lock: {
+        Args: { p_conversation_id: string; p_instance_id: string }
+        Returns: boolean
+      }
+      unlock_stuck_conversations: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never
