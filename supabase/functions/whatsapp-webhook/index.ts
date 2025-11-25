@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendReadReceipt, sendReaction } from "./typing-helper.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -79,7 +80,7 @@ serve(async (req) => {
       // Find the WhatsApp account
       const { data: whatsappAccount, error: accountError } = await supabase
         .from('whatsapp_accounts')
-        .select('id, workspace_id')
+        .select('id, workspace_id, access_token, phone_number_id')
         .eq('phone_number_id', phoneNumberId)
         .single();
 
@@ -90,6 +91,14 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+
+      // IMMEDIATE FEEDBACK: Send read receipt + reaction to mask latency
+      // This happens before any AI processing starts
+      console.log('📨 Sending immediate feedback signals...');
+      await Promise.all([
+        sendReadReceipt(whatsappAccount, message.id),
+        sendReaction(whatsappAccount, message.id, customerPhone, '👀')
+      ]).catch(err => console.error('Non-critical: Failed to send feedback signals:', err));
 
       // Find or create conversation
       let conversation;
