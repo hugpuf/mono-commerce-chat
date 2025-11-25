@@ -174,6 +174,56 @@ serve(async (req) => {
 
       console.log('Message stored successfully');
 
+      // Check AI mode and send typing indicator if not in manual mode
+      const { data: aiSettings } = await supabase
+        .from('workspace_ai_settings')
+        .select('mode')
+        .eq('workspace_id', whatsappAccount.workspace_id)
+        .single();
+
+      const aiMode = aiSettings?.mode || 'manual';
+      console.log('🎯 AI Mode:', aiMode);
+
+      // Send typing indicator for AI/HITL modes (not manual)
+      if (aiMode !== 'manual') {
+        try {
+          console.log('⌨️ Sending typing indicator...');
+          const { data: whatsappDetails } = await supabase
+            .from('whatsapp_accounts')
+            .select('access_token, phone_number_id')
+            .eq('id', whatsappAccount.id)
+            .single();
+
+          if (whatsappDetails?.access_token && whatsappDetails?.phone_number_id) {
+            const typingUrl = `https://graph.facebook.com/v18.0/${whatsappDetails.phone_number_id}/messages`;
+            const typingResponse = await fetch(typingUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${whatsappDetails.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                status: 'read',
+                message_id: message.id,
+                typing_indicator: {
+                  type: 'text'
+                }
+              })
+            });
+
+            if (typingResponse.ok) {
+              console.log('✅ Typing indicator sent');
+            } else {
+              const errorText = await typingResponse.text();
+              console.error('⚠️ Failed to send typing indicator:', errorText);
+            }
+          }
+        } catch (typingError) {
+          console.error('⚠️ Typing indicator error (non-blocking):', typingError);
+        }
+      }
+
       // Invoke AI handler (server-origin AI)
       console.log('🤖 Triggering AI handler from webhook');
       try {
@@ -182,6 +232,7 @@ serve(async (req) => {
             conversationId: conversation.id,
             customerMessage: messageContent,
             workspaceId: whatsappAccount.workspace_id,
+            whatsappMessageId: message.id, // Pass for read receipts
           },
         });
 

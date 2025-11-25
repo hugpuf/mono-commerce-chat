@@ -27,9 +27,78 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { conversationId, customerMessage, workspaceId } = await req.json();
+    const { conversationId, customerMessage, workspaceId, whatsappMessageId } = await req.json();
 
     console.log('🤖 AI Handler - Processing message:', { conversationId, workspaceId });
+
+    // Placeholder tracking
+    const PLACEHOLDER_DELAYS = [3000, 8000]; // 3s and 8s
+    const MIN_DELAY_AFTER_PLACEHOLDER = 1000; // 1s minimum
+    let placeholdersSent = 0;
+    let lastPlaceholderTime = 0;
+    const placeholderTimers: number[] = [];
+
+    // Helper: Send WhatsApp message
+    const sendWhatsAppMessage = async (content: string) => {
+      const { data: whatsappAccount } = await supabaseClient
+        .from('whatsapp_accounts')
+        .select('access_token, phone_number_id, phone_number')
+        .eq('workspace_id', workspaceId)
+        .single();
+
+      if (!whatsappAccount?.access_token || !whatsappAccount?.phone_number_id) {
+        console.error('❌ WhatsApp credentials missing for placeholder');
+        return false;
+      }
+
+      const { data: conv } = await supabaseClient
+        .from('conversations')
+        .select('customer_phone')
+        .eq('id', conversationId)
+        .single();
+
+      if (!conv) return false;
+
+      const graphApiUrl = `https://graph.facebook.com/v18.0/${whatsappAccount.phone_number_id}/messages`;
+      const response = await fetch(graphApiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${whatsappAccount.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: conv.customer_phone,
+          type: 'text',
+          text: { body: content }
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Store placeholder message
+        await supabaseClient.from('messages').insert({
+          conversation_id: conversationId,
+          direction: 'outbound',
+          from_number: whatsappAccount.phone_number,
+          to_number: conv.customer_phone,
+          content: content,
+          message_type: 'text',
+          status: 'sent',
+          whatsapp_message_id: data.messages?.[0]?.id,
+          metadata: { placeholder: true }
+        });
+        return true;
+      }
+      return false;
+    };
+
+    // Helper: Cancel all pending placeholder timers
+    const cancelPlaceholders = () => {
+      placeholderTimers.forEach(timer => clearTimeout(timer));
+      placeholderTimers.length = 0;
+    };
 
     // Parallelize all database reads for performance
     const [
@@ -98,6 +167,28 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
+
+    // Setup smart placeholder system (max 2 messages)
+    console.log('⏱️ Setting up placeholder timers...');
+    const placeholderMessages = mode === 'hitl' 
+      ? ['Reviewing your message...', 'Our team will review and respond shortly...']
+      : ['One moment, checking that for you...', 'Still working on this...'];
+
+    PLACEHOLDER_DELAYS.forEach((delay, index) => {
+      if (index < 2) { // Max 2 placeholders
+        const timer = setTimeout(async () => {
+          if (placeholdersSent < 2) {
+            console.log(`⏱️ Sending placeholder ${placeholdersSent + 1}/2 at ${delay}ms`);
+            const sent = await sendWhatsAppMessage(placeholderMessages[index]);
+            if (sent) {
+              placeholdersSent++;
+              lastPlaceholderTime = Date.now();
+            }
+          }
+        }, delay);
+        placeholderTimers.push(timer);
+      }
+    });
 
     // Build conversation history for AI
     const conversationHistory = messages?.map(msg => ({
@@ -270,6 +361,28 @@ serve(async (req) => {
         const toolName = toolCall.function.name;
         const toolArgs = JSON.parse(toolCall.function.arguments);
         console.log(`🔧 Executing tool: ${toolName}`, toolArgs);
+
+        // Send contextual placeholder for tool execution (if < 2 sent already)
+        if (placeholdersSent < 2) {
+          const contextualMessages: Record<string, string> = {
+            search_products: 'Searching our products for you...',
+            browse_catalog: 'Browsing our catalog...',
+            add_to_cart: 'Adding that to your cart...',
+            create_checkout: 'Preparing your checkout link...',
+            check_order_status: 'Looking up your order...'
+          };
+          
+          const contextualMsg = contextualMessages[toolName];
+          if (contextualMsg) {
+            console.log(`🔧 Sending contextual placeholder for ${toolName}`);
+            cancelPlaceholders(); // Cancel generic placeholders
+            const sent = await sendWhatsAppMessage(contextualMsg);
+            if (sent) {
+              placeholdersSent++;
+              lastPlaceholderTime = Date.now();
+            }
+          }
+        }
 
         let toolResult;
 
@@ -554,6 +667,19 @@ serve(async (req) => {
         console.log(`⚠️ AUTO Mode: Forcing approval due to high negative sentiment (${sentimentScore.toFixed(2)})`);
       } else {
         console.log(`🤖 AUTO Mode: Always auto-send (confidence: ${confidence}%)`);
+      }
+    }
+    
+    // Cancel any remaining placeholder timers
+    cancelPlaceholders();
+    
+    // Enforce minimum delay after placeholder
+    if (placeholdersSent > 0 && lastPlaceholderTime > 0) {
+      const timeSinceLastPlaceholder = Date.now() - lastPlaceholderTime;
+      if (timeSinceLastPlaceholder < MIN_DELAY_AFTER_PLACEHOLDER) {
+        const remainingDelay = MIN_DELAY_AFTER_PLACEHOLDER - timeSinceLastPlaceholder;
+        console.log(`⏱️ Waiting ${remainingDelay}ms after placeholder before final response`);
+        await new Promise(resolve => setTimeout(resolve, remainingDelay));
       }
     }
     
