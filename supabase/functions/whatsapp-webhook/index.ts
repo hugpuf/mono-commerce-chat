@@ -374,7 +374,13 @@ serve(async (req) => {
               if (response.ok) {
                 console.log('✅ n8n shadow webhook sent successfully');
               } else {
-                console.error('⚠️ n8n webhook returned:', response.status);
+                const responseText = await response.text();
+                console.error('⚠️ n8n webhook failed:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                  url: n8nWebhookUrl,
+                  response: responseText.substring(0, 200)
+                });
               }
             } catch (error) {
               console.error('⚠️ n8n shadow webhook failed (non-blocking):', error);
