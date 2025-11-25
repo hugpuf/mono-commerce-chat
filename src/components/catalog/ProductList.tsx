@@ -2,7 +2,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, ExternalLink, AlertTriangle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Package, ExternalLink, AlertTriangle, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -30,6 +31,12 @@ interface ProductListProps {
 
 export function ProductList({ products, shopDomain, onStatusChange }: ProductListProps) {
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+
+  const allProductIds = products.map(p => p.id);
+  const allSelected = selectedProducts.length === products.length && products.length > 0;
+  const someSelected = selectedProducts.length > 0 && selectedProducts.length < products.length;
 
   const getStockBadge = (stock: number) => {
     if (stock === 0) {
@@ -59,6 +66,44 @@ export function ProductList({ products, shopDomain, onStatusChange }: ProductLis
     }
     
     return `https://${shopDomain}/admin/products/${product.shopify_product_id}`;
+  };
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedProducts([]);
+    } else {
+      setSelectedProducts(allProductIds);
+    }
+  };
+
+  const toggleSelectProduct = (productId: string) => {
+    setSelectedProducts(prev =>
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  const handleBulkStatusChange = async (newStatus: string) => {
+    setBulkUpdating(true);
+    
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ status: newStatus })
+        .in('id', selectedProducts);
+
+      if (error) throw error;
+
+      toast.success(`Updated ${selectedProducts.length} product${selectedProducts.length > 1 ? 's' : ''} to ${newStatus}`);
+      setSelectedProducts([]);
+      onStatusChange?.();
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error('Failed to update products');
+    } finally {
+      setBulkUpdating(false);
+    }
   };
 
   const handleStatusChange = async (productId: string, newStatus: string) => {
@@ -95,25 +140,71 @@ export function ProductList({ products, shopDomain, onStatusChange }: ProductLis
   }
 
   return (
-    <div className="border rounded-lg">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[80px]">Image</TableHead>
-            <TableHead>Product</TableHead>
-            <TableHead>SKU</TableHead>
-            <TableHead className="text-right">Price</TableHead>
-            <TableHead>Stock</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
+    <div className="space-y-4">
+      {selectedProducts.length > 0 && (
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium">
+              {selectedProducts.length} selected
+            </span>
+            <Select onValueChange={handleBulkStatusChange} disabled={bulkUpdating}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Set Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Set Active</SelectItem>
+                <SelectItem value="draft">Set Draft</SelectItem>
+                <SelectItem value="archived">Set Archived</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedProducts([])}
+            disabled={bulkUpdating}
+          >
+            <X className="w-4 h-4 mr-2" />
+            Clear Selection
+          </Button>
+        </div>
+      )}
+
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[50px]">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={toggleSelectAll}
+                  aria-label="Select all products"
+                  className={someSelected ? "data-[state=checked]:bg-primary/50" : ""}
+                />
+              </TableHead>
+              <TableHead className="w-[80px]">Image</TableHead>
+              <TableHead>Product</TableHead>
+              <TableHead>SKU</TableHead>
+              <TableHead className="text-right">Price</TableHead>
+              <TableHead>Stock</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
         <TableBody>
           {products.map((product) => {
             const shopifyUrl = getShopifyUrl(product);
+            const isSelected = selectedProducts.includes(product.id);
             
             return (
               <TableRow key={product.id}>
+                <TableCell>
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => toggleSelectProduct(product.id)}
+                    aria-label={`Select ${product.title}`}
+                  />
+                </TableCell>
                 <TableCell>
                   <div className="w-16 h-16 rounded bg-muted flex items-center justify-center overflow-hidden">
                     {product.image_url ? (
@@ -181,6 +272,7 @@ export function ProductList({ products, shopDomain, onStatusChange }: ProductLis
           })}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }
