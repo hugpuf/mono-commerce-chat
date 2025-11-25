@@ -71,7 +71,7 @@ serve(async (req) => {
 
     // Combine buffered messages
     const bufferedMessages = currentConv.message_buffer || [];
-    const customerMessage = bufferedMessages.join('\n');
+    let customerMessage = bufferedMessages.join('\n');
     
     console.log(`📦 Processing ${bufferedMessages.length} buffered message(s)`);
     console.log('💬 Combined message:', customerMessage);
@@ -487,6 +487,174 @@ serve(async (req) => {
       }
     }
 
+    // === BUFFER RE-CHECK LOOP: Ensure we answer most recent question ===
+    console.log('🔄 Checking for new messages that arrived during processing...');
+    
+    const MAX_PROCESSING_LOOPS = 5;
+    let processingLoop = 0;
+    let processedMessageCount = bufferedMessages.length;
+    let currentResponse = finalResponse;
+    let currentToolCalls = toolCalls;
+    
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      processingLoop++;
+      
+      if (processingLoop > MAX_PROCESSING_LOOPS) {
+        console.warn('⚠️ Max processing loops reached - proceeding with current response');
+        break;
+      }
+      
+      // Re-fetch current buffer state
+      const { data: latestConv } = await supabaseClient
+        .from('conversations')
+        .select('message_buffer')
+        .eq('id', conversationId)
+        .single();
+      
+      const latestBuffer = latestConv?.message_buffer || [];
+      
+      // Check if new messages arrived
+      if (latestBuffer.length > processedMessageCount) {
+        const newMessages = latestBuffer.slice(processedMessageCount);
+        console.log(`📨 ${newMessages.length} new message(s) arrived during processing loop ${processingLoop}`);
+        console.log('💬 New messages:', newMessages);
+        
+        // Add small debounce to catch rapid follow-ups
+        console.log('⏱️ Adding 1s debounce to catch additional rapid messages...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Re-check one more time after debounce
+        const { data: finalConv } = await supabaseClient
+          .from('conversations')
+          .select('message_buffer')
+          .eq('id', conversationId)
+          .single();
+        
+        const finalBuffer = finalConv?.message_buffer || [];
+        const allNewMessages = finalBuffer.slice(processedMessageCount);
+        
+        console.log(`📨 Total new messages after debounce: ${allNewMessages.length}`);
+        
+        // Combine all new messages
+        const combinedNewMessage = allNewMessages.join('\n');
+        
+        // Update customerMessage to the most recent for sentiment analysis
+        customerMessage = combinedNewMessage;
+        
+        // Update conversation history with the previous AI response
+        conversationHistory.push(
+          { role: 'user', content: customerMessage },
+          { role: 'assistant', content: currentResponse }
+        );
+        
+        // Re-call AI with updated context
+        console.log('🤖 Re-calling AI with updated context...');
+        const reprocessResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...conversationHistory,
+              { role: "user", content: combinedNewMessage }
+            ],
+            tools: tools,
+            tool_choice: "auto"
+          })
+        });
+        
+        if (!reprocessResponse.ok) {
+          console.error('❌ Re-processing AI call failed - using previous response');
+          break;
+        }
+        
+        const reprocessData = await reprocessResponse.json();
+        currentResponse = reprocessData.choices[0].message.content || "";
+        currentToolCalls = reprocessData.choices[0].message.tool_calls;
+        
+        // Execute any new tool calls
+        if (currentToolCalls && currentToolCalls.length > 0) {
+          console.log('🔧 Re-processing tool calls:', currentToolCalls.length);
+          
+          for (const toolCall of currentToolCalls) {
+            const toolName = toolCall.function.name;
+            const toolArgs = JSON.parse(toolCall.function.arguments);
+            console.log(`🔧 Executing tool: ${toolName}`, toolArgs);
+            
+            let toolResult;
+            
+            switch (toolName) {
+              case "search_products":
+                toolResult = await executeSearchProducts(supabaseClient, workspaceId, toolArgs);
+                break;
+              case "add_to_cart":
+                toolResult = await executeAddToCart(supabaseClient, conversationId, toolArgs);
+                break;
+              case "view_cart":
+                toolResult = await executeViewCart(supabaseClient, conversationId);
+                break;
+              case "remove_from_cart":
+                toolResult = await executeRemoveFromCart(supabaseClient, conversationId, toolArgs);
+                break;
+              case "create_checkout":
+                toolResult = await executeCreateCheckout(supabaseClient, conversation, workspace);
+                break;
+              case "check_order_status":
+                toolResult = await executeCheckOrderStatus(supabaseClient, conversation.customer_phone, toolArgs);
+                break;
+              case "browse_catalog":
+                toolResult = await executeBrowseCatalog(supabaseClient, workspaceId, toolArgs);
+                break;
+              default:
+                toolResult = { error: "Unknown tool" };
+            }
+            
+            // Get natural language response for tool result
+            const toolFollowUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash",
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  ...conversationHistory,
+                  { role: "user", content: combinedNewMessage },
+                  reprocessData.choices[0].message,
+                  {
+                    role: "tool",
+                    tool_call_id: toolCall.id,
+                    content: JSON.stringify(toolResult)
+                  }
+                ]
+              })
+            });
+            
+            const toolFollowUpData = await toolFollowUpResponse.json();
+            currentResponse = toolFollowUpData.choices[0].message.content;
+          }
+        }
+        
+        // Update processed count and continue loop
+        processedMessageCount = finalBuffer.length;
+        finalResponse = currentResponse;
+        
+      } else {
+        // No new messages - we're done
+        console.log('✅ No new messages arrived - proceeding with current response');
+        break;
+      }
+    }
+    
+    console.log(`🔄 Processing loop completed after ${processingLoop} iteration(s)`);
+    
     // === PHASE 2: STRUCTURED RULE EVALUATION ENGINE ===
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
