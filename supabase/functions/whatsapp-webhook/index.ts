@@ -152,6 +152,20 @@ serve(async (req) => {
         messageContent = `[${message.type}]`;
       }
 
+      // Check for duplicate message (deduplication)
+      const { data: existingMessage } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('whatsapp_message_id', message.id)
+        .maybeSingle();
+
+      if (existingMessage) {
+        console.log('⚠️ Duplicate message detected, skipping:', message.id);
+        return new Response(JSON.stringify({ status: 'ok', duplicate: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       // Store the message
       const { error: messageError } = await supabase
         .from('messages')
