@@ -21,15 +21,60 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseClient = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
+
+  let conversationId: string | undefined;
+  let instanceId: string | undefined;
+
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const requestBody = await req.json();
+    conversationId = requestBody.conversationId;
+    instanceId = requestBody.instanceId;
+    const workspaceId = requestBody.workspaceId;
+    const whatsappMessageId = requestBody.whatsappMessageId;
 
-    const { conversationId, customerMessage, workspaceId, whatsappMessageId } = await req.json();
+    if (!conversationId || !instanceId || !workspaceId) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required parameters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    console.log('🤖 AI Handler - Processing message:', { conversationId, workspaceId });
+    console.log('🤖 AI Handler - Processing conversation:', { conversationId, workspaceId, instanceId });
+
+    // Fetch buffered messages
+    const { data: currentConv, error: convError } = await supabaseClient
+      .from('conversations')
+      .select('message_buffer, lock_acquired_by')
+      .eq('id', conversationId)
+      .single();
+
+    if (convError || !currentConv) {
+      console.error('❌ Failed to fetch conversation:', convError);
+      throw new Error('Conversation not found');
+    }
+
+    // Verify lock ownership
+    if (currentConv.lock_acquired_by !== instanceId) {
+      console.error('❌ Lock ownership mismatch!', { 
+        expected: instanceId, 
+        actual: currentConv.lock_acquired_by 
+      });
+      return new Response(
+        JSON.stringify({ error: 'Lock ownership mismatch' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Combine buffered messages
+    const bufferedMessages = currentConv.message_buffer || [];
+    const customerMessage = bufferedMessages.join('\n');
+    
+    console.log(`📦 Processing ${bufferedMessages.length} buffered message(s)`);
+    console.log('💬 Combined message:', customerMessage);
 
     // Placeholder tracking
     const PLACEHOLDER_DELAYS = [3000, 8000]; // 3s and 8s
@@ -824,7 +869,7 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('Error in AI handler:', error);
+    console.error('❌ Error in AI handler:', error);
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'Unknown error',
       response: "I'm having trouble processing that right now. Please try again or contact our support team." 
@@ -832,6 +877,28 @@ serve(async (req) => {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  } finally {
+    // ALWAYS release the lock, even on error
+    if (conversationId && instanceId) {
+      try {
+        console.log('🔓 Releasing conversation lock...', { conversationId, instanceId });
+        
+        const { data: released, error: unlockError } = await supabaseClient.rpc('release_conversation_lock', {
+          p_conversation_id: conversationId,
+          p_instance_id: instanceId
+        });
+
+        if (unlockError) {
+          console.error('❌ Failed to release lock:', unlockError);
+        } else if (released) {
+          console.log('✅ Lock released successfully');
+        } else {
+          console.warn('⚠️ Lock release returned false (ownership mismatch?)');
+        }
+      } catch (unlockErr) {
+        console.error('❌ Exception during lock release:', unlockErr);
+      }
+    }
   }
 });
 
