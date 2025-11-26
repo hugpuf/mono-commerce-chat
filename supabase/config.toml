@@ -23,3 +23,24 @@ verify_jwt = true
 
 [functions.whatsapp-manual-setup]
 verify_jwt = true
+
+[functions.search-products]
+verify_jwt = false
+
+[functions.browse-catalog]
+verify_jwt = false
+
+[functions.add-to-cart]
+verify_jwt = false
+
+[functions.view-cart]
+verify_jwt = false
+
+[functions.remove-from-cart]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.check-order-status]
+verify_jwt = false
