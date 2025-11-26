@@ -21,6 +21,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const toolFunctionMap: Record<string, string> = {
+  search_products: 'search-products',
+  add_to_cart: 'add-to-cart',
+  view_cart: 'view-cart',
+  remove_from_cart: 'remove-from-cart',
+  create_checkout: 'create-checkout',
+  check_order_status: 'check-order-status',
+  browse_catalog: 'browse-catalog'
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -406,6 +416,29 @@ serve(async (req) => {
     let finalResponse = aiData.choices[0].message.content || "";
     const toolCalls = aiData.choices[0].message.tool_calls;
 
+    const invokeTool = async (toolName: string, toolArgs: any) => {
+      const functionName = toolFunctionMap[toolName];
+      if (!functionName) {
+        console.warn(`⚠️ Unknown tool requested: ${toolName}`);
+        return { error: "Unknown tool" };
+      }
+
+      const { data, error } = await supabaseClient.functions.invoke(functionName, {
+        body: {
+          ...toolArgs,
+          workspaceId,
+          conversationId
+        }
+      });
+
+      if (error) {
+        console.error(`❌ Tool invocation failed for ${toolName}:`, error);
+        return { error: error.message || 'Tool invocation failed' };
+      }
+
+      return data;
+    };
+
     // Execute tool calls
     if (toolCalls && toolCalls.length > 0) {
       console.log('🔧 Tool calls detected:', toolCalls.length);
@@ -437,33 +470,7 @@ serve(async (req) => {
           }
         }
 
-        let toolResult;
-
-        switch (toolName) {
-          case "search_products":
-            toolResult = await executeSearchProducts(supabaseClient, workspaceId, toolArgs);
-            break;
-          case "add_to_cart":
-            toolResult = await executeAddToCart(supabaseClient, conversationId, toolArgs);
-            break;
-          case "view_cart":
-            toolResult = await executeViewCart(supabaseClient, conversationId);
-            break;
-          case "remove_from_cart":
-            toolResult = await executeRemoveFromCart(supabaseClient, conversationId, toolArgs);
-            break;
-          case "create_checkout":
-            toolResult = await executeCreateCheckout(supabaseClient, conversation, workspace);
-            break;
-          case "check_order_status":
-            toolResult = await executeCheckOrderStatus(supabaseClient, conversation.customer_phone, toolArgs);
-            break;
-          case "browse_catalog":
-            toolResult = await executeBrowseCatalog(supabaseClient, workspaceId, toolArgs);
-            break;
-          default:
-            toolResult = { error: "Unknown tool" };
-        }
+        const toolResult = await invokeTool(toolName, toolArgs);
 
         console.log(`✅ Tool result for ${toolName}:`, toolResult);
         
@@ -597,33 +604,7 @@ serve(async (req) => {
             const toolArgs = JSON.parse(toolCall.function.arguments);
             console.log(`🔧 Executing tool: ${toolName}`, toolArgs);
             
-            let toolResult;
-            
-            switch (toolName) {
-              case "search_products":
-                toolResult = await executeSearchProducts(supabaseClient, workspaceId, toolArgs);
-                break;
-              case "add_to_cart":
-                toolResult = await executeAddToCart(supabaseClient, conversationId, toolArgs);
-                break;
-              case "view_cart":
-                toolResult = await executeViewCart(supabaseClient, conversationId);
-                break;
-              case "remove_from_cart":
-                toolResult = await executeRemoveFromCart(supabaseClient, conversationId, toolArgs);
-                break;
-              case "create_checkout":
-                toolResult = await executeCreateCheckout(supabaseClient, conversation, workspace);
-                break;
-              case "check_order_status":
-                toolResult = await executeCheckOrderStatus(supabaseClient, conversation.customer_phone, toolArgs);
-                break;
-              case "browse_catalog":
-                toolResult = await executeBrowseCatalog(supabaseClient, workspaceId, toolArgs);
-                break;
-              default:
-                toolResult = { error: "Unknown tool" };
-            }
+            const toolResult = await invokeTool(toolName, toolArgs);
             
             // Get natural language response for tool result
             const toolFollowUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -1214,242 +1195,3 @@ serve(async (req) => {
   }
 });
 
-// Tool execution functions
-async function executeSearchProducts(supabase: any, workspaceId: string, args: any) {
-  console.log('🔍 Executing exact_search_products with query:', args.query);
-  
-  // Use exact matching function for deterministic results
-  const { data, error } = await supabase.rpc('exact_search_products', {
-    workspace_uuid: workspaceId,
-    search_query: args.query,
-    category_filter: args.category || null,
-    max_price_filter: args.max_price || null,
-    result_limit: 5
-  });
-
-  if (error) {
-    console.error('Search products error:', error);
-    return { error: "Failed to search products", products: [] };
-  }
-
-  // Log match diagnostics for validation
-  console.log('✅ Search results:', data?.map((p: any) => ({
-    sku: p.sku,
-    title: p.title,
-    match_type: p.match_type,
-    match_score: p.match_score
-  })));
-
-  return { products: data || [] };
-}
-
-async function executeAddToCart(supabase: any, conversationId: string, args: any) {
-  // Fetch product details
-  const { data: product } = await supabase
-    .from('products')
-    .select('*')
-    .eq('id', args.product_id)
-    .single();
-
-  if (!product) {
-    return { error: "Product not found" };
-  }
-
-  if (product.stock < (args.quantity || 1)) {
-    return { error: "Insufficient stock", available: product.stock };
-  }
-
-  // Get current cart
-  const { data: conversation } = await supabase
-    .from('conversations')
-    .select('cart_items, cart_total')
-    .eq('id', conversationId)
-    .single();
-
-  const cartItems = conversation?.cart_items || [];
-  const newItem = {
-    product_id: product.id,
-    title: product.title,
-    price: product.price,
-    quantity: args.quantity || 1,
-    variant_info: args.variant_info || null,
-    image_url: product.image_url,
-    added_at: new Date().toISOString()
-  };
-
-  const updatedCart = [...cartItems, newItem];
-  const newTotal = updatedCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-  // Update conversation
-  await supabase
-    .from('conversations')
-    .update({
-      cart_items: updatedCart,
-      cart_total: newTotal,
-      last_interaction_type: 'shopping'
-    })
-    .eq('id', conversationId);
-
-  return {
-    success: true,
-    cart_count: updatedCart.length,
-    cart_total: newTotal,
-    added_item: newItem
-  };
-}
-
-async function executeViewCart(supabase: any, conversationId: string) {
-  const { data: conversation } = await supabase
-    .from('conversations')
-    .select('cart_items, cart_total')
-    .eq('id', conversationId)
-    .single();
-
-  return {
-    items: conversation?.cart_items || [],
-    total: conversation?.cart_total || 0,
-    count: conversation?.cart_items?.length || 0
-  };
-}
-
-async function executeRemoveFromCart(supabase: any, conversationId: string, args: any) {
-  const { data: conversation } = await supabase
-    .from('conversations')
-    .select('cart_items')
-    .eq('id', conversationId)
-    .single();
-
-  const cartItems = conversation?.cart_items || [];
-  const updatedCart = cartItems.filter((item: any) => item.product_id !== args.product_id);
-  const newTotal = updatedCart.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
-
-  await supabase
-    .from('conversations')
-    .update({
-      cart_items: updatedCart,
-      cart_total: newTotal
-    })
-    .eq('id', conversationId);
-
-  return {
-    success: true,
-    cart_count: updatedCart.length,
-    cart_total: newTotal
-  };
-}
-
-async function executeCreateCheckout(supabase: any, conversation: any, workspace: any) {
-  if (!conversation?.cart_items || conversation.cart_items.length === 0) {
-    return { error: "Cart is empty" };
-  }
-
-  // Generate order number
-  const { data: orderNumber } = await supabase.rpc('generate_order_number');
-
-  // Create order
-  const { data: order, error } = await supabase
-    .from('orders')
-    .insert({
-      workspace_id: conversation.workspace_id,
-      conversation_id: conversation.id,
-      customer_phone: conversation.customer_phone,
-      customer_name: conversation.customer_name,
-      order_number: orderNumber,
-      items: conversation.cart_items,
-      subtotal: conversation.cart_total,
-      total: conversation.cart_total,
-      status: 'pending',
-      payment_status: 'pending'
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Create order error:', error);
-    return { error: "Failed to create order" };
-  }
-
-  // TODO: Generate Stripe payment link
-  const paymentLink = `https://pay.stripe.com/test-link-${order.id}`;
-
-  // Update order with payment link
-  await supabase
-    .from('orders')
-    .update({
-      payment_link_url: paymentLink,
-      payment_link_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-    })
-    .eq('id', order.id);
-
-  // Clear cart
-  await supabase
-    .from('conversations')
-    .update({
-      cart_items: [],
-      cart_total: 0,
-      last_interaction_type: 'checkout'
-    })
-    .eq('id', conversation.id);
-
-  return {
-    success: true,
-    order_number: orderNumber,
-    payment_link: paymentLink,
-    total: conversation.cart_total
-  };
-}
-
-async function executeCheckOrderStatus(supabase: any, customerPhone: string, args: any) {
-  let query = supabase
-    .from('orders')
-    .select('*')
-    .eq('customer_phone', customerPhone)
-    .order('created_at', { ascending: false });
-
-  if (args.order_number) {
-    query = query.eq('order_number', args.order_number);
-  }
-
-  const { data: orders } = await query.limit(1);
-
-  if (!orders || orders.length === 0) {
-    return { error: "No orders found" };
-  }
-
-  const order = orders[0];
-  return {
-    order_number: order.order_number,
-    status: order.status,
-    payment_status: order.payment_status,
-    total: order.total,
-    tracking_number: order.tracking_number || null,
-    created_at: order.created_at
-  };
-}
-
-async function executeBrowseCatalog(supabase: any, workspaceId: string, args: any) {
-  try {
-    const limit = args.limit || 5;
-    console.log('[executeBrowseCatalog] Fetching', limit, 'products for workspace:', workspaceId);
-
-    const { data, error } = await supabase
-      .from('products')
-      .select('id, sku, title, description, price, stock, image_url, tags')
-      .eq('workspace_id', workspaceId)
-      .eq('status', 'active')
-      .gt('stock', 0)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      console.error('[executeBrowseCatalog] Error:', error);
-      return { error: "Failed to load products", products: [] };
-    }
-
-    console.log('[executeBrowseCatalog] Found', data?.length || 0, 'products');
-    return { products: data || [] };
-  } catch (err) {
-    console.error('[executeBrowseCatalog] Exception:', err);
-    return { error: "Failed to browse catalog", products: [] };
-  }
-}
