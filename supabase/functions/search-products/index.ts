@@ -11,11 +11,15 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Validate n8n secret
+  // Validate authentication (n8n secret OR service role key)
   const n8nSecret = req.headers.get("x-n8n-secret");
   const expectedSecret = Deno.env.get("N8N_TOOL_SECRET");
+  const authHeader = req.headers.get("authorization");
   
-  if (!n8nSecret || n8nSecret !== expectedSecret) {
+  const isN8nAuth = n8nSecret && n8nSecret === expectedSecret;
+  const isServiceRoleAuth = authHeader?.includes(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "INVALID");
+  
+  if (!isN8nAuth && !isServiceRoleAuth) {
     return new Response(
       JSON.stringify({ error: "Unauthorized" }),
       { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
