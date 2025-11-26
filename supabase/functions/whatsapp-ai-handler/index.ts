@@ -11,6 +11,11 @@ import {
 } from "./utils.ts";
 import { buildSystemPrompt } from "./parent-prompt.ts";
 
+// Declare EdgeRuntime for Deno Deploy
+declare const EdgeRuntime: {
+  waitUntil(promise: Promise<any>): void;
+};
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -30,6 +35,9 @@ serve(async (req) => {
   let instanceId: string | undefined;
 
   try {
+    const startTime = Date.now(); // Track processing start time
+    const executedToolCalls: Array<{ name: string; args: any; result: any }> = []; // Track tool executions
+    
     const requestBody = await req.json();
     conversationId = requestBody.conversationId;
     instanceId = requestBody.instanceId;
@@ -458,6 +466,9 @@ serve(async (req) => {
         }
 
         console.log(`✅ Tool result for ${toolName}:`, toolResult);
+        
+        // Track tool execution for evaluation
+        executedToolCalls.push({ name: toolName, args: toolArgs, result: toolResult });
 
         // Call AI again with tool result to get natural language response
         const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -943,6 +954,74 @@ serve(async (req) => {
         if (error) console.error('❌ Failed to log action:', error);
       });
       
+      // === FIRE-AND-FORGET EVALUATION LOG (HITL MODE) ===
+      const processingTime = Date.now() - startTime;
+      const evaluationWebhookUrl = Deno.env.get('N8N_EVALUATION_WEBHOOK_URL');
+      
+      if (evaluationWebhookUrl) {
+        console.log('📊 Sending HITL evaluation payload to n8n (fire-and-forget)');
+        
+        // Build comprehensive evaluation payload for HITL mode
+        const evaluationPayload = {
+          conversationId,
+          workspaceId,
+          approvalId: approval.id,
+          input: {
+            customerMessage,
+            bufferSize: bufferedMessages.length,
+            messageType: 'text'
+          },
+          context: {
+            conversationHistory: conversationHistory.map(m => ({
+              role: m.role,
+              content: m.content
+            })),
+            aiMode: mode,
+            productCount: productCount,
+            settings: {
+              aiVoice: aiSettings?.ai_voice,
+              confidenceThreshold: aiSettings?.confidence_threshold
+            }
+          },
+          output: {
+            finalAnswer: finalResponse,
+            confidence: confidence / 100,
+            toolCalls: executedToolCalls,
+            processingTime,
+            requiresApproval: true,
+            escalationReason
+          },
+          evaluation: {
+            sentiment: sentimentScore,
+            guardrailViolations: guardrailViolations?.map(v => v.ruleName) || [],
+            escalationMatches: escalationMatch ? [escalationMatch.policyName] : [],
+            complianceResults: complianceResult
+          },
+          timestamp: new Date().toISOString()
+        };
+        
+        // Fire-and-forget: use EdgeRuntime.waitUntil for reliable execution
+        EdgeRuntime.waitUntil(
+          (async () => {
+            try {
+              const evalResponse = await fetch(evaluationWebhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(evaluationPayload)
+              });
+              
+              if (!evalResponse.ok) {
+                console.error('⚠️ HITL evaluation webhook failed:', evalResponse.status);
+              } else {
+                console.log('✅ HITL evaluation payload sent successfully');
+              }
+            } catch (err) {
+              console.error('⚠️ HITL evaluation webhook error (non-blocking):', err);
+            }
+          })()
+        );
+      }
+      
       return new Response(JSON.stringify({ 
         requiresApproval: true,
         confidence,
@@ -1026,6 +1105,71 @@ serve(async (req) => {
       }).then(({ error }) => {
         if (error) console.error('❌ Failed to log action:', error);
       });
+      
+      // === FIRE-AND-FORGET EVALUATION LOG ===
+      const processingTime = Date.now() - startTime;
+      const evaluationWebhookUrl = Deno.env.get('N8N_EVALUATION_WEBHOOK_URL');
+      
+      if (evaluationWebhookUrl) {
+        console.log('📊 Sending evaluation payload to n8n (fire-and-forget)');
+        
+        // Build comprehensive evaluation payload
+        const evaluationPayload = {
+          conversationId,
+          workspaceId,
+          input: {
+            customerMessage,
+            bufferSize: bufferedMessages.length,
+            messageType: 'text'
+          },
+          context: {
+            conversationHistory: conversationHistory.map(m => ({
+              role: m.role,
+              content: m.content
+            })),
+            aiMode: mode,
+            productCount: productCount,
+            settings: {
+              aiVoice: aiSettings?.ai_voice,
+              confidenceThreshold: aiSettings?.confidence_threshold
+            }
+          },
+          output: {
+            finalAnswer: finalResponse,
+            confidence: confidence / 100,
+            toolCalls: executedToolCalls,
+            processingTime
+          },
+          evaluation: {
+            sentiment: sentimentScore,
+            guardrailViolations: guardrailViolations?.map(v => v.ruleName) || [],
+            escalationMatches: escalationMatch ? [escalationMatch.policyName] : [],
+            complianceResults: complianceResult
+          },
+          timestamp: new Date().toISOString()
+        };
+        
+        // Fire-and-forget: use EdgeRuntime.waitUntil for reliable execution
+        EdgeRuntime.waitUntil(
+          (async () => {
+            try {
+              const evalResponse = await fetch(evaluationWebhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(evaluationPayload)
+              });
+              
+              if (!evalResponse.ok) {
+                console.error('⚠️ Evaluation webhook failed:', evalResponse.status);
+              } else {
+                console.log('✅ Evaluation payload sent successfully');
+              }
+            } catch (err) {
+              console.error('⚠️ Evaluation webhook error (non-blocking):', err);
+            }
+          })()
+        );
+      }
       
       return new Response(JSON.stringify({ 
         success: true,

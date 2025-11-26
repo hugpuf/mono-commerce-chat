@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_evaluations: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          evaluated_at: string | null
+          evaluation_metadata: Json
+          evaluation_scores: Json | null
+          evaluation_status: string
+          id: string
+          input_context: Json
+          output_context: Json
+          processing_context: Json
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          evaluated_at?: string | null
+          evaluation_metadata?: Json
+          evaluation_scores?: Json | null
+          evaluation_status?: string
+          id?: string
+          input_context?: Json
+          output_context?: Json
+          processing_context?: Json
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          evaluated_at?: string | null
+          evaluation_metadata?: Json
+          evaluation_scores?: Json | null
+          evaluation_status?: string
+          id?: string
+          input_context?: Json
+          output_context?: Json
+          processing_context?: Json
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_evaluations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_evaluations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_action_log: {
         Row: {
           action_payload: Json
