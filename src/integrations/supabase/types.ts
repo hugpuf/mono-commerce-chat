@@ -1369,6 +1369,7 @@ export type Database = {
           created_at: string
           currency: string | null
           description: string | null
+          embedding: string | null
           external_id: string | null
           handle: string | null
           id: string
@@ -1401,6 +1402,7 @@ export type Database = {
           created_at?: string
           currency?: string | null
           description?: string | null
+          embedding?: string | null
           external_id?: string | null
           handle?: string | null
           id?: string
@@ -1433,6 +1435,7 @@ export type Database = {
           created_at?: string
           currency?: string | null
           description?: string | null
+          embedding?: string | null
           external_id?: string | null
           handle?: string | null
           id?: string
@@ -1953,6 +1956,28 @@ export type Database = {
       }
       expire_reservations: { Args: never; Returns: undefined }
       generate_order_number: { Args: never; Returns: string }
+      hybrid_search_products: {
+        Args: {
+          category_filter?: string
+          max_price_filter?: number
+          query_embedding?: string
+          result_limit?: number
+          search_query: string
+          workspace_uuid: string
+        }
+        Returns: {
+          description: string
+          id: string
+          image_url: string
+          match_score: number
+          match_type: string
+          price: number
+          sku: string
+          stock: number
+          title: string
+          variant_options: Json
+        }[]
+      }
       log_audit_event: {
         Args: {
           p_action: string
@@ -2011,6 +2036,25 @@ export type Database = {
         Returns: boolean
       }
       unlock_stuck_conversations: { Args: never; Returns: number }
+      vector_search_products: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+          workspace_uuid: string
+        }
+        Returns: {
+          description: string
+          id: string
+          image_url: string
+          price: number
+          similarity: number
+          sku: string
+          stock: number
+          title: string
+          variant_options: Json
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
