@@ -937,7 +937,7 @@ serve(async (req) => {
       
       // === FIRE-AND-FORGET EVALUATION LOG (HITL MODE) ===
       const processingTime = Date.now() - startTime;
-      const evaluationWebhookUrl = Deno.env.get('N8N_EVALUATION_WEBHOOK_URL');
+      const evaluationWebhookUrl = Deno.env.get('N8N_WEBHOOK_URL');
       
       if (evaluationWebhookUrl) {
         console.log('📊 Sending HITL evaluation payload to n8n (fire-and-forget)');
@@ -1089,7 +1089,7 @@ serve(async (req) => {
       
       // === FIRE-AND-FORGET EVALUATION LOG ===
       const processingTime = Date.now() - startTime;
-      const evaluationWebhookUrl = Deno.env.get('N8N_EVALUATION_WEBHOOK_URL');
+      const evaluationWebhookUrl = Deno.env.get('N8N_WEBHOOK_URL');
       
       if (evaluationWebhookUrl) {
         console.log('📊 Sending evaluation payload to n8n (fire-and-forget)');
